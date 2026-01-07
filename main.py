@@ -1,7 +1,9 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from routers.user_router import router as user_router
 
 app = FastAPI()
+app.include_router(user_router, tags=["users"])
 
 origins = [
     "http://localhost",
