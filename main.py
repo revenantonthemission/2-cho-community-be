@@ -1,11 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers.user_router import router as user_router
+from routers import user_router, auth_router
 
 app = FastAPI()
 
 # 메인 어플리케이션에 라우터 포함
 app.include_router(user_router, tags=["users"])
+app.include_router(auth_router, tags=["auth"])
 
 # 허용된 origin 목록
 origins = [
