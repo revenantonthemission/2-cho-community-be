@@ -1,7 +1,9 @@
 from fastapi import APIRouter, status
 from controllers import user_controller
+from main import app
 
 user_router = APIRouter(prefix="/v1/users")
+app.include_router(user_router, tags=["users"])
 
 
 # 모든 유저의 목록을 획득
