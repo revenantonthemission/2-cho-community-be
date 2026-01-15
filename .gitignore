@@ -11,3 +11,4 @@ build/
 
 # 추적할 필요가 없는 파일들
 .env
+.ruff_cache/
