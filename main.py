@@ -13,6 +13,7 @@ load_dotenv()
 app = FastAPI()
 
 # SessionMiddleware: 모든 요청과 응답에서 세션을 처리.
+# 프로젝트 루트에 .env 파일이 있어야 하고 그 안에 secret_key=".."와 같은 데이터가 있어야 합니다!
 app.add_middleware(
     SessionMiddleware,
     secret_key=getenv("SECRET_KEY"),
