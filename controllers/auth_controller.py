@@ -12,7 +12,10 @@ async def get_my_info(request: Request):
         if not session_id:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="unauthorized",
+                detail={
+                    "error": "unauthorized",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
 
         email = request.session.get("email")
@@ -20,7 +23,10 @@ async def get_my_info(request: Request):
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="unauthorized",
+                detail={
+                    "error": "unauthorized",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
 
         content = {
@@ -49,6 +55,7 @@ async def get_my_info(request: Request):
             detail={
                 "trackingID": str(uuid.uuid4()),
                 "error": str(e),
+                "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
             },
         )
 
@@ -63,12 +70,18 @@ async def login(request: Request):
         if not email:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="missing_email",
+                detail={
+                    "error": "missing_email",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
         if not password:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="missing_password",
+                detail={
+                    "error": "missing_password",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
 
         user = user_models.get_user_by_email(email)
@@ -76,13 +89,19 @@ async def login(request: Request):
         if not user or not user.password == password:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="unauthorized",
+                detail={
+                    "error": "unauthorized",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
 
         if request.method != "POST":
             raise HTTPException(
                 status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
-                detail="method_not_allowed",
+                detail={
+                    "error": "method_not_allowed",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
 
         session_id = request.session.get("session_id")
@@ -90,6 +109,7 @@ async def login(request: Request):
             session_id = str(uuid.uuid4())
             request.session["session_id"] = session_id
             request.session["email"] = email
+            request.session["nickname"] = user.nickname
 
         content = {
             "code": "LOGIN_SUCCESS",
@@ -119,6 +139,7 @@ async def login(request: Request):
             detail={
                 "trackingID": str(uuid.uuid4()),
                 "error": str(e),
+                "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
             },
         )
 
@@ -137,12 +158,18 @@ async def logout(request: Request):
         if not session_id:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="unauthorized",
+                detail={
+                    "error": "unauthorized",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
         if request.method != "DELETE":
             raise HTTPException(
                 status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
-                detail="method_not_allowed",
+                detail={
+                    "error": "method_not_allowed",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
         request.session.clear()
         return JSONResponse(
@@ -154,5 +181,9 @@ async def logout(request: Request):
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
+            detail={
+                "trackingID": str(uuid.uuid4()),
+                "error": str(e),
+                "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+            },
         )

@@ -13,13 +13,19 @@ async def get_user(request: Request):
         if not nickname:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="invalid_nickname",
+                detail={
+                    "error": "invalid_nickname",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
         user = user_models.get_user_by_nickname(nickname)
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="user_not_found",
+                detail={
+                    "error": "user_not_found",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
 
         content = {
@@ -51,6 +57,7 @@ async def get_user(request: Request):
             detail={
                 "trackingID": str(uuid.uuid4()),
                 "error": str(e),
+                "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
             },
         )
 
@@ -71,7 +78,10 @@ async def create_user(request: Request):
         if not name or not email or not password or not nickname or not profileImageUrl:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="missing_required_fields",
+                detail={
+                    "error": "missing_required_fields",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
 
         if (
@@ -83,7 +93,10 @@ async def create_user(request: Request):
         ):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="invalid_field_types",
+                detail={
+                    "error": "invalid_field_types",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
 
         # 이미지 파일 검사 - 1. 확장자 검사 (단순 문자열 형식 검증)
@@ -91,25 +104,37 @@ async def create_user(request: Request):
         if not any(profileImageUrl.endswith(ext) for ext in allowed_extensions):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="invalid_image_format",
+                detail={
+                    "error": "invalid_image_format",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
 
         # 요청 메소드는 반드시 POST여야 함.
         if request.method != "POST":
             raise HTTPException(
                 status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
-                detail="method_not_allowed",
+                detail={
+                    "error": "method_not_allowed",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
 
         if user_models.get_user_by_email(email):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="email_already_exists",
+                detail={
+                    "error": "email_already_exists",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
         if user_models.get_user_by_nickname(nickname):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="nickname_already_exists",
+                detail={
+                    "error": "nickname_already_exists",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
 
         # 이미지 파일 검사 - 2. MIME 타입 검증: (보류 - URL/스트링 기반으로는 서버측 검증이 복잡함)
@@ -119,7 +144,10 @@ async def create_user(request: Request):
         if not re.match(r"^[^@]+@[^@]+\.[^@]+", email):
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="invalid_email_format",
+                detail={
+                    "error": "invalid_email_format",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
 
         # 비밀번호 형식 검사 (정규표현식)
@@ -129,14 +157,20 @@ async def create_user(request: Request):
         ):
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="invalid_password_format",
+                detail={
+                    "error": "invalid_password_format",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
 
         # 닉네임 형식 검사 (정규표현식)
         if not re.match(r"^[a-zA-Z0-9_]{3,20}$", nickname):
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="invalid_nickname_format",
+                detail={
+                    "error": "invalid_nickname_format",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
 
         content = {
@@ -170,6 +204,7 @@ async def create_user(request: Request):
             detail={
                 "trackingID": str(uuid.uuid4()),
                 "error": str(e),
+                "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
             },
         )
 
@@ -181,7 +216,10 @@ async def get_my_info(request: Request):
         if not session_id:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="unauthorized",
+                detail={
+                    "error": "unauthorized",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
 
         email = request.session.get("email")
@@ -189,13 +227,19 @@ async def get_my_info(request: Request):
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access Denied",
+                detail={
+                    "error": "Access Denied",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
 
         if request.method != "GET":
             raise HTTPException(
                 status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
-                detail="Method Not Allowed",
+                detail={
+                    "error": "Method Not Allowed",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
 
         content = {
@@ -224,6 +268,7 @@ async def get_my_info(request: Request):
             detail={
                 "trackingID": str(uuid.uuid4()),
                 "error": str(e),
+                "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
             },
         )
 
@@ -236,7 +281,10 @@ async def get_user_info(request: Request):
         if not session_id:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="unauthorized",
+                detail={
+                    "error": "unauthorized",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
 
         email = request.session.get("email")
@@ -244,7 +292,10 @@ async def get_user_info(request: Request):
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access Denied",
+                detail={
+                    "error": "access_denied",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
 
         nickname = request.path_params.get("nickname")
@@ -252,7 +303,10 @@ async def get_user_info(request: Request):
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found",
+                detail={
+                    "error": "user_not_found",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
 
         content = {
@@ -281,6 +335,7 @@ async def get_user_info(request: Request):
             detail={
                 "trackingID": str(uuid.uuid4()),
                 "error": str(e),
+                "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
             },
         )
 
@@ -293,7 +348,10 @@ async def update_user(request: Request):
         if not session_id:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="unauthorized",
+                detail={
+                    "error": "unauthorized",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
 
         # 세션에서 현재 로그인한 사용자 정보 가져오기
@@ -303,45 +361,90 @@ async def update_user(request: Request):
         if not current_user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="user_not_found",
+                detail={
+                    "error": "user_not_found",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
 
         if request.method != "PATCH":
             raise HTTPException(
                 status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
-                detail="method_not_allowed",
+                detail={
+                    "error": "method_not_allowed",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
 
-        # 변경할 데이터 확인
-        nickname = body.get("nickname")
+        # 변경할 데이터 확인: 닉네임, 이메일
+        updates = {}
+        if "nickname" in body:
+            updates["nickname"] = body["nickname"]
+        if "email" in body:
+            updates["email"] = body["email"]
 
         # 변경사항이 없는 경우
-        if not nickname:
+        if not updates:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="no_changes_provided",
+                detail={
+                    "error": "no_changes_provided",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
 
         # 1. 닉네임 형식 검사 (정규표현식)
-        if not re.match(r"^[a-zA-Z0-9_]{3,20}$", nickname):
+        if not re.match(r"^[a-zA-Z0-9_]{3,20}$", updates["nickname"]):
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="invalid_nickname_format",
+                detail={
+                    "error": "invalid_nickname_format",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
 
         # 2. 닉네임 중복 검사 (본인 닉네임인 경우 제외)
-        existing_user = user_models.get_user_by_nickname(nickname)
+        existing_user = user_models.get_user_by_nickname(updates["nickname"])
         if existing_user and existing_user.id != current_user.id:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="nickname_already_exists",
+                detail={
+                    "error": "nickname_already_exists",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
+            )
+
+        # 3. 이메일 형식 검사 (정규표현식)
+        if not re.match(
+            r"^[a-zA-Z0-9_]+@[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$", updates["email"]
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail={
+                    "error": "invalid_email_format",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
+            )
+
+        # 4. 이메일 중복 검사 (본인 이메일인 경우 제외)
+        existing_user = user_models.get_user_by_email(updates["email"])
+        if existing_user and existing_user.id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "error": "email_already_exists",
+                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
 
         # 모델 업데이트 호출
-        updated_user = user_models.update_user(current_user.id, nickname=nickname)
+        updated_user = user_models.update_user(current_user.id, **updates)
 
-        # 세션 정보도 업데이트 (필요한 경우)
-        request.session["nickname"] = updated_user.nickname
+        # 세션 정보도 업데이트
+        if "nickname" in updates:
+            request.session["nickname"] = updates["nickname"]
+        if "email" in updates:
+            request.session["email"] = updates["email"]
 
         content = {
             "code": "UPDATE_SUCCESS",
@@ -370,5 +473,6 @@ async def update_user(request: Request):
             detail={
                 "trackingID": str(uuid.uuid4()),
                 "error": str(e),
+                "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
             },
         )
