@@ -1,15 +1,17 @@
 # auth_controller: 인증 관련 컨트롤러 모듈
 
 import uuid
-from datetime import datetime
 from fastapi import HTTPException, Request, status
 from models import user_models
 from models.user_models import User
 from schemas.auth_schemas import LoginRequest
+from dependencies.request_context import get_request_timestamp
 
 
 # 현재 로그인 중인 사용자의 정보를 반환
-async def get_my_info(current_user: User) -> dict:
+async def get_my_info(current_user: User, request: Request) -> dict:
+    timestamp = get_request_timestamp(request)
+
     return {
         "code": "AUTH_SUCCESS",
         "message": "현재 로그인 중인 상태입니다.",
@@ -22,12 +24,14 @@ async def get_my_info(current_user: User) -> dict:
             },
         },
         "errors": [],
-        "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "timestamp": timestamp,
     }
 
 
 # 이메일과 비밀번호를 사용하여 로그인
 async def login(credentials: LoginRequest, request: Request) -> dict:
+    timestamp = get_request_timestamp(request)
+
     try:
         user = user_models.get_user_by_email(credentials.email)
 
@@ -36,7 +40,7 @@ async def login(credentials: LoginRequest, request: Request) -> dict:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail={
                     "error": "unauthorized",
-                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "timestamp": timestamp,
                 },
             )
 
@@ -60,7 +64,7 @@ async def login(credentials: LoginRequest, request: Request) -> dict:
                 },
             },
             "errors": [],
-            "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "timestamp": timestamp,
         }
 
     except HTTPException:
@@ -71,13 +75,14 @@ async def login(credentials: LoginRequest, request: Request) -> dict:
             detail={
                 "trackingID": str(uuid.uuid4()),
                 "error": str(e),
-                "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "timestamp": timestamp,
             },
         )
 
 
 # 세션을 삭제하여 로그아웃
 async def logout(current_user: User, request: Request) -> dict:
+    timestamp = get_request_timestamp(request)
     request.session.clear()
 
     return {
@@ -85,5 +90,5 @@ async def logout(current_user: User, request: Request) -> dict:
         "message": "로그아웃에 성공했습니다.",
         "data": {},
         "errors": [],
-        "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "timestamp": timestamp,
     }

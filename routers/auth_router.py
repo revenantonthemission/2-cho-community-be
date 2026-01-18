@@ -25,5 +25,5 @@ async def logout(request: Request, current_user: User = Depends(get_current_user
 
 # 내 정보 조회
 @auth_router.get("/me", status_code=status.HTTP_200_OK)
-async def get_my_info(current_user: User = Depends(get_current_user)):
-    return await auth_controller.get_my_info(current_user)
+async def get_my_info(request: Request, current_user: User = Depends(get_current_user)):
+    return await auth_controller.get_my_info(current_user, request)

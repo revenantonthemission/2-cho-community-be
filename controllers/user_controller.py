@@ -1,7 +1,6 @@
 # user_controller: 사용자 관련 컨트롤러 모듈
 
 import uuid
-from datetime import datetime
 from fastapi import HTTPException, Request, status
 from models import user_models
 from models.user_models import User
@@ -11,16 +10,19 @@ from schemas.user_schemas import (
     ChangePasswordRequest,
     WithdrawRequest,
 )
+from dependencies.request_context import get_request_timestamp
 
 
 # 닉네임을 사용하여 사용자 조회
-async def get_user(nickname: str) -> dict:
+async def get_user(nickname: str, request: Request) -> dict:
+    timestamp = get_request_timestamp(request)
+
     if not nickname:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
                 "error": "invalid_nickname",
-                "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "timestamp": timestamp,
             },
         )
 
@@ -30,7 +32,7 @@ async def get_user(nickname: str) -> dict:
             status_code=status.HTTP_404_NOT_FOUND,
             detail={
                 "error": "user_not_found",
-                "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "timestamp": timestamp,
             },
         )
 
@@ -47,12 +49,14 @@ async def get_user(nickname: str) -> dict:
             }
         },
         "errors": [],
-        "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "timestamp": timestamp,
     }
 
 
 # 새로운 사용자 생성
-async def create_user(user_data: CreateUserRequest) -> dict:
+async def create_user(user_data: CreateUserRequest, request: Request) -> dict:
+    timestamp = get_request_timestamp(request)
+
     try:
         # 이메일 중복 확인
         if user_models.get_user_by_email(user_data.email):
@@ -60,7 +64,7 @@ async def create_user(user_data: CreateUserRequest) -> dict:
                 status_code=status.HTTP_409_CONFLICT,
                 detail={
                     "error": "email_already_exists",
-                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "timestamp": timestamp,
                 },
             )
 
@@ -70,7 +74,7 @@ async def create_user(user_data: CreateUserRequest) -> dict:
                 status_code=status.HTTP_409_CONFLICT,
                 detail={
                     "error": "nickname_already_exists",
-                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "timestamp": timestamp,
                 },
             )
 
@@ -90,7 +94,7 @@ async def create_user(user_data: CreateUserRequest) -> dict:
             "message": "사용자 생성에 성공했습니다.",
             "data": {},
             "errors": [],
-            "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "timestamp": timestamp,
         }
 
     except HTTPException:
@@ -101,13 +105,15 @@ async def create_user(user_data: CreateUserRequest) -> dict:
             detail={
                 "trackingID": str(uuid.uuid4()),
                 "error": str(e),
-                "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "timestamp": timestamp,
             },
         )
 
 
 # 현재 로그인 중인 사용자의 정보를 반환
-async def get_my_info(current_user: User) -> dict:
+async def get_my_info(current_user: User, request: Request) -> dict:
+    timestamp = get_request_timestamp(request)
+
     return {
         "code": "AUTH_SUCCESS",
         "message": "현재 로그인 중인 상태입니다.",
@@ -120,12 +126,13 @@ async def get_my_info(current_user: User) -> dict:
             },
         },
         "errors": [],
-        "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "timestamp": timestamp,
     }
 
 
 # 닉네임을 사용하여 사용자 정보 조회
-async def get_user_info(nickname: str, current_user: User) -> dict:
+async def get_user_info(nickname: str, current_user: User, request: Request) -> dict:
+    timestamp = get_request_timestamp(request)
     user = user_models.get_user_by_nickname(nickname)
 
     if not user:
@@ -133,7 +140,7 @@ async def get_user_info(nickname: str, current_user: User) -> dict:
             status_code=status.HTTP_404_NOT_FOUND,
             detail={
                 "error": "user_not_found",
-                "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "timestamp": timestamp,
             },
         )
 
@@ -149,7 +156,7 @@ async def get_user_info(nickname: str, current_user: User) -> dict:
             },
         },
         "errors": [],
-        "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "timestamp": timestamp,
     }
 
 
@@ -157,6 +164,8 @@ async def get_user_info(nickname: str, current_user: User) -> dict:
 async def update_user(
     update_data: UpdateUserRequest, current_user: User, request: Request
 ) -> dict:
+    timestamp = get_request_timestamp(request)
+
     try:
         updates = {}
         if update_data.nickname is not None:
@@ -170,7 +179,7 @@ async def update_user(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
                     "error": "no_changes_provided",
-                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "timestamp": timestamp,
                 },
             )
 
@@ -182,7 +191,7 @@ async def update_user(
                     status_code=status.HTTP_409_CONFLICT,
                     detail={
                         "error": "nickname_already_exists",
-                        "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                        "timestamp": timestamp,
                     },
                 )
 
@@ -194,7 +203,7 @@ async def update_user(
                     status_code=status.HTTP_409_CONFLICT,
                     detail={
                         "error": "email_already_exists",
-                        "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                        "timestamp": timestamp,
                     },
                 )
 
@@ -219,7 +228,7 @@ async def update_user(
                 }
             },
             "errors": [],
-            "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "timestamp": timestamp,
         }
 
     except HTTPException:
@@ -230,15 +239,17 @@ async def update_user(
             detail={
                 "trackingID": str(uuid.uuid4()),
                 "error": str(e),
-                "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "timestamp": timestamp,
             },
         )
 
 
 # 현재 로그인 중인 사용자의 비밀번호 변경
 async def change_password(
-    password_data: ChangePasswordRequest, current_user: User
+    password_data: ChangePasswordRequest, current_user: User, request: Request
 ) -> dict:
+    timestamp = get_request_timestamp(request)
+
     try:
         # 현재 비밀번호 확인
         if current_user.password != password_data.current_password:
@@ -246,7 +257,7 @@ async def change_password(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail={
                     "error": "invalid_current_password",
-                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "timestamp": timestamp,
                 },
             )
 
@@ -256,7 +267,7 @@ async def change_password(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
                     "error": "password_mismatch",
-                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "timestamp": timestamp,
                 },
             )
 
@@ -266,7 +277,7 @@ async def change_password(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
                     "error": "same_password",
-                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "timestamp": timestamp,
                 },
             )
 
@@ -278,7 +289,7 @@ async def change_password(
             "message": "비밀번호 변경에 성공했습니다.",
             "data": {},
             "errors": [],
-            "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "timestamp": timestamp,
         }
 
     except HTTPException:
@@ -289,13 +300,17 @@ async def change_password(
             detail={
                 "trackingID": str(uuid.uuid4()),
                 "error": str(e),
-                "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "timestamp": timestamp,
             },
         )
 
 
 # 회원 탈퇴
-async def withdraw_user(withdraw_data: WithdrawRequest, current_user: User) -> dict:
+async def withdraw_user(
+    withdraw_data: WithdrawRequest, current_user: User, request: Request
+) -> dict:
+    timestamp = get_request_timestamp(request)
+
     try:
         # 현재 로그인 중인 사용자가 활성화 상태인지 확인
         if not current_user.is_active:
@@ -303,7 +318,7 @@ async def withdraw_user(withdraw_data: WithdrawRequest, current_user: User) -> d
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
                     "error": "inactive_user",
-                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "timestamp": timestamp,
                 },
             )
 
@@ -313,7 +328,7 @@ async def withdraw_user(withdraw_data: WithdrawRequest, current_user: User) -> d
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
                     "error": "invalid_password",
-                    "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "timestamp": timestamp,
                 },
             )
 
@@ -324,7 +339,7 @@ async def withdraw_user(withdraw_data: WithdrawRequest, current_user: User) -> d
             "message": "탈퇴 신청이 접수되었습니다.",
             "data": {},
             "errors": [],
-            "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "timestamp": timestamp,
         }
 
     except HTTPException:
@@ -335,6 +350,6 @@ async def withdraw_user(withdraw_data: WithdrawRequest, current_user: User) -> d
             detail={
                 "trackingID": str(uuid.uuid4()),
                 "error": str(e),
-                "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "timestamp": timestamp,
             },
         )
