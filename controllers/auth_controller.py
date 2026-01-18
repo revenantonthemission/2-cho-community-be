@@ -32,52 +32,39 @@ async def get_my_info(current_user: User, request: Request) -> dict:
 async def login(credentials: LoginRequest, request: Request) -> dict:
     timestamp = get_request_timestamp(request)
 
-    try:
-        user = user_models.get_user_by_email(credentials.email)
+    user = user_models.get_user_by_email(credentials.email)
 
-        if not user or user.password != credentials.password:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail={
-                    "error": "unauthorized",
-                    "timestamp": timestamp,
-                },
-            )
-
-        # 세션이 존재하지 않으면 새로 만든다.
-        session_id = request.session.get("session_id")
-        if not session_id:
-            session_id = str(uuid.uuid4())
-            request.session["session_id"] = session_id
-            request.session["email"] = credentials.email
-            request.session["nickname"] = user.nickname
-
-        return {
-            "code": "LOGIN_SUCCESS",
-            "message": "로그인에 성공했습니다.",
-            "data": {
-                "user": {
-                    "user_id": user.id,
-                    "email": user.email,
-                    "nickname": user.nickname,
-                    "profileImageUrl": user.profileImageUrl,
-                },
-            },
-            "errors": [],
-            "timestamp": timestamp,
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
+    if not user or user.password != credentials.password:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail={
-                "trackingID": str(uuid.uuid4()),
-                "error": str(e),
+                "error": "unauthorized",
                 "timestamp": timestamp,
             },
         )
+
+    # 세션이 존재하지 않으면 새로 만든다.
+    session_id = request.session.get("session_id")
+    if not session_id:
+        session_id = str(uuid.uuid4())
+        request.session["session_id"] = session_id
+        request.session["email"] = credentials.email
+        request.session["nickname"] = user.nickname
+
+    return {
+        "code": "LOGIN_SUCCESS",
+        "message": "로그인에 성공했습니다.",
+        "data": {
+            "user": {
+                "user_id": user.id,
+                "email": user.email,
+                "nickname": user.nickname,
+                "profileImageUrl": user.profileImageUrl,
+            },
+        },
+        "errors": [],
+        "timestamp": timestamp,
+    }
 
 
 # 세션을 삭제하여 로그아웃

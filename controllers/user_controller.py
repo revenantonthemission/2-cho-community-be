@@ -1,6 +1,5 @@
 # user_controller: 사용자 관련 컨트롤러 모듈
 
-import uuid
 from fastapi import HTTPException, Request, status
 from models import user_models
 from models.user_models import User
@@ -57,57 +56,44 @@ async def get_user(nickname: str, request: Request) -> dict:
 async def create_user(user_data: CreateUserRequest, request: Request) -> dict:
     timestamp = get_request_timestamp(request)
 
-    try:
-        # 이메일 중복 확인
-        if user_models.get_user_by_email(user_data.email):
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail={
-                    "error": "email_already_exists",
-                    "timestamp": timestamp,
-                },
-            )
-
-        # 닉네임 중복 확인
-        if user_models.get_user_by_nickname(user_data.nickname):
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail={
-                    "error": "nickname_already_exists",
-                    "timestamp": timestamp,
-                },
-            )
-
-        # 새로운 사용자 생성
-        new_user = user_models.User(
-            id=len(user_models.get_users()) + 1,
-            name=user_data.name,
-            email=user_data.email,
-            password=user_data.password,
-            nickname=user_data.nickname,
-            profileImageUrl=user_data.profileImageUrl or "/assets/default_profile.png",
-        )
-        user_models.add_user(new_user)
-
-        return {
-            "code": "SIGNUP_SUCCESS",
-            "message": "사용자 생성에 성공했습니다.",
-            "data": {},
-            "errors": [],
-            "timestamp": timestamp,
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
+    # 이메일 중복 확인
+    if user_models.get_user_by_email(user_data.email):
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=status.HTTP_409_CONFLICT,
             detail={
-                "trackingID": str(uuid.uuid4()),
-                "error": str(e),
+                "error": "email_already_exists",
                 "timestamp": timestamp,
             },
         )
+
+    # 닉네임 중복 확인
+    if user_models.get_user_by_nickname(user_data.nickname):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "error": "nickname_already_exists",
+                "timestamp": timestamp,
+            },
+        )
+
+    # 새로운 사용자 생성
+    new_user = user_models.User(
+        id=len(user_models.get_users()) + 1,
+        name=user_data.name,
+        email=user_data.email,
+        password=user_data.password,
+        nickname=user_data.nickname,
+        profileImageUrl=user_data.profileImageUrl or "/assets/default_profile.png",
+    )
+    user_models.add_user(new_user)
+
+    return {
+        "code": "SIGNUP_SUCCESS",
+        "message": "사용자 생성에 성공했습니다.",
+        "data": {},
+        "errors": [],
+        "timestamp": timestamp,
+    }
 
 
 # 현재 로그인 중인 사용자의 정보를 반환
@@ -166,82 +152,69 @@ async def update_user(
 ) -> dict:
     timestamp = get_request_timestamp(request)
 
-    try:
-        updates = {}
-        if update_data.nickname is not None:
-            updates["nickname"] = update_data.nickname
-        if update_data.email is not None:
-            updates["email"] = update_data.email
+    updates = {}
+    if update_data.nickname is not None:
+        updates["nickname"] = update_data.nickname
+    if update_data.email is not None:
+        updates["email"] = update_data.email
 
-        # 변경 사항이 없는 경우
-        if not updates:
+    # 변경 사항이 없는 경우
+    if not updates:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "no_changes_provided",
+                "timestamp": timestamp,
+            },
+        )
+
+    # 닉네임 중복 확인
+    if "nickname" in updates:
+        existing_user = user_models.get_user_by_nickname(updates["nickname"])
+        if existing_user and existing_user.id != current_user.id:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=status.HTTP_409_CONFLICT,
                 detail={
-                    "error": "no_changes_provided",
+                    "error": "nickname_already_exists",
                     "timestamp": timestamp,
                 },
             )
 
-        # 닉네임 중복 확인
-        if "nickname" in updates:
-            existing_user = user_models.get_user_by_nickname(updates["nickname"])
-            if existing_user and existing_user.id != current_user.id:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail={
-                        "error": "nickname_already_exists",
-                        "timestamp": timestamp,
-                    },
-                )
+    # 이메일 중복 확인
+    if "email" in updates:
+        existing_user = user_models.get_user_by_email(updates["email"])
+        if existing_user and existing_user.id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "error": "email_already_exists",
+                    "timestamp": timestamp,
+                },
+            )
 
-        # 이메일 중복 확인
-        if "email" in updates:
-            existing_user = user_models.get_user_by_email(updates["email"])
-            if existing_user and existing_user.id != current_user.id:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail={
-                        "error": "email_already_exists",
-                        "timestamp": timestamp,
-                    },
-                )
+    # 사용자 정보 수정
+    updated_user = user_models.update_user(current_user.id, **updates)
 
-        # 사용자 정보 수정
-        updated_user = user_models.update_user(current_user.id, **updates)
+    # 세션 정보 수정
+    if "nickname" in updates:
+        request.session["nickname"] = updates["nickname"]
+    if "email" in updates:
+        request.session["email"] = updates["email"]
 
-        # 세션 정보 수정
-        if "nickname" in updates:
-            request.session["nickname"] = updates["nickname"]
-        if "email" in updates:
-            request.session["email"] = updates["email"]
-
-        return {
-            "code": "UPDATE_SUCCESS",
-            "message": "유저 정보 수정에 성공했습니다.",
-            "data": {
-                "user": {
-                    "user_id": updated_user.id,
-                    "email": updated_user.email,
-                    "nickname": updated_user.nickname,
-                    "profileImageUrl": updated_user.profileImageUrl,
-                }
-            },
-            "errors": [],
-            "timestamp": timestamp,
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "trackingID": str(uuid.uuid4()),
-                "error": str(e),
-                "timestamp": timestamp,
-            },
-        )
+    return {
+        "code": "UPDATE_SUCCESS",
+        "message": "유저 정보 수정에 성공했습니다.",
+        "data": {
+            "user": {
+                "user_id": updated_user.id,
+                "email": updated_user.email,
+                "nickname": updated_user.nickname,
+                "profileImageUrl": updated_user.profileImageUrl,
+            }
+        },
+        "errors": [],
+        "timestamp": timestamp,
+    }
 
 
 # 현재 로그인 중인 사용자의 비밀번호 변경
@@ -250,59 +223,46 @@ async def change_password(
 ) -> dict:
     timestamp = get_request_timestamp(request)
 
-    try:
-        # 현재 비밀번호 확인
-        if current_user.password != password_data.current_password:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail={
-                    "error": "invalid_current_password",
-                    "timestamp": timestamp,
-                },
-            )
-
-        # 새 비밀번호 확인
-        if password_data.new_password != password_data.new_password_confirm:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={
-                    "error": "password_mismatch",
-                    "timestamp": timestamp,
-                },
-            )
-
-        # 새 비밀번호가 현재 비밀번호와 같은지 확인
-        if password_data.new_password == current_user.password:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={
-                    "error": "same_password",
-                    "timestamp": timestamp,
-                },
-            )
-
-        # 비밀번호 변경
-        user_models.update_password(current_user.id, password_data.new_password)
-
-        return {
-            "code": "PASSWORD_CHANGE_SUCCESS",
-            "message": "비밀번호 변경에 성공했습니다.",
-            "data": {},
-            "errors": [],
-            "timestamp": timestamp,
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
+    # 현재 비밀번호 확인
+    if current_user.password != password_data.current_password:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail={
-                "trackingID": str(uuid.uuid4()),
-                "error": str(e),
+                "error": "invalid_current_password",
                 "timestamp": timestamp,
             },
         )
+
+    # 새 비밀번호 확인
+    if password_data.new_password != password_data.new_password_confirm:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "password_mismatch",
+                "timestamp": timestamp,
+            },
+        )
+
+    # 새 비밀번호가 현재 비밀번호와 같은지 확인
+    if password_data.new_password == current_user.password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "same_password",
+                "timestamp": timestamp,
+            },
+        )
+
+    # 비밀번호 변경
+    user_models.update_password(current_user.id, password_data.new_password)
+
+    return {
+        "code": "PASSWORD_CHANGE_SUCCESS",
+        "message": "비밀번호 변경에 성공했습니다.",
+        "data": {},
+        "errors": [],
+        "timestamp": timestamp,
+    }
 
 
 # 회원 탈퇴
@@ -311,45 +271,32 @@ async def withdraw_user(
 ) -> dict:
     timestamp = get_request_timestamp(request)
 
-    try:
-        # 현재 로그인 중인 사용자가 활성화 상태인지 확인
-        if not current_user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={
-                    "error": "inactive_user",
-                    "timestamp": timestamp,
-                },
-            )
-
-        # 비밀번호 확인
-        if withdraw_data.password != current_user.password:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={
-                    "error": "invalid_password",
-                    "timestamp": timestamp,
-                },
-            )
-
-        # 동의 여부는 Pydantic 스키마에서 처리
-
-        return {
-            "code": "WITHDRAWAL_ACCEPTED",
-            "message": "탈퇴 신청이 접수되었습니다.",
-            "data": {},
-            "errors": [],
-            "timestamp": timestamp,
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
+    # 현재 로그인 중인 사용자가 활성화 상태인지 확인
+    if not current_user.is_active:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail={
-                "trackingID": str(uuid.uuid4()),
-                "error": str(e),
+                "error": "inactive_user",
                 "timestamp": timestamp,
             },
         )
+
+    # 비밀번호 확인
+    if withdraw_data.password != current_user.password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "invalid_password",
+                "timestamp": timestamp,
+            },
+        )
+
+    # 동의 여부는 Pydantic 스키마에서 처리
+
+    return {
+        "code": "WITHDRAWAL_ACCEPTED",
+        "message": "탈퇴 신청이 접수되었습니다.",
+        "data": {},
+        "errors": [],
+        "timestamp": timestamp,
+    }
