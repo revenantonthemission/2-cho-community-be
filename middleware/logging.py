@@ -1,5 +1,5 @@
 # logging: 요청/응답 로깅 미들웨어
-# 모든 HTTP 요청과 응답을 로깅합니다.
+# 모든 HTTP 요청과 응답에 로그를 남긴다.
 
 import logging
 import time
@@ -23,7 +23,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
     """
     요청/응답 로깅 미들웨어
 
-    모든 HTTP 요청의 메소드, 경로, 상태 코드, 처리 시간을 로깅합니다.
+    모든 HTTP 요청의 메소드, 경로, 상태 코드, 처리 시간을 로그로 남긴다..
     """
 
     async def dispatch(self, request: Request, call_next):

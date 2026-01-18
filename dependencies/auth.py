@@ -6,7 +6,7 @@ from models import user_models
 from models.user_models import User
 
 
-# 세션에서 현재 사용자를 추출하고 검증합니다.
+# 세션에서 현재 사용자를 추출하고 검증함.
 async def get_current_user(request: Request) -> User:
     session_id = request.session.get("session_id")
 
@@ -37,7 +37,7 @@ async def get_current_user(request: Request) -> User:
     return user
 
 
-# 인증되지 않은 이용자와 인증된 사용자 모두에게 적용 가능하며, 인증된 사용자가 없을 경우 None을 반환합니다.
+# 인증되지 않은 이용자와 인증된 사용자 모두에게 적용 가능하며, 인증된 사용자가 없을 경우 None을 반환함.
 async def get_optional_user(request: Request) -> User | None:
     session_id = request.session.get("session_id")
 
