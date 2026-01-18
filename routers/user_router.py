@@ -29,20 +29,20 @@ async def get_my_info(request: Request, current_user: User = Depends(get_current
 
 
 # 사용자 조회
-@user_router.get("/{nickname}", status_code=status.HTTP_200_OK)
+@user_router.get("/{user_id}", status_code=status.HTTP_200_OK)
 async def get_user(
-    nickname: str,
+    user_id: int,
     request: Request,
     current_user: User | None = Depends(get_optional_user),
 ):
     # 본인의 프로필을 조회할 때는 get_my_info를 호출한다.
-    if current_user and nickname == current_user.nickname:
+    if current_user and user_id == current_user.id:
         return await user_controller.get_my_info(current_user, request)
     # 다른 사용자의 프로필을 조회할 때는 get_user_info를 호출한다.
     if current_user:
-        return await user_controller.get_user_info(nickname, current_user, request)
+        return await user_controller.get_user_info(user_id, current_user, request)
     # 인증되지 않은 요청은 get_user를 호출한다.
-    return await user_controller.get_user(nickname, request)
+    return await user_controller.get_user(user_id, request)
 
 
 # 사용자 정보 수정

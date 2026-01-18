@@ -12,20 +12,20 @@ from schemas.user_schemas import (
 from dependencies.request_context import get_request_timestamp
 
 
-# 닉네임을 사용하여 사용자 조회
-async def get_user(nickname: str, request: Request) -> dict:
+# 사용자 ID를 사용하여 사용자 조회
+async def get_user(user_id: int, request: Request) -> dict:
     timestamp = get_request_timestamp(request)
 
-    if not nickname:
+    if not user_id or user_id < 1:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
-                "error": "invalid_nickname",
+                "error": "invalid_user_id",
                 "timestamp": timestamp,
             },
         )
 
-    user = user_models.get_user_by_nickname(nickname)
+    user = user_models.get_user_by_id(user_id)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -116,10 +116,10 @@ async def get_my_info(current_user: User, request: Request) -> dict:
     }
 
 
-# 닉네임을 사용하여 사용자 정보 조회
-async def get_user_info(nickname: str, current_user: User, request: Request) -> dict:
+# 사용자 ID를 사용하여 사용자 정보 조회
+async def get_user_info(user_id: int, current_user: User, request: Request) -> dict:
     timestamp = get_request_timestamp(request)
-    user = user_models.get_user_by_nickname(nickname)
+    user = user_models.get_user_by_id(user_id)
 
     if not user:
         raise HTTPException(
