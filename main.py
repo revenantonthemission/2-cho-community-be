@@ -6,6 +6,7 @@ from os import getenv
 from routers.auth_router import auth_router
 from routers.user_router import user_router
 from middleware import TimingMiddleware, LoggingMiddleware
+from middleware.exception_handler import global_exception_handler
 
 # .env 로드
 load_dotenv()
@@ -49,3 +50,6 @@ app.add_middleware(
 # 라우터 추가
 app.include_router(auth_router)
 app.include_router(user_router)
+
+# 전역 예외 핸들러 등록
+app.add_exception_handler(Exception, global_exception_handler)
