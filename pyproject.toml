@@ -15,5 +15,5 @@ dependencies = [
 dev = ["pytest", "pytest-asyncio", "httpx", "ruff", "mypy"]
 
 [tool.setuptools]
-packages = ["routers", "controllers"]
+packages = ["routers", "controllers", "schemas", "models", "dependencies", "middleware"]
 py-modules = ["main"]

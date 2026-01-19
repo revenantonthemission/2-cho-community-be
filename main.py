@@ -11,6 +11,7 @@ from os import getenv
 from routers.auth_router import auth_router
 from routers.user_router import user_router
 from routers.post_router import post_router
+from routers.terms_router import terms_router
 from middleware import TimingMiddleware, LoggingMiddleware
 from middleware.exception_handler import global_exception_handler
 
@@ -26,7 +27,7 @@ app = FastAPI(
 )
 """FastAPI 애플리케이션 인스턴스."""
 
-# 미들웨어 추가 (역순으로 실행됨 - 마지막에 추가된 것이 먼저 실행)
+# 미들웨어 추가
 
 # TimingMiddleware: 각 요청에 타임스탬프를 주입
 app.add_middleware(TimingMiddleware)
@@ -63,6 +64,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(user_router)
 app.include_router(post_router)
+app.include_router(terms_router)
 
 # 전역 예외 핸들러 등록
 app.add_exception_handler(Exception, global_exception_handler)

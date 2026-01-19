@@ -15,7 +15,8 @@ AWS AI School 2기 3주차 과제: 커뮤니티 백엔드 서버
     - 댓글 생성: `POST /v1/posts/{post_id}/comments` 엔드포인트 추가
     - 댓글 수정: `PUT /v1/posts/{post_id}/comments/{comment_id}` 엔드포인트 추가
     - 댓글 삭제: `DELETE /v1/posts/{post_id}/comments/{comment_id}` 엔드포인트 추가
-    - API 문서화 시작
+    - API 문서화
+    - 이용약관: `GET /v1/terms` 엔드포인트 추가
 - 2026-01-17: 리팩토링
     - 스키마 패키지 추가, Pydantic 모델 도입
     - 라우터 재구성

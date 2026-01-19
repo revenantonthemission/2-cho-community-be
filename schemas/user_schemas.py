@@ -28,6 +28,7 @@ class CreateUserRequest(BaseModel):
     @classmethod
     def validate_password(cls, v: str) -> str:
         """비밀번호 형식을 검증합니다.
+        비밀번호는 대문자, 소문자, 숫자, 특수문자(@, $, !, %, *, ?, &)를 포함하여 8자 이상 20자 이하여야 합니다.
 
         Args:
             v: 입력된 비밀번호.
@@ -43,7 +44,7 @@ class CreateUserRequest(BaseModel):
         )
         if not re.match(pattern, v):
             raise ValueError(
-                "비밀번호는 대문자, 소문자, 숫자, 특수문자를 포함하여 8자 이상 20자 이하여야 합니다."
+                "비밀번호는 대문자, 소문자, 숫자, 특수문자(@, $, !, %, *, ?, &)를 포함하여 8자 이상 20자 이하여야 합니다."
             )
         return v
 
@@ -51,6 +52,7 @@ class CreateUserRequest(BaseModel):
     @classmethod
     def validate_nickname(cls, v: str) -> str:
         """닉네임 형식을 검증합니다.
+        닉네임은 3자 이상 20자 이하의 영문, 숫자, 언더바로 구성하여야 합니다.
 
         Args:
             v: 입력된 닉네임.
@@ -104,6 +106,7 @@ class UpdateUserRequest(BaseModel):
     @classmethod
     def validate_nickname(cls, v: str | None) -> str | None:
         """닉네임 형식을 검증합니다.
+        닉네임은 3자 이상 20자 이하의 영문, 숫자, 언더바로 구성하여야 합니다.
 
         Args:
             v: 입력된 닉네임.
@@ -140,6 +143,7 @@ class ChangePasswordRequest(BaseModel):
     @classmethod
     def validate_new_password(cls, v: str) -> str:
         """새 비밀번호 형식을 검증합니다.
+        비밀번호는 대문자, 소문자, 숫자, 특수문자(@, $, !, %, *, ?, &)를 포함하여 8자 이상 20자 이하여야 합니다.
 
         Args:
             v: 입력된 새 비밀번호.
@@ -155,7 +159,7 @@ class ChangePasswordRequest(BaseModel):
         )
         if not re.match(pattern, v):
             raise ValueError(
-                "비밀번호는 대문자, 소문자, 숫자, 특수문자를 포함하여 8자 이상 20자 이하로 구성하여야 합니다."
+                "비밀번호는 대문자, 소문자, 숫자, 특수문자(@, $, !, %, *, ?, &)를 포함하여 8자 이상 20자 이하여야 합니다."
             )
         return v
 
