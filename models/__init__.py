@@ -2,7 +2,6 @@
 
 from .user_models import (
     User,
-    Post,
     get_users,
     get_user_by_id,
     get_user_by_email,
@@ -13,9 +12,31 @@ from .user_models import (
     withdraw_user,
 )
 
+from .post_models import (
+    Post,
+    Comment,
+    Like,
+    get_posts,
+    get_total_posts_count,
+    get_post_by_id,
+    create_post,
+    update_post,
+    delete_post,
+    get_like,
+    get_post_likes_count,
+    add_like,
+    remove_like,
+    get_comments_by_post,
+    get_comment_by_id,
+    create_comment,
+    update_comment,
+    delete_comment,
+    clear_all_data,
+)
+
 __all__ = [
+    # User models
     "User",
-    "Post",
     "get_users",
     "get_user_by_id",
     "get_user_by_email",
@@ -24,4 +45,24 @@ __all__ = [
     "update_user",
     "update_password",
     "withdraw_user",
+    # Post models
+    "Post",
+    "Comment",
+    "Like",
+    "get_posts",
+    "get_total_posts_count",
+    "get_post_by_id",
+    "create_post",
+    "update_post",
+    "delete_post",
+    "get_like",
+    "get_post_likes_count",
+    "add_like",
+    "remove_like",
+    "get_comments_by_post",
+    "get_comment_by_id",
+    "create_comment",
+    "update_comment",
+    "delete_comment",
+    "clear_all_data",
 ]
