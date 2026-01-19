@@ -53,7 +53,7 @@ _next_like_id = 1
 # ============ 게시글 관련 함수 ============
 
 
-# 게시글 목록 조회 (페이지네이션, 최신순 정렬)
+# 게시글 목록 조회하기 (페이지네이션, 최신순 정렬)
 def get_posts(page: int = 0, limit: int = 20) -> List[Post]:
     # 삭제되지 않은 게시글만 필터링
     active_posts = [p for p in _posts if not p.is_deleted]
@@ -65,17 +65,17 @@ def get_posts(page: int = 0, limit: int = 20) -> List[Post]:
     return sorted_posts[start:end]
 
 
-# 삭제되지 않은 게시글의 총 개수 반환
+# 삭제되지 않은 게시글의 총 개수 반환하기
 def get_total_posts_count() -> int:
     return len([p for p in _posts if not p.is_deleted])
 
 
-# ID로 게시글 조회
+# ID로 게시글 조회하기
 def get_post_by_id(post_id: int) -> Post | None:
     return next((p for p in _posts if p.id == post_id and not p.is_deleted), None)
 
 
-# 새 게시글 생성
+# 새 게시글 생성하기
 def create_post(
     author_id: int, title: str, content: str, image_urls: List[str] | None = None
 ) -> Post:
@@ -96,7 +96,7 @@ def create_post(
     return post
 
 
-# 게시글 수정
+# 게시글 수정하기
 def update_post(post_id: int, **kwargs) -> Post | None:
     for i, post in enumerate(_posts):
         if post.id == post_id and not post.is_deleted:
@@ -167,10 +167,10 @@ def remove_like(post_id: int, user_id: int) -> bool:
 # ============ 댓글 관련 함수 ============
 
 
-# 특정 게시글의 댓글 목록 조회 (오래된 순 정렬)
+# 특정 게시글의 댓글 목록 조회 (최신순 정렬)
 def get_comments_by_post(post_id: int) -> List[Comment]:
     comments = [c for c in _comments if c.post_id == post_id and not c.is_deleted]
-    return sorted(comments, key=lambda c: c.created_at)
+    return sorted(comments, key=lambda c: c.created_at, reverse=True)
 
 
 # ID로 댓글 조회
@@ -208,7 +208,7 @@ def update_comment(comment_id: int, content: str) -> Comment | None:
     return None
 
 
-# 댓글 삭제
+# 댓글 삭제하기
 def delete_comment(comment_id: int) -> bool:
     for i, comment in enumerate(_comments):
         if comment.id == comment_id and not comment.is_deleted:
@@ -217,7 +217,7 @@ def delete_comment(comment_id: int) -> bool:
     return False
 
 
-# 테스트용 헬퍼 함수
+# 테스트용 헬퍼 함수. 인메모리 데이터를 초기화하는 역할을 한다.
 def clear_all_data():
     global _posts, _comments, _likes, _next_post_id, _next_comment_id, _next_like_id
     _posts = []

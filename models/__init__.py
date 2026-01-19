@@ -35,7 +35,7 @@ from .post_models import (
 )
 
 __all__ = [
-    # User models
+    # user_models
     "User",
     "get_users",
     "get_user_by_id",
@@ -45,7 +45,7 @@ __all__ = [
     "update_user",
     "update_password",
     "withdraw_user",
-    # Post models
+    # post_models
     "Post",
     "Comment",
     "Like",
