@@ -49,6 +49,8 @@ app.add_middleware(
 origins = [
     "http://localhost",
     "http://localhost:8000",
+    "http://localhost:5500",
+    "http://127.0.0.1:5500",
 ]
 
 # CORSMiddleware: CORS 정책을 설정
