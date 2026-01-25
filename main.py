@@ -6,18 +6,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from dotenv import load_dotenv
-from os import getenv
 from routers.auth_router import auth_router
 from routers.user_router import user_router
 from routers.post_router import post_router
 from routers.terms_router import terms_router
 from middleware import TimingMiddleware, LoggingMiddleware
 from middleware.exception_handler import global_exception_handler
+from core.config import settings
 
-
-# .env 로드
-load_dotenv()
 
 # FastAPI 인스턴스 생성
 app = FastAPI(
@@ -39,22 +35,16 @@ app.add_middleware(LoggingMiddleware)
 # 프로젝트 루트에 .env 파일이 있어야 하고 그 안에 SECRET_KEY="..."가 있어야 함
 app.add_middleware(
     SessionMiddleware,
-    secret_key=getenv("SECRET_KEY"),
+    secret_key=settings.SECRET_KEY,
     max_age=24 * 60 * 60,
     same_site="lax",
     https_only=False,
 )
 
-# 허용된 origin 목록
-origins = [
-    "http://localhost",
-    "http://localhost:8000",
-]
-
 # CORSMiddleware: CORS 정책을 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

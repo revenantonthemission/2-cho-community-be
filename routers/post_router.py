@@ -55,7 +55,7 @@ async def get_post(post_id: int, request: Request) -> dict:
     return await post_controller.get_post(post_id, request)
 
 
-@post_router.post("", status_code=status.HTTP_201_CREATED)
+@post_router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_post(
     post_data: CreatePostRequest,
     request: Request,

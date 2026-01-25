@@ -21,7 +21,7 @@ class CreateUserRequest(BaseModel):
     name: str
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=20)
-    nickname: str = Field(..., min_length=3, max_length=20)
+    nickname: str = Field(..., min_length=3, max_length=10)
     profileImageUrl: str | None = "/assets/default_profile.png"
 
     @field_validator("password")
@@ -63,7 +63,7 @@ class CreateUserRequest(BaseModel):
         Raises:
             ValueError: 닉네임 형식이 올바르지 않은 경우.
         """
-        if not re.match(r"^[a-zA-Z0-9_]{3,20}$", v):
+        if not re.match(r"^[a-zA-Z0-9_]{3,10}$", v):
             raise ValueError(
                 "닉네임은 3자 이상 20자 이하의 영문, 숫자, 언더바로 구성하여야 합니다."
             )
@@ -99,7 +99,7 @@ class UpdateUserRequest(BaseModel):
         email: 새 이메일 주소 (선택).
     """
 
-    nickname: str | None = Field(None, min_length=3, max_length=20)
+    nickname: str | None = Field(None, min_length=3, max_length=10)
     email: EmailStr | None = None
 
     @field_validator("nickname")
@@ -119,9 +119,9 @@ class UpdateUserRequest(BaseModel):
         """
         if v is None:
             return None
-        if not re.match(r"^[a-zA-Z0-9_]{3,20}$", v):
+        if not re.match(r"^[a-zA-Z0-9_]{3,10}$", v):
             raise ValueError(
-                "닉네임은 3자 이상 20자 이하의 영문, 숫자, 언더바로 구성하여야 합니다."
+                "닉네임은 3자 이상 10자 이하의 영문, 숫자, 언더바로 구성하여야 합니다."
             )
         return v
 

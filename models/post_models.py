@@ -74,7 +74,16 @@ class Like:
 
 
 # 인메모리 데이터 저장소
-_posts: list[Post] = []
+_posts: list[Post] = [
+    Post(
+        id=1,
+        author_id=1,
+        title="test",
+        content="test",
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+]
 _comments: list[Comment] = []
 _likes: list[Like] = []
 
