@@ -91,6 +91,7 @@ class UpdatePostRequest(BaseModel):
 
     title: str | None = Field(None, min_length=3, max_length=100)
     content: str | None = Field(None, min_length=1, max_length=10000)
+    image_url: str | None = None
 
     @field_validator("title")
     @classmethod

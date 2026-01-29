@@ -286,6 +286,8 @@ async def update_post(
         updates["title"] = post_data.title
     if post_data.content is not None:
         updates["content"] = post_data.content
+    if post_data.image_url is not None:
+        updates["image_url"] = post_data.image_url
 
     if not updates:
         raise HTTPException(
@@ -300,6 +302,7 @@ async def update_post(
         post_id,
         title=updates.get("title"),
         content=updates.get("content"),
+        image_url=updates.get("image_url"),
     )
 
     return {
