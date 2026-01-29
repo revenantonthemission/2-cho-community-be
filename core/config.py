@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     """
 
     SECRET_KEY: str
+    HTTPS_ONLY: bool = False
     ALLOWED_ORIGINS: list[str] = [
         "http://127.0.0.1:3306",
         "http://127.0.0.1:8000",
