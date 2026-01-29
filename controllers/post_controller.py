@@ -3,8 +3,6 @@
 게시글 CRUD, 이미지 업로드, 좋아요, 댓글 기능을 제공합니다.
 """
 
-import os
-import uuid
 from fastapi import HTTPException, Request, UploadFile, status
 from models import post_models
 from models import user_models
@@ -14,10 +12,8 @@ from schemas.comment_schemas import CreateCommentRequest, UpdateCommentRequest
 from dependencies.request_context import get_request_timestamp
 
 
-# 허용된 이미지 확장자
-ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
-# 최대 이미지 크기 (5MB)
-MAX_IMAGE_SIZE = 5 * 1024 * 1024
+from utils.file_utils import save_upload_file
+
 # 이미지 저장 경로
 IMAGE_UPLOAD_DIR = "assets/posts"
 
@@ -401,47 +397,18 @@ async def upload_image(
     """
     timestamp = get_request_timestamp(request)
 
-    # 파일 확장자 검증
-    filename = file.filename or ""
-    ext = os.path.splitext(filename)[1].lower()
-    if ext not in ALLOWED_IMAGE_EXTENSIONS:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "error": "invalid_file_type",
-                "message": f"허용된 이미지 형식: {', '.join(ALLOWED_IMAGE_EXTENSIONS)}",
-                "timestamp": timestamp,
-            },
-        )
-
-    # 파일 크기 검증
-    contents = await file.read()
-    if len(contents) > MAX_IMAGE_SIZE:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "error": "file_too_large",
-                "message": f"파일 크기는 {MAX_IMAGE_SIZE // (1024 * 1024)}MB를 초과할 수 없습니다.",
-                "timestamp": timestamp,
-            },
-        )
-
-    # 유니크한 파일명 생성
-    unique_filename = f"{uuid.uuid4().hex}{ext}"
-    file_path = os.path.join(IMAGE_UPLOAD_DIR, unique_filename)
-
-    # 디렉토리가 없으면 생성
-    os.makedirs(IMAGE_UPLOAD_DIR, exist_ok=True)
-
-    # 파일 저장
-    with open(file_path, "wb") as f:
-        f.write(contents)
+    try:
+        url = await save_upload_file(file, IMAGE_UPLOAD_DIR)
+    except HTTPException as e:
+        if isinstance(e.detail, dict):
+            e.detail["timestamp"] = timestamp
+        raise e
 
     return {
         "code": "IMAGE_UPLOADED",
         "message": "이미지가 업로드되었습니다.",
         "data": {
-            "url": f"/{file_path}",
+            "url": url,
         },
         "errors": [],
         "timestamp": timestamp,

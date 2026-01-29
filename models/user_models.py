@@ -6,7 +6,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from database.connection import get_connection
+from database.connection import get_connection, transactional
 
 
 @dataclass(frozen=True)
@@ -350,57 +350,56 @@ async def withdraw_user(user_id: int) -> User | None:
     # 이메일은 Unique 유지를 위해 충분히 길게
     anonymized_email = f"deleted_{unique_id}_{timestamp}@deleted.user"
 
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            # 1. Sever links: Set author_id to NULL for posts and comments
-            await cur.execute(
-                """
-                UPDATE post SET author_id = NULL WHERE author_id = %s
-                """,
-                (user_id,),
-            )
-            await cur.execute(
-                """
-                UPDATE comment SET author_id = NULL WHERE author_id = %s
-                """,
-                (user_id,),
-            )
+    async with transactional() as cur:
+        # 1. Sever links: Set author_id to NULL for posts and comments
+        await cur.execute(
+            """
+            UPDATE post SET author_id = NULL WHERE author_id = %s
+            """,
+            (user_id,),
+        )
+        await cur.execute(
+            """
+            UPDATE comment SET author_id = NULL WHERE author_id = %s
+            """,
+            (user_id,),
+        )
 
-            # 2. Kill sessions: Delete all active sessions
-            await cur.execute(
-                """
-                DELETE FROM user_session WHERE user_id = %s
-                """,
-                (user_id,),
-            )
+        # 2. Kill sessions: Delete all active sessions
+        await cur.execute(
+            """
+            DELETE FROM user_session WHERE user_id = %s
+            """,
+            (user_id,),
+        )
 
-            # 3. Anonymize user (Soft Delete)
-            await cur.execute(
-                """
-                UPDATE user
-                SET deleted_at = NOW(),
-                    email = %s,
-                    nickname = %s
-                WHERE id = %s AND deleted_at IS NULL
-                """,
-                (anonymized_email, anonymized_nickname, user_id),
-            )
+        # 3. Anonymize user (Soft Delete)
+        await cur.execute(
+            """
+            UPDATE user
+            SET deleted_at = NOW(),
+                email = %s,
+                nickname = %s
+            WHERE id = %s AND deleted_at IS NULL
+            """,
+            (anonymized_email, anonymized_nickname, user_id),
+        )
 
-            if cur.rowcount == 0:
-                return None
+        if cur.rowcount == 0:
+            return None
 
-            # 삭제된 사용자 조회 (deleted_at 포함)
-            await cur.execute(
-                """
-                SELECT id, email, nickname, password, profile_img,
-                       created_at, updated_at, deleted_at
-                FROM user
-                WHERE id = %s
-                """,
-                (user_id,),
-            )
-            row = await cur.fetchone()
-            return _row_to_user(row) if row else None
+        # 삭제된 사용자 조회 (deleted_at 포함)
+        await cur.execute(
+            """
+            SELECT id, email, nickname, password, profile_img,
+                   created_at, updated_at, deleted_at
+            FROM user
+            WHERE id = %s
+            """,
+            (user_id,),
+        )
+        row = await cur.fetchone()
+        return _row_to_user(row) if row else None
 
 
 async def cleanup_deleted_user(user_id: int) -> User | None:

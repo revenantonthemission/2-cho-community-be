@@ -86,6 +86,28 @@ async def get_connection() -> AsyncGenerator[aiomysql.Connection, None]:
         yield conn
 
 
+@asynccontextmanager
+async def transactional() -> AsyncGenerator[aiomysql.Cursor, None]:
+    """트랜잭션을 관리하는 컨텍스트 매니저.
+
+    범위 내에서 예외 발생 시 롤백, 정상 종료 시 커밋합니다.
+    주의: 이 컨텍스트 매니저는 커서를 반환합니다.
+
+    Yields:
+        MySQL 커서 객체.
+    """
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        try:
+            await conn.begin()
+            async with conn.cursor() as cur:
+                yield cur
+            await conn.commit()
+        except Exception:
+            await conn.rollback()
+            raise
+
+
 async def test_connection() -> bool:
     """데이터베이스 연결을 테스트합니다.
 

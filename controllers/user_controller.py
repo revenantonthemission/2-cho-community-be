@@ -3,8 +3,6 @@
 사용자 등록, 조회, 수정, 비밀번호 변경, 탈퇴 등의 기능을 제공합니다.
 """
 
-import os
-import uuid
 from fastapi import HTTPException, Request, status, UploadFile
 from models import user_models
 from models.user_models import User
@@ -16,11 +14,8 @@ from schemas.user_schemas import (
 )
 from dependencies.request_context import get_request_timestamp
 from utils.password import hash_password, verify_password
+from utils.file_utils import save_upload_file
 
-# 허용된 이미지 확장자
-ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
-# 최대 이미지 크기 (5MB)
-MAX_IMAGE_SIZE = 5 * 1024 * 1024
 # 프로필 이미지 저장 경로
 PROFILE_IMAGE_UPLOAD_DIR = "assets/profiles"
 
@@ -119,46 +114,13 @@ async def create_user(
     profile_image_url = user_data.profileImageUrl
     if profile_image:
         try:
-            # upload_profile_image 함수 내부 처리를 재사용하거나 로직을 추출해야 하는데,
-            # 여기서는 내부 로직을 직접 수행하거나 헬퍼 함수를 호출하는 게 좋지만,
-            # 간단하게 upload_profile_image를 직접 호출해서 URL만 받을 수는 없음 (Response 객체 리턴 구조).
-            # 따라서 업로드 로직을 직접 구현.
-
-            # 파일 확장자 검증
-            filename = profile_image.filename or ""
-            ext = os.path.splitext(filename)[1].lower()
-            if ext not in ALLOWED_IMAGE_EXTENSIONS:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail={
-                        "error": "invalid_file_type",
-                        "message": f"허용된 이미지 형식: {', '.join(ALLOWED_IMAGE_EXTENSIONS)}",
-                        "timestamp": timestamp,
-                    },
-                )
-
-            # 파일 크기 검증 (read 후 seek 필수)
-            contents = await profile_image.read()
-            if len(contents) > MAX_IMAGE_SIZE:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail={
-                        "error": "file_too_large",
-                        "message": f"파일 크기는 {MAX_IMAGE_SIZE // (1024 * 1024)}MB를 초과할 수 없습니다.",
-                        "timestamp": timestamp,
-                    },
-                )
-
-            # 파일 저장
-            unique_filename = f"{uuid.uuid4().hex}{ext}"
-            file_path = os.path.join(PROFILE_IMAGE_UPLOAD_DIR, unique_filename)
-            os.makedirs(PROFILE_IMAGE_UPLOAD_DIR, exist_ok=True)
-            with open(file_path, "wb") as f:
-                f.write(contents)
-
-            profile_image_url = f"/{file_path}"
-        except HTTPException:
-            raise
+            profile_image_url = await save_upload_file(
+                profile_image, PROFILE_IMAGE_UPLOAD_DIR
+            )
+        except HTTPException as e:
+            if isinstance(e.detail, dict):
+                e.detail["timestamp"] = timestamp
+            raise e
         except Exception as e:
             # 예상치 못한 업로드 에러
             raise HTTPException(
@@ -528,47 +490,18 @@ async def upload_profile_image(
     """
     timestamp = get_request_timestamp(request)
 
-    # 파일 확장자 검증
-    filename = file.filename or ""
-    ext = os.path.splitext(filename)[1].lower()
-    if ext not in ALLOWED_IMAGE_EXTENSIONS:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "error": "invalid_file_type",
-                "message": f"허용된 이미지 형식: {', '.join(ALLOWED_IMAGE_EXTENSIONS)}",
-                "timestamp": timestamp,
-            },
-        )
-
-    # 파일 크기 검증
-    contents = await file.read()
-    if len(contents) > MAX_IMAGE_SIZE:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "error": "file_too_large",
-                "message": f"파일 크기는 {MAX_IMAGE_SIZE // (1024 * 1024)}MB를 초과할 수 없습니다.",
-                "timestamp": timestamp,
-            },
-        )
-
-    # 유니크한 파일명 생성
-    unique_filename = f"{uuid.uuid4().hex}{ext}"
-    file_path = os.path.join(PROFILE_IMAGE_UPLOAD_DIR, unique_filename)
-
-    # 디렉토리가 없으면 생성
-    os.makedirs(PROFILE_IMAGE_UPLOAD_DIR, exist_ok=True)
-
-    # 파일 저장
-    with open(file_path, "wb") as f:
-        f.write(contents)
+    try:
+        url = await save_upload_file(file, PROFILE_IMAGE_UPLOAD_DIR)
+    except HTTPException as e:
+        if isinstance(e.detail, dict):
+            e.detail["timestamp"] = timestamp
+        raise e
 
     return {
         "code": "IMAGE_UPLOADED",
         "message": "프로필 이미지가 업로드되었습니다.",
         "data": {
-            "url": f"/{file_path}",
+            "url": url,
         },
         "errors": [],
         "timestamp": timestamp,
