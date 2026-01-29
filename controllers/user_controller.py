@@ -345,16 +345,6 @@ async def change_password(
     """
     timestamp = get_request_timestamp(request)
 
-    # 현재 비밀번호 확인 (해싱된 비밀번호와 비교)
-    if not verify_password(password_data.current_password, current_user.password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={
-                "error": "invalid_current_password",
-                "timestamp": timestamp,
-            },
-        )
-
     # 새 비밀번호 확인
     if password_data.new_password != password_data.new_password_confirm:
         raise HTTPException(

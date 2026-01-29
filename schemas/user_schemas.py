@@ -146,12 +146,10 @@ class ChangePasswordRequest(BaseModel):
     """비밀번호 변경 요청 모델.
 
     Attributes:
-        current_password: 현재 비밀번호.
         new_password: 새 비밀번호.
         new_password_confirm: 새 비밀번호 확인.
     """
 
-    current_password: str
     new_password: str = Field(..., min_length=8, max_length=20)
     new_password_confirm: str
 
