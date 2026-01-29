@@ -37,7 +37,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
             "trackingID": tracking_id,
-            "error": str(exc),
+            "error": "Internal Server Error",
             "timestamp": timestamp,
         },
     )
@@ -60,14 +60,14 @@ async def request_validation_exception_handler(
         422 Unprocessable Entity 에러 JSON 응답.
     """
     timestamp = get_request_timestamp(request)
-    
+
     # 에러 상세 정보 복사 (원본 수정 방지)
     errors = exc.errors()
     sanitized_errors = []
 
     for error in errors:
         error_copy = error.copy()
-        
+
         # 'input' 필드가 bytes인 경우 처리
         if "input" in error_copy:
             input_val = error_copy["input"]
@@ -79,11 +79,11 @@ async def request_validation_exception_handler(
 
         # 'ctx' 필드 내부의 bytes 처리 (재귀적으로 처리하지 않고 단순화)
         if "ctx" in error_copy and isinstance(error_copy["ctx"], dict):
-             new_ctx = error_copy["ctx"].copy()
-             for k, v in new_ctx.items():
-                 if isinstance(v, bytes):
-                     new_ctx[k] = f"<binary data: {len(v)} bytes>"
-             error_copy["ctx"] = new_ctx
+            new_ctx = error_copy["ctx"].copy()
+            for k, v in new_ctx.items():
+                if isinstance(v, bytes):
+                    new_ctx[k] = f"<binary data: {len(v)} bytes>"
+            error_copy["ctx"] = new_ctx
 
         sanitized_errors.append(error_copy)
 
@@ -91,6 +91,6 @@ async def request_validation_exception_handler(
     # logger.info(f"Validation error: {sanitized_errors}")
 
     return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         content={"detail": jsonable_encoder(sanitized_errors), "timestamp": timestamp},
     )
