@@ -21,8 +21,8 @@ post_router = APIRouter(prefix="/v1/posts", tags=["posts"])
 @post_router.get("/", status_code=status.HTTP_200_OK)
 async def get_posts(
     request: Request,
-    page: int = Query(0, ge=0, description="페이지 번호 (0부터 시작)"),
-    limit: int = Query(20, ge=1, le=100, description="페이지당 게시글 수"),
+    offset: int = Query(0, ge=0, description="시작 위치 (0부터 시작)"),
+    limit: int = Query(10, ge=1, le=100, description="조회할 게시글 수"),
 ) -> dict:
     """게시글 목록을 조회합니다.
 
@@ -30,13 +30,13 @@ async def get_posts(
 
     Args:
         request: FastAPI Request 객체.
-        page: 페이지 번호 (0부터 시작).
-        limit: 페이지당 게시글 수 (1~100).
+        offset: 시작 위치 (0부터 시작).
+        limit: 조회할 게시글 수 (1~100, 기본 10).
 
     Returns:
         게시글 목록과 페이지네이션 정보가 포함된 응답.
     """
-    return await post_controller.get_posts(page, limit, request)
+    return await post_controller.get_posts(offset, limit, request)
 
 
 @post_router.get("/{post_id}", status_code=status.HTTP_200_OK)

@@ -26,7 +26,7 @@ IMAGE_UPLOAD_DIR = "assets/posts"
 
 
 async def get_posts(
-    page: int,
+    offset: int,
     limit: int,
     request: Request,
 ) -> dict:
@@ -35,24 +35,24 @@ async def get_posts(
     페이지네이션을 적용하여 게시글 목록을 반환합니다.
 
     Args:
-        page: 페이지 번호 (0부터 시작).
-        limit: 페이지당 게시글 수 (1~100).
+        offset: 시작 위치 (0부터 시작).
+        limit: 조회할 게시글 수 (1~100).
         request: FastAPI Request 객체.
 
     Returns:
         게시글 목록과 페이지네이션 정보가 포함된 응답 딕셔너리.
 
     Raises:
-        HTTPException: 잘못된 page/limit 값이면 400.
+        HTTPException: 잘못된 offset/limit 값이면 400.
     """
     timestamp = get_request_timestamp(request)
 
-    if page < 0:
+    if offset < 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
-                "error": "invalid_page",
-                "message": "페이지 번호는 0 이상이어야 합니다.",
+                "error": "invalid_offset",
+                "message": "시작 위치는 0 이상이어야 합니다.",
                 "timestamp": timestamp,
             },
         )
@@ -67,11 +67,11 @@ async def get_posts(
             },
         )
 
-    posts = await post_models.get_posts(page, limit)
+    posts = await post_models.get_posts_by_offset(offset, limit)
     total_count = await post_models.get_total_posts_count()
-    has_more = (page + 1) * limit < total_count
+    has_more = offset + limit < total_count
 
-    # 게시글 목록을 응답 형태로 변환
+    # 게시꺀 목록을 응답 형태로 변환
     posts_data = []
     for post in posts:
         author = await user_models.get_user_by_id(post.author_id)
@@ -100,7 +100,7 @@ async def get_posts(
         "data": {
             "posts": posts_data,
             "pagination": {
-                "page": page,
+                "offset": offset,
                 "limit": limit,
                 "total_count": total_count,
                 "has_more": has_more,
