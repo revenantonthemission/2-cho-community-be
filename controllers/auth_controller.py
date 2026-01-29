@@ -9,6 +9,7 @@ from models import user_models
 from models.user_models import User
 from schemas.auth_schemas import LoginRequest
 from dependencies.request_context import get_request_timestamp
+from utils.password import verify_password
 
 
 async def get_my_info(current_user: User, request: Request) -> dict:
@@ -56,7 +57,7 @@ async def login(credentials: LoginRequest, request: Request) -> dict:
 
     user = await user_models.get_user_by_email(credentials.email)
 
-    if not user or user.password != credentials.password:
+    if not user or not verify_password(credentials.password, user.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={

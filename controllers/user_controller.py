@@ -15,6 +15,7 @@ from schemas.user_schemas import (
     WithdrawRequest,
 )
 from dependencies.request_context import get_request_timestamp
+from utils.password import hash_password, verify_password
 
 # 허용된 이미지 확장자
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
@@ -111,10 +112,11 @@ async def create_user(user_data: CreateUserRequest, request: Request) -> dict:
             },
         )
 
-    # 새로운 사용자 생성
+    # 비밀번호 해싱 후 새로운 사용자 생성
+    hashed_password = hash_password(user_data.password)
     await user_models.add_user(
         email=user_data.email,
-        password=user_data.password,
+        password=hashed_password,
         nickname=user_data.nickname,
         profile_image_url=user_data.profileImageUrl,
     )
@@ -285,8 +287,8 @@ async def change_password(
     """
     timestamp = get_request_timestamp(request)
 
-    # 현재 비밀번호 확인
-    if current_user.password != password_data.current_password:
+    # 현재 비밀번호 확인 (해싱된 비밀번호와 비교)
+    if not verify_password(password_data.current_password, current_user.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={
@@ -305,8 +307,8 @@ async def change_password(
             },
         )
 
-    # 새 비밀번호가 현재 비밀번호와 같은지 확인
-    if password_data.new_password == current_user.password:
+    # 새 비밀번호가 현재 비밀번호와 같은지 확인 (해싱된 비밀번호와 비교)
+    if verify_password(password_data.new_password, current_user.password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
@@ -315,8 +317,9 @@ async def change_password(
             },
         )
 
-    # 비밀번호 변경
-    await user_models.update_password(current_user.id, password_data.new_password)
+    # 비밀번호 해싱 후 변경
+    hashed_new_password = hash_password(password_data.new_password)
+    await user_models.update_password(current_user.id, hashed_new_password)
 
     return {
         "code": "PASSWORD_CHANGE_SUCCESS",
@@ -355,8 +358,8 @@ async def withdraw_user(
             },
         )
 
-    # 비밀번호 확인
-    if withdraw_data.password != current_user.password:
+    # 비밀번호 확인 (해싱된 비밀번호와 비교)
+    if not verify_password(withdraw_data.password, current_user.password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
