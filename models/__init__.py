@@ -17,8 +17,6 @@ from .user_models import (
 
 from .post_models import (
     Post,
-    Comment,
-    Like,
     get_posts,
     get_total_posts_count,
     get_post_by_id,
@@ -26,17 +24,28 @@ from .post_models import (
     update_post,
     delete_post,
     increment_view_count,
-    get_like,
-    get_post_likes_count,
-    add_like,
-    remove_like,
+    clear_all_data,
+    get_posts_with_details,
+    get_post_with_details,
+    get_comments_with_author,
+)
+
+from .comment_models import (
+    Comment,
     get_comments_by_post,
     get_comments_count_by_post,
     get_comment_by_id,
     create_comment,
     update_comment,
     delete_comment,
-    clear_all_data,
+)
+
+from .like_models import (
+    Like,
+    get_like,
+    get_post_likes_count,
+    add_like,
+    remove_like,
 )
 
 __all__ = [
@@ -72,4 +81,8 @@ __all__ = [
     "update_comment",
     "delete_comment",
     "clear_all_data",
+    # Optimized (N+1 fix)
+    "get_posts_with_details",
+    "get_post_with_details",
+    "get_comments_with_author",
 ]

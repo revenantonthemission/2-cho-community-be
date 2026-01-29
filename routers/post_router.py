@@ -4,7 +4,7 @@
 """
 
 from fastapi import APIRouter, Depends, Query, Request, UploadFile, File, status
-from controllers import post_controller
+from controllers import post_controller, like_controller, comment_controller
 from dependencies.auth import get_current_user, get_optional_user
 from models.user_models import User
 from schemas.post_schemas import CreatePostRequest, UpdatePostRequest
@@ -158,7 +158,7 @@ async def like_post(
     Returns:
         좋아요 개수가 포함된 응답.
     """
-    return await post_controller.like_post(post_id, current_user, request)
+    return await like_controller.like_post(post_id, current_user, request)
 
 
 @post_router.delete("/{post_id}/likes", status_code=status.HTTP_200_OK)
@@ -177,7 +177,7 @@ async def unlike_post(
     Returns:
         좋아요 개수가 포함된 응답.
     """
-    return await post_controller.unlike_post(post_id, current_user, request)
+    return await like_controller.unlike_post(post_id, current_user, request)
 
 
 # ============ 댓글 라우터 ============
@@ -201,7 +201,7 @@ async def create_comment(
     Returns:
         생성된 댓글 정보가 포함된 응답.
     """
-    return await post_controller.create_comment(
+    return await comment_controller.create_comment(
         post_id, comment_data, current_user, request
     )
 
@@ -226,7 +226,7 @@ async def update_comment(
     Returns:
         수정된 댓글 정보가 포함된 응답.
     """
-    return await post_controller.update_comment(
+    return await comment_controller.update_comment(
         post_id, comment_id, comment_data, current_user, request
     )
 
@@ -249,6 +249,6 @@ async def delete_comment(
     Returns:
         삭제 성공 응답.
     """
-    return await post_controller.delete_comment(
+    return await comment_controller.delete_comment(
         post_id, comment_id, current_user, request
     )
