@@ -90,6 +90,7 @@ async def get_posts(
                 },
                 "likes_count": await post_models.get_post_likes_count(post.id),
                 "comments_count": await post_models.get_comments_count_by_post(post.id),
+                "views_count": post.views,
                 "created_at": post.created_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
             }
         )
@@ -111,14 +112,18 @@ async def get_posts(
     }
 
 
-async def get_post(post_id: int, request: Request) -> dict:
+async def get_post(
+    post_id: int, request: Request, current_user: User | None = None
+) -> dict:
     """게시글 상세 정보를 조회합니다.
 
     게시글 내용과 댓글 목록을 함께 반환합니다.
+    로그인한 사용자의 경우 조회수가 증가합니다 (하루 한 번).
 
     Args:
         post_id: 조회할 게시글 ID.
         request: FastAPI Request 객체.
+        current_user: 현재 인증된 사용자 (선택적).
 
     Returns:
         게시글 상세 정보와 댓글 목록이 포함된 응답 딕셔너리.
@@ -146,6 +151,12 @@ async def get_post(post_id: int, request: Request) -> dict:
                 "timestamp": timestamp,
             },
         )
+
+    # 로그인한 사용자인 경우 조회수 증가 (하루 한 번)
+    if current_user:
+        await post_models.increment_view_count(post_id, current_user.id)
+        # 조회수 증가 후 다시 조회하여 최신 값 반영
+        post = await post_models.get_post_by_id(post_id)
 
     author = await user_models.get_user_by_id(post.author_id)
     comments = await post_models.get_comments_by_post(post_id)

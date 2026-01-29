@@ -5,7 +5,7 @@
 
 from fastapi import APIRouter, Depends, Query, Request, UploadFile, File, status
 from controllers import post_controller
-from dependencies.auth import get_current_user
+from dependencies.auth import get_current_user, get_optional_user
 from models.user_models import User
 from schemas.post_schemas import CreatePostRequest, UpdatePostRequest
 from schemas.comment_schemas import CreateCommentRequest, UpdateCommentRequest
@@ -40,19 +40,25 @@ async def get_posts(
 
 
 @post_router.get("/{post_id}", status_code=status.HTTP_200_OK)
-async def get_post(post_id: int, request: Request) -> dict:
+async def get_post(
+    post_id: int,
+    request: Request,
+    current_user: User | None = Depends(get_optional_user),
+) -> dict:
     """특정 게시글의 상세 정보를 조회합니다.
 
     게시글 내용과 댓글 목록을 함께 반환합니다.
+    로그인한 사용자의 경우 조회수가 증가합니다.
 
     Args:
         post_id: 조회할 게시글 ID.
         request: FastAPI Request 객체.
+        current_user: 현재 인증된 사용자 (선택적).
 
     Returns:
         게시글 상세 정보와 댓글 목록이 포함된 응답.
     """
-    return await post_controller.get_post(post_id, request)
+    return await post_controller.get_post(post_id, request, current_user)
 
 
 @post_router.post("/", status_code=status.HTTP_201_CREATED)

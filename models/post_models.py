@@ -352,17 +352,17 @@ async def increment_view_count(post_id: int, user_id: int) -> bool:
     """
     async with get_connection() as conn:
         async with conn.cursor() as cur:
-            try:
-                # 조회 기록 삽입 시도 (중복 시 무시)
-                await cur.execute(
-                    """
-                    INSERT INTO post_view_log (user_id, post_id)
-                    VALUES (%s, %s)
-                    """,
-                    (user_id, post_id),
-                )
+            # 조회 기록 삽입 시도 (중복 시 무시)
+            await cur.execute(
+                """
+                INSERT IGNORE INTO post_view_log (user_id, post_id)
+                VALUES (%s, %s)
+                """,
+                (user_id, post_id),
+            )
 
-                # 조회수 증가
+            # INSERT가 성공한 경우에만 조회수 증가 (rowcount > 0)
+            if cur.rowcount > 0:
                 await cur.execute(
                     """
                     UPDATE post SET views = views + 1 WHERE id = %s
@@ -370,9 +370,9 @@ async def increment_view_count(post_id: int, user_id: int) -> bool:
                     (post_id,),
                 )
                 return True
-            except Exception:
-                # 중복 조회 (오늘 이미 조회함)
-                return False
+
+            # 이미 오늘 조회한 경우
+            return False
 
 
 # ============ 좋아요 관련 함수 ============
