@@ -26,7 +26,7 @@ IMAGE_UPLOAD_DIR = "assets/posts"
 
 
 async def get_posts(
-    page: int,
+    offset: int,
     limit: int,
     request: Request,
 ) -> dict:
@@ -35,24 +35,24 @@ async def get_posts(
     페이지네이션을 적용하여 게시글 목록을 반환합니다.
 
     Args:
-        page: 페이지 번호 (0부터 시작).
-        limit: 페이지당 게시글 수 (1~100).
+        offset: 시작 위치 (0부터 시작).
+        limit: 조회할 게시글 수 (1~100).
         request: FastAPI Request 객체.
 
     Returns:
         게시글 목록과 페이지네이션 정보가 포함된 응답 딕셔너리.
 
     Raises:
-        HTTPException: 잘못된 page/limit 값이면 400.
+        HTTPException: 잘못된 offset/limit 값이면 400.
     """
     timestamp = get_request_timestamp(request)
 
-    if page < 0:
+    if offset < 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
-                "error": "invalid_page",
-                "message": "페이지 번호는 0 이상이어야 합니다.",
+                "error": "invalid_offset",
+                "message": "시작 위치는 0 이상이어야 합니다.",
                 "timestamp": timestamp,
             },
         )
@@ -67,14 +67,14 @@ async def get_posts(
             },
         )
 
-    posts = post_models.get_posts(page, limit)
-    total_count = post_models.get_total_posts_count()
-    has_more = (page + 1) * limit < total_count
+    posts = await post_models.get_posts_by_offset(offset, limit)
+    total_count = await post_models.get_total_posts_count()
+    has_more = offset + limit < total_count
 
-    # 게시글 목록을 응답 형태로 변환
+    # 게시꺀 목록을 응답 형태로 변환
     posts_data = []
     for post in posts:
-        author = user_models.get_user_by_id(post.author_id)
+        author = await user_models.get_user_by_id(post.author_id)
         posts_data.append(
             {
                 "post_id": post.id,
@@ -82,14 +82,15 @@ async def get_posts(
                 "content": post.content[:200] + "..."
                 if len(post.content) > 200
                 else post.content,
-                "image_urls": post.image_urls,
+                "image_url": post.image_url,
                 "author": {
                     "user_id": author.id if author else None,
                     "nickname": author.nickname if author else "탈퇴한 사용자",
                     "profileImageUrl": author.profileImageUrl if author else None,
                 },
-                "likes_count": post_models.get_post_likes_count(post.id),
-                "comments_count": len(post_models.get_comments_by_post(post.id)),
+                "likes_count": await post_models.get_post_likes_count(post.id),
+                "comments_count": await post_models.get_comments_count_by_post(post.id),
+                "views_count": post.views,
                 "created_at": post.created_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
             }
         )
@@ -100,7 +101,7 @@ async def get_posts(
         "data": {
             "posts": posts_data,
             "pagination": {
-                "page": page,
+                "offset": offset,
                 "limit": limit,
                 "total_count": total_count,
                 "has_more": has_more,
@@ -111,14 +112,18 @@ async def get_posts(
     }
 
 
-async def get_post(post_id: int, request: Request) -> dict:
+async def get_post(
+    post_id: int, request: Request, current_user: User | None = None
+) -> dict:
     """게시글 상세 정보를 조회합니다.
 
     게시글 내용과 댓글 목록을 함께 반환합니다.
+    로그인한 사용자의 경우 조회수가 증가합니다 (하루 한 번).
 
     Args:
         post_id: 조회할 게시글 ID.
         request: FastAPI Request 객체.
+        current_user: 현재 인증된 사용자 (선택적).
 
     Returns:
         게시글 상세 정보와 댓글 목록이 포함된 응답 딕셔너리.
@@ -137,7 +142,7 @@ async def get_post(post_id: int, request: Request) -> dict:
             },
         )
 
-    post = post_models.get_post_by_id(post_id)
+    post = await post_models.get_post_by_id(post_id)
     if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -147,13 +152,19 @@ async def get_post(post_id: int, request: Request) -> dict:
             },
         )
 
-    author = user_models.get_user_by_id(post.author_id)
-    comments = post_models.get_comments_by_post(post_id)
+    # 로그인한 사용자인 경우 조회수 증가 (하루 한 번)
+    if current_user:
+        await post_models.increment_view_count(post_id, current_user.id)
+        # 조회수 증가 후 다시 조회하여 최신 값 반영
+        post = await post_models.get_post_by_id(post_id)
+
+    author = await user_models.get_user_by_id(post.author_id)
+    comments = await post_models.get_comments_by_post(post_id)
 
     # 댓글 목록 변환
     comments_data = []
     for comment in comments:
-        comment_author = user_models.get_user_by_id(comment.author_id)
+        comment_author = await user_models.get_user_by_id(comment.author_id)
         comments_data.append(
             {
                 "comment_id": comment.id,
@@ -168,7 +179,9 @@ async def get_post(post_id: int, request: Request) -> dict:
                     else None,
                 },
                 "created_at": comment.created_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "updated_at": comment.updated_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "updated_at": comment.updated_at.strftime("%Y-%m-%dT%H:%M:%SZ")
+                if comment.updated_at
+                else None,
             }
         )
 
@@ -180,15 +193,18 @@ async def get_post(post_id: int, request: Request) -> dict:
                 "post_id": post.id,
                 "title": post.title,
                 "content": post.content,
-                "image_urls": post.image_urls,
+                "image_url": post.image_url,
                 "author": {
                     "user_id": author.id if author else None,
                     "nickname": author.nickname if author else "탈퇴한 사용자",
                     "profileImageUrl": author.profileImageUrl if author else None,
                 },
-                "likes_count": post_models.get_post_likes_count(post_id),
+                "likes_count": await post_models.get_post_likes_count(post_id),
+                "views_count": post.views,
                 "created_at": post.created_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "updated_at": post.updated_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "updated_at": post.updated_at.strftime("%Y-%m-%dT%H:%M:%SZ")
+                if post.updated_at
+                else None,
             },
             "comments": comments_data,
         },
@@ -214,11 +230,11 @@ async def create_post(
     """
     timestamp = get_request_timestamp(request)
 
-    post = post_models.create_post(
+    post = await post_models.create_post(
         author_id=current_user.id,
         title=post_data.title,
         content=post_data.content,
-        image_urls=post_data.image_urls,
+        image_url=post_data.image_url,
     )
 
     return {
@@ -254,7 +270,7 @@ async def update_post(
     """
     timestamp = get_request_timestamp(request)
 
-    post = post_models.get_post_by_id(post_id)
+    post = await post_models.get_post_by_id(post_id)
     if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -281,6 +297,8 @@ async def update_post(
         updates["title"] = post_data.title
     if post_data.content is not None:
         updates["content"] = post_data.content
+    if post_data.image_url is not None:
+        updates["image_url"] = post_data.image_url
 
     if not updates:
         raise HTTPException(
@@ -291,7 +309,12 @@ async def update_post(
             },
         )
 
-    updated_post = post_models.update_post(post_id, **updates)
+    updated_post = await post_models.update_post(
+        post_id,
+        title=updates.get("title"),
+        content=updates.get("content"),
+        image_url=updates.get("image_url"),
+    )
 
     return {
         "code": "POST_UPDATED",
@@ -326,7 +349,7 @@ async def delete_post(
     """
     timestamp = get_request_timestamp(request)
 
-    post = post_models.get_post_by_id(post_id)
+    post = await post_models.get_post_by_id(post_id)
     if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -347,7 +370,7 @@ async def delete_post(
             },
         )
 
-    post_models.delete_post(post_id)
+    await post_models.delete_post(post_id)
 
     return {
         "code": "POST_DELETED",
@@ -448,7 +471,7 @@ async def like_post(
     """
     timestamp = get_request_timestamp(request)
 
-    post = post_models.get_post_by_id(post_id)
+    post = await post_models.get_post_by_id(post_id)
     if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -459,7 +482,7 @@ async def like_post(
         )
 
     # 이미 좋아요를 눌렀는지 확인
-    existing_like = post_models.get_like(post_id, current_user.id)
+    existing_like = await post_models.get_like(post_id, current_user.id)
     if existing_like:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -470,13 +493,13 @@ async def like_post(
             },
         )
 
-    post_models.add_like(post_id, current_user.id)
+    await post_models.add_like(post_id, current_user.id)
 
     return {
         "code": "LIKE_ADDED",
         "message": "좋아요가 추가되었습니다.",
         "data": {
-            "likes_count": post_models.get_post_likes_count(post_id),
+            "likes_count": await post_models.get_post_likes_count(post_id),
         },
         "errors": [],
         "timestamp": timestamp,
@@ -503,7 +526,7 @@ async def unlike_post(
     """
     timestamp = get_request_timestamp(request)
 
-    post = post_models.get_post_by_id(post_id)
+    post = await post_models.get_post_by_id(post_id)
     if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -514,7 +537,7 @@ async def unlike_post(
         )
 
     # 좋아요를 눌렀는지 확인
-    existing_like = post_models.get_like(post_id, current_user.id)
+    existing_like = await post_models.get_like(post_id, current_user.id)
     if not existing_like:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -525,13 +548,13 @@ async def unlike_post(
             },
         )
 
-    post_models.remove_like(post_id, current_user.id)
+    await post_models.remove_like(post_id, current_user.id)
 
     return {
         "code": "LIKE_REMOVED",
         "message": "좋아요가 취소되었습니다.",
         "data": {
-            "likes_count": post_models.get_post_likes_count(post_id),
+            "likes_count": await post_models.get_post_likes_count(post_id),
         },
         "errors": [],
         "timestamp": timestamp,
@@ -563,7 +586,7 @@ async def create_comment(
     """
     timestamp = get_request_timestamp(request)
 
-    post = post_models.get_post_by_id(post_id)
+    post = await post_models.get_post_by_id(post_id)
     if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -573,7 +596,7 @@ async def create_comment(
             },
         )
 
-    comment = post_models.create_comment(
+    comment = await post_models.create_comment(
         post_id=post_id,
         author_id=current_user.id,
         content=comment_data.content,
@@ -617,7 +640,7 @@ async def update_comment(
     timestamp = get_request_timestamp(request)
 
     # 게시글이 있는지 확인
-    post = post_models.get_post_by_id(post_id)
+    post = await post_models.get_post_by_id(post_id)
     if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -628,7 +651,7 @@ async def update_comment(
         )
 
     # 댓글이 있는지 확인
-    comment = post_models.get_comment_by_id(comment_id)
+    comment = await post_models.get_comment_by_id(comment_id)
     if not comment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -659,7 +682,7 @@ async def update_comment(
             },
         )
 
-    updated_comment = post_models.update_comment(comment_id, comment_data.content)
+    updated_comment = await post_models.update_comment(comment_id, comment_data.content)
 
     return {
         "code": "COMMENT_UPDATED",
@@ -697,7 +720,7 @@ async def delete_comment(
     timestamp = get_request_timestamp(request)
 
     # 게시글이 있는지 확인
-    post = post_models.get_post_by_id(post_id)
+    post = await post_models.get_post_by_id(post_id)
     if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -708,7 +731,7 @@ async def delete_comment(
         )
 
     # 댓글이 있는지 확인
-    comment = post_models.get_comment_by_id(comment_id)
+    comment = await post_models.get_comment_by_id(comment_id)
     if not comment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -739,7 +762,7 @@ async def delete_comment(
             },
         )
 
-    post_models.delete_comment(comment_id)
+    await post_models.delete_comment(comment_id)
 
     return {
         "code": "COMMENT_DELETED",

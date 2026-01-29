@@ -12,12 +12,12 @@ class CreatePostRequest(BaseModel):
     Attributes:
         title: 게시글 제목 (3~100자).
         content: 게시글 내용 (1~10000자).
-        image_urls: 첨부 이미지 URL 목록 (선택).
+        image_url: 첨부 이미지 URL (선택, 최대 1개).
     """
 
     title: str = Field(..., min_length=3, max_length=100)
     content: str = Field(..., min_length=1, max_length=10000)
-    image_urls: list[str] | None = None
+    image_url: str | None = None
 
     @field_validator("title")
     @classmethod
@@ -57,16 +57,16 @@ class CreatePostRequest(BaseModel):
             raise ValueError("내용은 최소 1자 이상이어야 합니다.")
         return v
 
-    @field_validator("image_urls")
+    @field_validator("image_url")
     @classmethod
-    def validate_image_urls(cls, v: list[str] | None) -> list[str] | None:
+    def validate_image_url(cls, v: str | None) -> str | None:
         """이미지 URL 형식을 검증합니다.
 
         Args:
-            v: 입력된 이미지 URL 목록.
+            v: 입력된 이미지 URL.
 
         Returns:
-            검증된 이미지 URL 목록 또는 None.
+            검증된 이미지 URL 또는 None.
 
         Raises:
             ValueError: 허용되지 않은 이미지 형식인 경우.
@@ -74,11 +74,10 @@ class CreatePostRequest(BaseModel):
         if v is None:
             return None
         allowed_extensions = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
-        for url in v:
-            if not any(url.lower().endswith(ext) for ext in allowed_extensions):
-                raise ValueError(
-                    "이미지는 .jpg, .jpeg, .png, .gif, .webp 형식만 허용됩니다."
-                )
+        if not any(v.lower().endswith(ext) for ext in allowed_extensions):
+            raise ValueError(
+                "이미지는 .jpg, .jpeg, .png, .gif, .webp 형식만 허용됩니다."
+            )
         return v
 
 
@@ -92,6 +91,7 @@ class UpdatePostRequest(BaseModel):
 
     title: str | None = Field(None, min_length=3, max_length=100)
     content: str | None = Field(None, min_length=1, max_length=10000)
+    image_url: str | None = None
 
     @field_validator("title")
     @classmethod

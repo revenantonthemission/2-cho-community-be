@@ -11,18 +11,16 @@ class CreateUserRequest(BaseModel):
     """사용자 등록 요청 모델.
 
     Attributes:
-        name: 사용자 이름.
         email: 이메일 주소.
         password: 비밀번호 (8~20자, 대/소문자/숫자/특수문자 포함).
-        nickname: 닉네임 (3~20자, 영문/숫자/언더바).
+        nickname: 닉네임 (3~10자, 영문/숫자/언더바).
         profileImageUrl: 프로필 이미지 URL.
     """
 
-    name: str
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=20)
     nickname: str = Field(..., min_length=3, max_length=10)
-    profileImageUrl: str | None = "/assets/default_profile.png"
+    profileImageUrl: str | None = "/assets/profiles/default_profile.jpg"
 
     @field_validator("password")
     @classmethod
@@ -84,7 +82,7 @@ class CreateUserRequest(BaseModel):
             ValueError: 이미지 형식이 올바르지 않은 경우.
         """
         if v is None:
-            return "/assets/default_profile.png"
+            return "/assets/profiles/default_profile.jpg"
         allowed_extensions = {".jpg", ".jpeg", ".png"}
         if not any(v.endswith(ext) for ext in allowed_extensions):
             raise ValueError("프로필 이미지는 .jpg, .jpeg, .png로 구성하여야 합니다.")
@@ -96,11 +94,11 @@ class UpdateUserRequest(BaseModel):
 
     Attributes:
         nickname: 새 닉네임 (선택).
-        email: 새 이메일 주소 (선택).
+        profileImageUrl: 새 프로필 이미지 URL (선택) - 문자열 또는 {"url": "..."} 객체.
     """
 
     nickname: str | None = Field(None, min_length=3, max_length=10)
-    email: EmailStr | None = None
+    profileImageUrl: str | dict | None = None
 
     @field_validator("nickname")
     @classmethod
@@ -123,6 +121,24 @@ class UpdateUserRequest(BaseModel):
             raise ValueError(
                 "닉네임은 3자 이상 10자 이하의 영문, 숫자, 언더바로 구성하여야 합니다."
             )
+        return v
+
+    @field_validator("profileImageUrl")
+    @classmethod
+    def validate_profile_image_url(cls, v: str | dict | None) -> str | None:
+        """프로필 이미지 URL을 추출합니다.
+        객체 형태 {"url": "..."} 또는 문자열 모두 처리합니다.
+
+        Args:
+            v: 입력된 프로필 이미지 URL.
+
+        Returns:
+            추출된 URL 문자열 또는 None.
+        """
+        if v is None:
+            return None
+        if isinstance(v, dict):
+            return v.get("url")
         return v
 
 

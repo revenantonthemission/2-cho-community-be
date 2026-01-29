@@ -3,7 +3,9 @@
 사용자 등록, 조회, 수정, 비밀번호 변경, 탈퇴 등의 기능을 제공합니다.
 """
 
-from fastapi import HTTPException, Request, status
+import os
+import uuid
+from fastapi import HTTPException, Request, status, UploadFile
 from models import user_models
 from models.user_models import User
 from schemas.user_schemas import (
@@ -13,6 +15,13 @@ from schemas.user_schemas import (
     WithdrawRequest,
 )
 from dependencies.request_context import get_request_timestamp
+
+# 허용된 이미지 확장자
+ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+# 최대 이미지 크기 (5MB)
+MAX_IMAGE_SIZE = 5 * 1024 * 1024
+# 프로필 이미지 저장 경로
+PROFILE_IMAGE_UPLOAD_DIR = "assets/profiles"
 
 
 async def get_user(user_id: int, request: Request) -> dict:
@@ -41,7 +50,7 @@ async def get_user(user_id: int, request: Request) -> dict:
             },
         )
 
-    user = user_models.get_user_by_id(user_id)
+    user = await user_models.get_user_by_id(user_id)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -58,7 +67,6 @@ async def get_user(user_id: int, request: Request) -> dict:
             "user": {
                 "user_id": user.id,
                 "email": user.email,
-                "name": user.name,
                 "nickname": user.nickname,
                 "profileImageUrl": user.profileImageUrl,
             }
@@ -84,7 +92,7 @@ async def create_user(user_data: CreateUserRequest, request: Request) -> dict:
     timestamp = get_request_timestamp(request)
 
     # 이메일 중복 확인
-    if user_models.get_user_by_email(user_data.email):
+    if await user_models.get_user_by_email(user_data.email):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={
@@ -94,7 +102,7 @@ async def create_user(user_data: CreateUserRequest, request: Request) -> dict:
         )
 
     # 닉네임 중복 확인
-    if user_models.get_user_by_nickname(user_data.nickname):
+    if await user_models.get_user_by_nickname(user_data.nickname):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={
@@ -104,15 +112,12 @@ async def create_user(user_data: CreateUserRequest, request: Request) -> dict:
         )
 
     # 새로운 사용자 생성
-    new_user = user_models.User(
-        id=len(user_models.get_users()) + 1,
-        name=user_data.name,
+    await user_models.add_user(
         email=user_data.email,
         password=user_data.password,
         nickname=user_data.nickname,
-        profileImageUrl=user_data.profileImageUrl or "/assets/default_profile.png",
+        profile_image_url=user_data.profileImageUrl,
     )
-    user_models.add_user(new_user)
 
     return {
         "code": "SIGNUP_SUCCESS",
@@ -168,7 +173,7 @@ async def get_user_info(user_id: int, current_user: User, request: Request) -> d
         HTTPException: 사용자가 없으면 404 Not Found.
     """
     timestamp = get_request_timestamp(request)
-    user = user_models.get_user_by_id(user_id)
+    user = await user_models.get_user_by_id(user_id)
 
     if not user:
         raise HTTPException(
@@ -201,7 +206,7 @@ async def update_user(
     """현재 로그인 중인 사용자의 정보를 수정합니다.
 
     Args:
-        update_data: 수정할 정보 (닉네임, 이메일).
+        update_data: 수정할 정보 (닉네임, 프로필 이미지).
         current_user: 현재 인증된 사용자 객체.
         request: FastAPI Request 객체.
 
@@ -213,14 +218,8 @@ async def update_user(
     """
     timestamp = get_request_timestamp(request)
 
-    updates = {}
-    if update_data.nickname is not None:
-        updates["nickname"] = update_data.nickname
-    if update_data.email is not None:
-        updates["email"] = update_data.email
-
     # 변경 사항이 없는 경우
-    if not updates:
+    if update_data.nickname is None and update_data.profileImageUrl is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
@@ -230,8 +229,8 @@ async def update_user(
         )
 
     # 닉네임 중복 확인
-    if "nickname" in updates:
-        existing_user = user_models.get_user_by_nickname(updates["nickname"])
+    if update_data.nickname is not None:
+        existing_user = await user_models.get_user_by_nickname(update_data.nickname)
         if existing_user and existing_user.id != current_user.id:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -241,26 +240,16 @@ async def update_user(
                 },
             )
 
-    # 이메일 중복 확인
-    if "email" in updates:
-        existing_user = user_models.get_user_by_email(updates["email"])
-        if existing_user and existing_user.id != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail={
-                    "error": "email_already_exists",
-                    "timestamp": timestamp,
-                },
-            )
-
     # 사용자 정보 수정
-    updated_user = user_models.update_user(current_user.id, **updates)
+    updated_user = await user_models.update_user(
+        current_user.id,
+        nickname=update_data.nickname,
+        profile_image_url=update_data.profileImageUrl,
+    )
 
     # 세션 정보 수정
-    if "nickname" in updates:
-        request.session["nickname"] = updates["nickname"]
-    if "email" in updates:
-        request.session["email"] = updates["email"]
+    if update_data.nickname is not None:
+        request.session["nickname"] = update_data.nickname
 
     return {
         "code": "UPDATE_SUCCESS",
@@ -327,7 +316,7 @@ async def change_password(
         )
 
     # 비밀번호 변경
-    user_models.update_password(current_user.id, password_data.new_password)
+    await user_models.update_password(current_user.id, password_data.new_password)
 
     return {
         "code": "PASSWORD_CHANGE_SUCCESS",
@@ -382,6 +371,73 @@ async def withdraw_user(
         "code": "WITHDRAWAL_ACCEPTED",
         "message": "탈퇴 신청이 접수되었습니다.",
         "data": {},
+        "errors": [],
+        "timestamp": timestamp,
+    }
+
+
+async def upload_profile_image(
+    file: UploadFile,
+    current_user: User,
+    request: Request,
+) -> dict:
+    """프로필 이미지를 업로드합니다.
+
+    Args:
+        file: 업로드할 이미지 파일.
+        current_user: 현재 인증된 사용자.
+        request: FastAPI Request 객체.
+
+    Returns:
+        업로드된 이미지 URL이 포함된 응답 딕셔너리.
+
+    Raises:
+        HTTPException: 잘못된 파일 형식이면 400, 파일 크기 초과면 400.
+    """
+    timestamp = get_request_timestamp(request)
+
+    # 파일 확장자 검증
+    filename = file.filename or ""
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in ALLOWED_IMAGE_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "invalid_file_type",
+                "message": f"허용된 이미지 형식: {', '.join(ALLOWED_IMAGE_EXTENSIONS)}",
+                "timestamp": timestamp,
+            },
+        )
+
+    # 파일 크기 검증
+    contents = await file.read()
+    if len(contents) > MAX_IMAGE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "file_too_large",
+                "message": f"파일 크기는 {MAX_IMAGE_SIZE // (1024 * 1024)}MB를 초과할 수 없습니다.",
+                "timestamp": timestamp,
+            },
+        )
+
+    # 유니크한 파일명 생성
+    unique_filename = f"{uuid.uuid4().hex}{ext}"
+    file_path = os.path.join(PROFILE_IMAGE_UPLOAD_DIR, unique_filename)
+
+    # 디렉토리가 없으면 생성
+    os.makedirs(PROFILE_IMAGE_UPLOAD_DIR, exist_ok=True)
+
+    # 파일 저장
+    with open(file_path, "wb") as f:
+        f.write(contents)
+
+    return {
+        "code": "IMAGE_UPLOADED",
+        "message": "프로필 이미지가 업로드되었습니다.",
+        "data": {
+            "url": f"/{file_path}",
+        },
         "errors": [],
         "timestamp": timestamp,
     }

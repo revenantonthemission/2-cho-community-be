@@ -5,7 +5,7 @@
 
 from fastapi import APIRouter, Depends, Query, Request, UploadFile, File, status
 from controllers import post_controller
-from dependencies.auth import get_current_user
+from dependencies.auth import get_current_user, get_optional_user
 from models.user_models import User
 from schemas.post_schemas import CreatePostRequest, UpdatePostRequest
 from schemas.comment_schemas import CreateCommentRequest, UpdateCommentRequest
@@ -21,8 +21,8 @@ post_router = APIRouter(prefix="/v1/posts", tags=["posts"])
 @post_router.get("/", status_code=status.HTTP_200_OK)
 async def get_posts(
     request: Request,
-    page: int = Query(0, ge=0, description="페이지 번호 (0부터 시작)"),
-    limit: int = Query(20, ge=1, le=100, description="페이지당 게시글 수"),
+    offset: int = Query(0, ge=0, description="시작 위치 (0부터 시작)"),
+    limit: int = Query(10, ge=1, le=100, description="조회할 게시글 수"),
 ) -> dict:
     """게시글 목록을 조회합니다.
 
@@ -30,29 +30,35 @@ async def get_posts(
 
     Args:
         request: FastAPI Request 객체.
-        page: 페이지 번호 (0부터 시작).
-        limit: 페이지당 게시글 수 (1~100).
+        offset: 시작 위치 (0부터 시작).
+        limit: 조회할 게시글 수 (1~100, 기본 10).
 
     Returns:
         게시글 목록과 페이지네이션 정보가 포함된 응답.
     """
-    return await post_controller.get_posts(page, limit, request)
+    return await post_controller.get_posts(offset, limit, request)
 
 
 @post_router.get("/{post_id}", status_code=status.HTTP_200_OK)
-async def get_post(post_id: int, request: Request) -> dict:
+async def get_post(
+    post_id: int,
+    request: Request,
+    current_user: User | None = Depends(get_optional_user),
+) -> dict:
     """특정 게시글의 상세 정보를 조회합니다.
 
     게시글 내용과 댓글 목록을 함께 반환합니다.
+    로그인한 사용자의 경우 조회수가 증가합니다.
 
     Args:
         post_id: 조회할 게시글 ID.
         request: FastAPI Request 객체.
+        current_user: 현재 인증된 사용자 (선택적).
 
     Returns:
         게시글 상세 정보와 댓글 목록이 포함된 응답.
     """
-    return await post_controller.get_post(post_id, request)
+    return await post_controller.get_post(post_id, request, current_user)
 
 
 @post_router.post("/", status_code=status.HTTP_201_CREATED)

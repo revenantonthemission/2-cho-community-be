@@ -1,8 +1,9 @@
 [project]
 name = "2-cho-community-be"
-version = "0.1.0"
+version = "0.2.0"
 requires-python = ">=3.11"
 dependencies = [
+    "aiomysql>=0.3.0",
     "annotated-doc>=0.0.4",
     "annotated-types>=0.7.0",
     "anyio>=4.12.1",

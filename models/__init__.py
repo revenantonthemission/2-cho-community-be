@@ -1,6 +1,6 @@
 """models: 데이터 클래스 및 데이터 관리 함수 패키지.
 
-사용자, 게시글, 댓글, 좋아요 관련 데이터 모델과 인메모리 저장소 관리 함수를 제공합니다.
+사용자, 게시글, 댓글, 좋아요 관련 데이터 모델과 MySQL 데이터베이스 관리 함수를 제공합니다.
 """
 
 from .user_models import (
@@ -25,11 +25,13 @@ from .post_models import (
     create_post,
     update_post,
     delete_post,
+    increment_view_count,
     get_like,
     get_post_likes_count,
     add_like,
     remove_like,
     get_comments_by_post,
+    get_comments_count_by_post,
     get_comment_by_id,
     create_comment,
     update_comment,
@@ -58,11 +60,13 @@ __all__ = [
     "create_post",
     "update_post",
     "delete_post",
+    "increment_view_count",
     "get_like",
     "get_post_likes_count",
     "add_like",
     "remove_like",
     "get_comments_by_post",
+    "get_comments_count_by_post",
     "get_comment_by_id",
     "create_comment",
     "update_comment",

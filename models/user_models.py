@@ -1,11 +1,12 @@
 """user_models: 사용자 관련 데이터 모델 및 함수 모듈.
 
-사용자 데이터 클래스와 인메모리 저장소를 관리하는 함수들을 제공합니다.
+사용자 데이터 클래스와 MySQL 데이터베이스를 관리하는 함수들을 제공합니다.
 """
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+
+from database.connection import get_connection
 
 
 @dataclass(frozen=True)
@@ -14,98 +15,79 @@ class User:
 
     Attributes:
         id: 사용자 고유 식별자.
-        name: 사용자 이름.
         email: 이메일 주소.
         password: 비밀번호.
         nickname: 닉네임.
-        profileImageUrl: 프로필 이미지 URL.
-        is_active: 활성화 상태.
+        profile_image_url: 프로필 이미지 URL.
+        created_at: 생성 시간.
+        updated_at: 수정 시간.
         deleted_at: 탈퇴 시간.
     """
 
     id: int
-    name: str
     email: str
     password: str
     nickname: str
-    profileImageUrl: str = "/assets/default_profile.png"
-    is_active: bool = True
+    profile_image_url: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
     deleted_at: datetime | None = None
 
+    @property
+    def is_active(self) -> bool:
+        """사용자가 활성화 상태인지 확인합니다."""
+        return self.deleted_at is None
 
-@dataclass
-class Post:
-    """게시글 데이터 클래스 (레거시, 미사용).
-
-    Attributes:
-        id: 게시글 고유 식별자.
-        author_id: 작성자 ID.
-        title: 제목.
-        content: 내용.
-    """
-
-    id: int
-    author_id: int | None
-    title: str
-    content: str
+    @property
+    def profileImageUrl(self) -> str:
+        """프로필 이미지 URL을 반환합니다 (하위 호환성)."""
+        # 실제 파일이 assets/profiles/default_profile.jpg 에 위치함
+        return self.profile_image_url or "/assets/profiles/default_profile.jpg"
 
 
-_users: list[User] = [
-    User(
-        id=1,
-        name="Alice",
-        email="alice@test.com",
-        password="PasswordAlice1!",
-        nickname="alice",
-    ),
-    User(
-        id=2,
-        name="Bob",
-        email="bob@test.com",
-        password="PasswordBob2@",
-        nickname="bob",
-    ),
-    User(
-        id=3,
-        name="Chris",
-        email="chris@test.com",
-        password="PasswordChris3#",
-        nickname="chris",
-    ),
-]
+def _row_to_user(row: tuple) -> User:
+    """데이터베이스 행을 User 객체로 변환합니다.
 
-_posts: list[Post] = [
-    Post(
-        id=129,
-        author_id=3,
-        title="우끼끼",
-        content="나는 원숭이다",
-    ),
-    Post(
-        id=111,
-        author_id=2,
-        title="뉴비입니다",
-        content="회원가입은 어떻게 구현하나요?",
-    ),
-    Post(
-        id=111,
-        author_id=2,
-        title="뉴비입니다",
-        content="잘 부탁드립니다!",
-    ),
-]
-
-
-def get_users() -> list[User]:
-    """모든 사용자 목록을 반환합니다.
+    Args:
+        row: (id, email, nickname, password, profile_img, created_at, updated_at, deleted_at)
 
     Returns:
-        사용자 목록의 복사본.
+        User 객체.
     """
-    return _users.copy()
+    return User(
+        id=row[0],
+        email=row[1],
+        nickname=row[2],
+        password=row[3],
+        profile_image_url=row[4],
+        created_at=row[5],
+        updated_at=row[6],
+        deleted_at=row[7],
+    )
 
 
-def get_user_by_id(user_id: int) -> User | None:
+async def get_users() -> list[User]:
+    """모든 활성 사용자 목록을 반환합니다.
+
+    Returns:
+        활성 사용자 목록.
+    """
+    async with get_connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                """
+                SELECT id, email, nickname, password, profile_img, 
+                       created_at, updated_at, deleted_at
+                FROM user
+                WHERE deleted_at IS NULL
+                ORDER BY id
+                """
+            )
+            rows = await cur.fetchall()
+            return [_row_to_user(row) for row in rows]
+
+
+async def get_user_by_id(user_id: int) -> User | None:
     """ID로 사용자를 조회합니다.
 
     Args:
@@ -114,10 +96,22 @@ def get_user_by_id(user_id: int) -> User | None:
     Returns:
         사용자 객체, 없으면 None.
     """
-    return next((u for u in _users if u.id == user_id), None)
+    async with get_connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                """
+                SELECT id, email, nickname, password, profile_img,
+                       created_at, updated_at, deleted_at
+                FROM user
+                WHERE id = %s AND deleted_at IS NULL
+                """,
+                (user_id,),
+            )
+            row = await cur.fetchone()
+            return _row_to_user(row) if row else None
 
 
-def get_user_by_email(email: str) -> User | None:
+async def get_user_by_email(email: str) -> User | None:
     """이메일로 사용자를 조회합니다.
 
     Args:
@@ -126,10 +120,22 @@ def get_user_by_email(email: str) -> User | None:
     Returns:
         사용자 객체, 없으면 None.
     """
-    return next((u for u in _users if u.email == email), None)
+    async with get_connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                """
+                SELECT id, email, nickname, password, profile_img,
+                       created_at, updated_at, deleted_at
+                FROM user
+                WHERE email = %s AND deleted_at IS NULL
+                """,
+                (email,),
+            )
+            row = await cur.fetchone()
+            return _row_to_user(row) if row else None
 
 
-def get_user_by_nickname(nickname: str) -> User | None:
+async def get_user_by_nickname(nickname: str) -> User | None:
     """닉네임으로 사용자를 조회합니다.
 
     Args:
@@ -138,43 +144,112 @@ def get_user_by_nickname(nickname: str) -> User | None:
     Returns:
         사용자 객체, 없으면 None.
     """
-    return next((u for u in _users if u.nickname == nickname), None)
+    async with get_connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                """
+                SELECT id, email, nickname, password, profile_img,
+                       created_at, updated_at, deleted_at
+                FROM user
+                WHERE nickname = %s AND deleted_at IS NULL
+                """,
+                (nickname,),
+            )
+            row = await cur.fetchone()
+            return _row_to_user(row) if row else None
 
 
-def add_user(user: User) -> User:
+async def add_user(
+    email: str,
+    password: str,
+    nickname: str,
+    profile_image_url: str | None = None,
+) -> User:
     """새 사용자를 추가합니다.
 
     Args:
-        user: 추가할 사용자 객체.
+        email: 이메일 주소.
+        password: 비밀번호.
+        nickname: 닉네임.
+        profile_image_url: 프로필 이미지 URL.
 
     Returns:
-        추가된 사용자 객체.
+        생성된 사용자 객체.
     """
-    _users.append(user)
-    return user
+    async with get_connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                """
+                INSERT INTO user (email, password, nickname, profile_img)
+                VALUES (%s, %s, %s, %s)
+                """,
+                (email, password, nickname, profile_image_url),
+            )
+            user_id = cur.lastrowid
+
+            # 생성된 사용자 조회
+            await cur.execute(
+                """
+                SELECT id, email, nickname, password, profile_img,
+                       created_at, updated_at, deleted_at
+                FROM user
+                WHERE id = %s
+                """,
+                (user_id,),
+            )
+            row = await cur.fetchone()
+            return _row_to_user(row)
 
 
-def update_user(user_id: int, **kwargs: Any) -> User | None:
+async def update_user(
+    user_id: int,
+    nickname: str | None = None,
+    profile_image_url: str | None = None,
+) -> User | None:
     """사용자 정보를 업데이트합니다.
-
-    기존 사용자 정보를 바탕으로 새로운 사용자 객체를 생성하여 불변성을 유지합니다.
 
     Args:
         user_id: 업데이트할 사용자의 ID.
-        **kwargs: 업데이트할 필드와 값.
+        nickname: 새 닉네임 (선택).
+        profile_image_url: 새 프로필 이미지 URL (선택).
 
     Returns:
         업데이트된 사용자 객체, 사용자가 없으면 None.
     """
-    for i, user in enumerate(_users):
-        if user.id == user_id:
-            updated_user = replace(user, **kwargs)
-            _users[i] = updated_user
-            return updated_user
-    return None
+    # 업데이트할 필드 동적 구성
+    updates = []
+    params = []
+
+    if nickname is not None:
+        updates.append("nickname = %s")
+        params.append(nickname)
+    if profile_image_url is not None:
+        updates.append("profile_img = %s")
+        params.append(profile_image_url)
+
+    if not updates:
+        return await get_user_by_id(user_id)
+
+    params.append(user_id)
+
+    async with get_connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                f"""
+                UPDATE user
+                SET {", ".join(updates)}
+                WHERE id = %s AND deleted_at IS NULL
+                """,
+                tuple(params),
+            )
+
+            if cur.rowcount == 0:
+                return None
+
+            return await get_user_by_id(user_id)
 
 
-def update_password(user_id: int, new_password: str) -> User | None:
+async def update_password(user_id: int, new_password: str) -> User | None:
     """사용자 비밀번호를 업데이트합니다.
 
     Args:
@@ -184,23 +259,57 @@ def update_password(user_id: int, new_password: str) -> User | None:
     Returns:
         업데이트된 사용자 객체, 사용자가 없으면 None.
     """
-    for i, user in enumerate(_users):
-        if user.id == user_id:
-            updated_user = replace(user, password=new_password)
-            _users[i] = updated_user
-            return updated_user
-    return None
+    async with get_connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                """
+                UPDATE user
+                SET password = %s
+                WHERE id = %s AND deleted_at IS NULL
+                """,
+                (new_password, user_id),
+            )
+
+            if cur.rowcount == 0:
+                return None
+
+            return await get_user_by_id(user_id)
 
 
-def withdraw_user(user: User) -> User:
+async def withdraw_user(user_id: int) -> User | None:
     """회원 탈퇴를 처리합니다.
 
-    사용자를 비활성화 상태로 변경하고 탈퇴 시간을 기록합니다.
+    소프트 삭제를 수행하여 deleted_at을 현재 시간으로 설정합니다.
 
     Args:
-        user: 탈퇴할 사용자 객체.
+        user_id: 탈퇴할 사용자의 ID.
 
     Returns:
-        비활성화된 사용자 객체.
+        탈퇴 처리된 사용자 객체, 사용자가 없으면 None.
     """
-    return replace(user, is_active=False, deleted_at=datetime.now())
+    async with get_connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                """
+                UPDATE user
+                SET deleted_at = NOW()
+                WHERE id = %s AND deleted_at IS NULL
+                """,
+                (user_id,),
+            )
+
+            if cur.rowcount == 0:
+                return None
+
+            # 삭제된 사용자 조회 (deleted_at 포함)
+            await cur.execute(
+                """
+                SELECT id, email, nickname, password, profile_img,
+                       created_at, updated_at, deleted_at
+                FROM user
+                WHERE id = %s
+                """,
+                (user_id,),
+            )
+            row = await cur.fetchone()
+            return _row_to_user(row) if row else None

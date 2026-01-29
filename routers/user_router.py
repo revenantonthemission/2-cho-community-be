@@ -3,7 +3,7 @@
 사용자 등록, 조회, 수정, 비밀번호 변경, 탈퇴 엔드포인트를 제공합니다.
 """
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, Request, status, UploadFile, File
 from controllers import user_controller
 from dependencies.auth import get_current_user, get_optional_user
 from models.user_models import User
@@ -132,3 +132,22 @@ async def withdraw_user(
         탈퇴 신청 접수 응답.
     """
     return await user_controller.withdraw_user(withdraw_data, current_user, request)
+
+
+@user_router.post("/profile/image", status_code=status.HTTP_201_CREATED)
+async def upload_profile_image(
+    request: Request,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """프로필 이미지를 업로드합니다.
+
+    Args:
+        request: FastAPI Request 객체.
+        file: 업로드할 이미지 파일.
+        current_user: 현재 인증된 사용자.
+
+    Returns:
+        업로드된 이미지 URL이 포함된 응답.
+    """
+    return await user_controller.upload_profile_image(file, current_user, request)

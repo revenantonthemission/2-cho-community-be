@@ -54,7 +54,7 @@ async def login(credentials: LoginRequest, request: Request) -> dict:
     """
     timestamp = get_request_timestamp(request)
 
-    user = user_models.get_user_by_email(credentials.email)
+    user = await user_models.get_user_by_email(credentials.email)
 
     if not user or user.password != credentials.password:
         raise HTTPException(

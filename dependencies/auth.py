@@ -36,7 +36,7 @@ async def get_current_user(request: Request) -> User:
         )
 
     email = request.session.get("email")
-    user = user_models.get_user_by_email(email)
+    user = await user_models.get_user_by_email(email)
 
     # 사용자 정보를 찾을 수 없음
     if not user:
@@ -69,4 +69,4 @@ async def get_optional_user(request: Request) -> User | None:
         return None
 
     email = request.session.get("email")
-    return user_models.get_user_by_email(email)
+    return await user_models.get_user_by_email(email)

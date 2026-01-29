@@ -36,11 +36,9 @@ class UserData(BaseModel):
         email: 이메일 주소.
         nickname: 닉네임.
         profileImageUrl: 프로필 이미지 URL.
-        name: 사용자 이름 (선택).
     """
 
     user_id: int
     email: str
     nickname: str
     profileImageUrl: str
-    name: str | None = None
