@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     DB_PASSWORD: str
     DB_NAME: str
 
+    # File Upload Settings
+    IMAGE_UPLOAD_DIR: str = "assets/posts"
+    PROFILE_IMAGE_UPLOAD_DIR: str = "assets/profiles"
+
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )

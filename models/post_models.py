@@ -6,7 +6,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from database.connection import get_connection
+from database.connection import get_connection, transactional
 from models.comment_models import get_comments_with_author
 
 
@@ -115,28 +115,27 @@ async def create_post(
     Returns:
         생성된 게시글 객체.
     """
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
-                INSERT INTO post (title, content, image_url, author_id)
-                VALUES (%s, %s, %s, %s)
-                """,
-                (title, content, image_url, author_id),
-            )
-            post_id = cur.lastrowid
+    async with transactional() as cur:
+        await cur.execute(
+            """
+            INSERT INTO post (title, content, image_url, author_id)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (title, content, image_url, author_id),
+        )
+        post_id = cur.lastrowid
 
-            await cur.execute(
-                """
-                SELECT id, title, content, image_url, author_id, views,
-                       created_at, updated_at, deleted_at
-                FROM post
-                WHERE id = %s
-                """,
-                (post_id,),
-            )
-            row = await cur.fetchone()
-            return _row_to_post(row)
+        await cur.execute(
+            """
+            SELECT id, title, content, image_url, author_id, views,
+                   created_at, updated_at, deleted_at
+            FROM post
+            WHERE id = %s
+            """,
+            (post_id,),
+        )
+        row = await cur.fetchone()
+        return _row_to_post(row)
 
 
 async def update_post(
@@ -224,29 +223,28 @@ async def increment_view_count(post_id: int, user_id: int) -> bool:
     Returns:
         조회수 증가 성공 여부.
     """
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            # 조회 기록 삽입 시도 (중복 시 무시)
+    async with transactional() as cur:
+        # 조회 기록 삽입 시도 (중복 시 무시)
+        await cur.execute(
+            """
+            INSERT IGNORE INTO post_view_log (user_id, post_id)
+            VALUES (%s, %s)
+            """,
+            (user_id, post_id),
+        )
+
+        # INSERT가 성공한 경우에만 조회수 증가 (rowcount > 0)
+        if cur.rowcount > 0:
             await cur.execute(
                 """
-                INSERT IGNORE INTO post_view_log (user_id, post_id)
-                VALUES (%s, %s)
+                UPDATE post SET views = views + 1 WHERE id = %s
                 """,
-                (user_id, post_id),
+                (post_id,),
             )
+            return True
 
-            # INSERT가 성공한 경우에만 조회수 증가 (rowcount > 0)
-            if cur.rowcount > 0:
-                await cur.execute(
-                    """
-                    UPDATE post SET views = views + 1 WHERE id = %s
-                    """,
-                    (post_id,),
-                )
-                return True
-
-            # 이미 오늘 조회한 경우
-            return False
+        # 이미 오늘 조회한 경우
+        return False
 
 
 # ============ 테스트 헬퍼 함수 ============
@@ -270,7 +268,8 @@ async def clear_all_data() -> None:
 async def get_posts_with_details(offset: int = 0, limit: int = 10) -> list[dict]:
     """게시글 목록을 작성자 정보, 좋아요 수, 댓글 수와 함께 조회합니다.
 
-    N+1 문제를 해결하기 위해 JOIN과 서브쿼리를 사용합니다.
+    N+1 문제를 해결하기 위해 LEFT JOIN과 GROUP BY를 사용합니다.
+    서브쿼리 대신 조인으로 한 번의 쿼리로 모든 데이터를 가져옵니다.
 
     Args:
         offset: 시작 위치.
@@ -285,11 +284,15 @@ async def get_posts_with_details(offset: int = 0, limit: int = 10) -> list[dict]
                 """
                 SELECT p.id, p.title, p.content, p.image_url, p.views, p.created_at, p.updated_at,
                        u.id, u.nickname, u.profile_img,
-                       (SELECT COUNT(*) FROM post_like WHERE post_id = p.id) as likes_count,
-                       (SELECT COUNT(*) FROM comment WHERE post_id = p.id AND deleted_at IS NULL) as comments_count
+                       COUNT(DISTINCT pl.id) as likes_count,
+                       COUNT(DISTINCT c.id) as comments_count
                 FROM post p
                 LEFT JOIN user u ON p.author_id = u.id
+                LEFT JOIN post_like pl ON p.id = pl.post_id
+                LEFT JOIN comment c ON p.id = c.post_id AND c.deleted_at IS NULL
                 WHERE p.deleted_at IS NULL
+                GROUP BY p.id, p.title, p.content, p.image_url, p.views, p.created_at, p.updated_at,
+                         u.id, u.nickname, u.profile_img
                 ORDER BY p.created_at DESC, p.id DESC
                 LIMIT %s OFFSET %s
                 """,

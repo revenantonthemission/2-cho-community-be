@@ -1,22 +1,140 @@
+# ===========================
+# Python
+# ===========================
 
-# 가상 환경
-.venv/
-
-# 컴파일된 결과물
+# Byte-compiled / optimized / DLL files
 __pycache__/
-*.pyc
-.DS_Store
-*.egg-info/
-build/
+*.py[cod]
+*$py.class
 
-# 추적할 필요가 없는 파일들
-.env
-.ruff_cache/
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
 .pytest_cache/
-.mypy_cache/
+
+# Translations
+*.mo
+*.pot
+
+# ===========================
+# Virtual Environments
+# ===========================
+.venv/
+venv/
+ENV/
+env/
+.env.local
+.env.*.local
+
+# ===========================
+# IDE / Editor
+# ===========================
 .vscode/
-.agent/
-pytest.ini
-tests/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+*.sublime-workspace
+*.sublime-project
+
+# ===========================
+# Linters / Type Checkers / Formatters
+# ===========================
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.ruff_cache/
+.pytype/
+
+# ===========================
+# Environment Variables
+# ===========================
+.env
+!.env.example
+
+# ===========================
+# OS Generated Files
+# ===========================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ===========================
+# Logs
+# ===========================
+*.log
+logs/
+server_error.log
+
+# ===========================
+# Project Specific
+# ===========================
+
+# Uploaded assets (user-generated content)
 assets/
+
+# Test configuration (if not needed in repo)
+pytest.ini
+
+# Local scripts
 scripts/
+
+# Agent / AI assistant directories
+.agent/
+.gemini/
+.claude/
+
+# ===========================
+# Secrets / Certificates
+# ===========================
+*.pem
+*.key
+*.crt
+secrets/

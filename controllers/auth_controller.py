@@ -32,7 +32,16 @@ async def login(credentials: LoginRequest, request: Request) -> dict:
 
     user = await user_models.get_user_by_email(credentials.email)
 
-    if not user or not verify_password(credentials.password, user.password):
+    # 타이밍 공격 방지 (Timing Attack Mitigation)
+    # 사용자가 없더라도 항상 동일한 시간이 소요되는 해시 검증 로직을 실행합니다.
+    # 더미 해시는 실제 bcrypt 해시 형식이어야 합니다.
+    DUMMY_HASH = "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxwKc.60VF.wdz.xGto8.H82o.f2y"
+
+    password_valid = verify_password(
+        credentials.password, user.password if user else DUMMY_HASH
+    )
+
+    if not user or not password_valid:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={

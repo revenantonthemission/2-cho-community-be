@@ -11,9 +11,10 @@ from schemas.post_schemas import CreatePostRequest, UpdatePostRequest
 from dependencies.request_context import get_request_timestamp
 from utils.formatters import format_datetime
 from utils.file_utils import save_upload_file
+from core.config import settings
 
-# 이미지 저장 경로
-IMAGE_UPLOAD_DIR = "assets/posts"
+# 이미지 저장 경로 (설정에서 로드)
+IMAGE_UPLOAD_DIR = settings.IMAGE_UPLOAD_DIR
 
 
 # ============ 게시글 관련 핸들러 ============

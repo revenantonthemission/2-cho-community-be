@@ -13,6 +13,7 @@ dependencies = [
     "dnspython>=2.8.0",
     "email-validator>=2.3.0",
     "fastapi>=0.128.0",
+    "faker>=21.1.1",
     "h11>=0.16.0",
     "httptools>=0.7.1",
     "idna>=3.11",

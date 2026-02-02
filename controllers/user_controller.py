@@ -16,11 +16,12 @@ from dependencies.request_context import get_request_timestamp
 from utils.password import hash_password, verify_password
 from utils.file_utils import save_upload_file
 from pymysql.err import IntegrityError
+from core.config import settings
 import traceback
 import logging
 
-# 프로필 이미지 저장 경로
-PROFILE_IMAGE_UPLOAD_DIR = "assets/profiles"
+# 프로필 이미지 저장 경로 (설정에서 로드)
+PROFILE_IMAGE_UPLOAD_DIR = settings.PROFILE_IMAGE_UPLOAD_DIR
 
 
 async def get_user(user_id: int, request: Request) -> dict:
