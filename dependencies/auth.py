@@ -3,7 +3,7 @@
 세션 기반 사용자 인증 및 권한 확인 기능을 제공합니다.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import HTTPException, Request, status
 from models import user_models
 from models.user_models import User
@@ -52,8 +52,12 @@ async def get_current_user(request: Request) -> User:
     expires_at = result["expires_at"]
     user = result["user"]
 
-    # 세션 만료 확인
-    if expires_at < datetime.now():
+    # 세션 만료 확인 (타임존 통일)
+    now = datetime.now(timezone.utc)
+    # DB에서 가져온 expires_at이 naive datetime이면 UTC로 가정
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at < now:
         await user_models.delete_session(session_id)
         request.session.clear()
         raise HTTPException(
@@ -106,8 +110,11 @@ async def get_optional_user(request: Request) -> User | None:
     expires_at = result["expires_at"]
     user = result["user"]
 
-    # 만료 확인
-    if expires_at < datetime.now():
+    # 만료 확인 (타임존 통일)
+    now = datetime.now(timezone.utc)
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at < now:
         return None
 
     # 삭제된 사용자 확인
