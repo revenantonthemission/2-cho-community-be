@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     DB_PASSWORD: str
     DB_NAME: str
 
+    # Auth Settings
+    SESSION_EXPIRE_HOURS: int = 24
+
     # File Upload Settings
     IMAGE_UPLOAD_DIR: str = "assets/posts"
     PROFILE_IMAGE_UPLOAD_DIR: str = "assets/profiles"
