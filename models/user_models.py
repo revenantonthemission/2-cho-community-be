@@ -3,6 +3,8 @@
 사용자 데이터 클래스와 MySQL 데이터베이스를 관리하는 함수들을 제공합니다.
 """
 
+import time
+import uuid
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -327,9 +329,6 @@ def _generate_anonymized_user_data() -> tuple[str, str]:
     Returns:
         (email, nickname) 튜플
     """
-    import uuid
-    import time
-
     unique_id = str(uuid.uuid4())
     timestamp = int(time.time())
 

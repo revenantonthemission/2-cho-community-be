@@ -75,7 +75,24 @@ CREATE TABLE post_view_log (
     post_id INT UNSIGNED NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     view_date DATE GENERATED ALWAYS AS (DATE(created_at)) VIRTUAL,
-    UNIQUE KEY unique_view_daily (user_id, post_id, view_date),
-    FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE CASCADE,
-    FOREIGN KEY (post_id) REFERENCES post (id) ON DELETE CASCADE
-);
+        FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE CASCADE,
+        FOREIGN KEY (post_id) REFERENCES post (id) ON DELETE CASCADE
+    );
+    
+    -- 성능 최적화 인덱스
+    -- 1. 인증/세션 (크리티컬)
+    CREATE INDEX idx_user_session_session_id ON user_session (session_id (255));
+    
+    -- 2. 사용자/게시글/댓글 (Soft Delete 필터링)
+    CREATE INDEX idx_user_deleted_at ON user (deleted_at);
+    
+    -- 3. 게시글 목록 조회 (정렬 + 삭제 필터)
+    -- deleted_at 우선 필터링 후 created_at 정렬
+    CREATE INDEX idx_post_list_optimized ON post (deleted_at, created_at);
+    
+    -- 4. 댓글 목록 조회 (특정 게시글 + 삭제 필터 + 정렬)
+    CREATE INDEX idx_comment_list_optimized ON comment (post_id, deleted_at, created_at);
+    
+    -- 5. 좋아요 카운트 조회
+    CREATE INDEX idx_post_like_post_id ON post_like (post_id);
+    
