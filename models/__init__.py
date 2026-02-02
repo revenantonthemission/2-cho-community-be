@@ -17,7 +17,6 @@ from .user_models import (
 
 from .post_models import (
     Post,
-    get_posts,
     get_total_posts_count,
     get_post_by_id,
     create_post,
@@ -70,7 +69,6 @@ __all__ = [
     "Post",
     "Comment",
     "Like",
-    "get_posts",
     "get_total_posts_count",
     "get_post_by_id",
     "create_post",
