@@ -41,13 +41,12 @@ async def login(credentials: LoginRequest, request: Request) -> dict:
             },
         )
 
-    # 세션이 존재하지 않으면 새로 생성
-    session_id = request.session.get("session_id")
-    if not session_id:
-        session_id = str(uuid.uuid4())
-        request.session["session_id"] = session_id
-        request.session["email"] = credentials.email
-        request.session["nickname"] = user.nickname
+    # 기존 세션 데이터가 있다면 파기하고 새 세션 ID 생성 (Session Fixation 방지)
+    request.session.clear()
+    session_id = str(uuid.uuid4())
+    request.session["session_id"] = session_id
+    request.session["email"] = credentials.email
+    request.session["nickname"] = user.nickname
 
     # DB에 세션 저장 (Immediate Block 지원)
     from datetime import datetime, timedelta, timezone
