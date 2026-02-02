@@ -71,7 +71,7 @@ async def get_posts(
         post["created_at"] = format_datetime(post["created_at"])
         post["updated_at"] = format_datetime(post.get("updated_at"))
 
-        # Content truncation
+        # 내용 요약 (Truncation)
         content = post["content"]
         if len(content) > 200:
             post["content"] = content[:200] + "..."

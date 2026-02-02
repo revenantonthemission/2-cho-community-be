@@ -148,7 +148,7 @@ async def create_user(
             profile_image_url=profile_image_url,
         )
     except IntegrityError as e:
-        # Duplicate entry error (1062)
+        # 중복 엔트리 에러 (1062)
         if e.args[0] == 1062:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,

@@ -55,7 +55,7 @@ from .session_models import (
 )
 
 __all__ = [
-    # User models
+    # 사용자 모델
     "User",
     "get_users",
     "get_user_by_id",
@@ -65,7 +65,7 @@ __all__ = [
     "update_user",
     "update_password",
     "withdraw_user",
-    # Post models
+    # 게시글 모델
     "Post",
     "Comment",
     "Like",
@@ -86,11 +86,11 @@ __all__ = [
     "update_comment",
     "delete_comment",
     "clear_all_data",
-    # Optimized (N+1 fix)
+    # 최적화된 함수 (N+1 문제 해결)
     "get_posts_with_details",
     "get_post_with_details",
     "get_comments_with_author",
-    # Session models
+    # 세션 모델
     "create_session",
     "get_session",
     "delete_session",

@@ -351,7 +351,7 @@ async def withdraw_user(user_id: int) -> User | None:
     anonymized_email = f"deleted_{unique_id}_{timestamp}@deleted.user"
 
     async with transactional() as cur:
-        # 1. Sever links: Set author_id to NULL for posts and comments
+        # 1. 연결 끊기: 게시글과 댓글의 author_id를 NULL로 설정
         await cur.execute(
             """
             UPDATE post SET author_id = NULL WHERE author_id = %s
@@ -365,7 +365,7 @@ async def withdraw_user(user_id: int) -> User | None:
             (user_id,),
         )
 
-        # 2. Kill sessions: Delete all active sessions
+        # 2. 세션 종료: 모든 활성 세션 삭제
         await cur.execute(
             """
             DELETE FROM user_session WHERE user_id = %s
@@ -373,7 +373,7 @@ async def withdraw_user(user_id: int) -> User | None:
             (user_id,),
         )
 
-        # 3. Anonymize user (Soft Delete)
+        # 3. 사용자 익명화 (소프트 삭제)
         await cur.execute(
             """
             UPDATE user
@@ -421,7 +421,7 @@ async def cleanup_deleted_user(user_id: int) -> User | None:
     anonymized_email = f"deleted_{unique_id}_{timestamp}@deleted.user"
 
     async with transactional() as cur:
-        # 1. Sever links for zombie
+        # 1. 좀비 사용자의 연결 끊기
         await cur.execute(
             """
             UPDATE post SET author_id = NULL WHERE author_id = %s
@@ -435,7 +435,7 @@ async def cleanup_deleted_user(user_id: int) -> User | None:
             (user_id,),
         )
 
-        # 2. Kill sessions for zombie
+        # 2. 좀비 사용자의 세션 종료
         await cur.execute(
             """
             DELETE FROM user_session WHERE user_id = %s
@@ -443,7 +443,7 @@ async def cleanup_deleted_user(user_id: int) -> User | None:
             (user_id,),
         )
 
-        # 3. Anonymize user
+        # 3. 사용자 익명화
         await cur.execute(
             """
             UPDATE user
@@ -558,19 +558,19 @@ async def register_user(
     try:
         return await add_user(email, password, nickname, profile_image_url)
     except IntegrityError as e:
-        # Duplicate entry error (1062)
+        # 중복 엔트리 에러 (1062)
         if e.args[0] == 1062:
-            # 1. Check if email belongs to a deleted user
+            # 1. 이메일이 탈퇴한 사용자의 것인지 확인
             deleted_user_email = await get_deleted_user_by_email(email)
             if deleted_user_email:
                 await cleanup_deleted_user(deleted_user_email.id)
                 return await add_user(email, password, nickname, profile_image_url)
 
-            # 2. Check if nickname belongs to a deleted user
+            # 2. 닉네임이 탈퇴한 사용자의 것인지 확인
             deleted_user_nick = await get_deleted_user_by_nickname(nickname)
             if deleted_user_nick:
                 await cleanup_deleted_user(deleted_user_nick.id)
                 return await add_user(email, password, nickname, profile_image_url)
 
-        # Not a zombie or retry failed, re-raise
+        # 좀비 사용자가 아니거나 재시도 실패 시 예외 다시 발생
         raise e
