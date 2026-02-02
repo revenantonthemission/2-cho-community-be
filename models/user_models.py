@@ -321,6 +321,27 @@ async def update_password(user_id: int, new_password: str) -> User | None:
             return await get_user_by_id(user_id)
 
 
+def _generate_anonymized_user_data() -> tuple[str, str]:
+    """익명화된 이메일과 닉네임을 생성합니다.
+
+    Returns:
+        (email, nickname) 튜플
+    """
+    import uuid
+    import time
+
+    unique_id = str(uuid.uuid4())
+    timestamp = int(time.time())
+
+    # 닉네임 길이 제한(20자) 등을 고려하여 짧게 생성
+    anonymized_nickname = f"deleted_{unique_id[:8]}"
+
+    # 이메일은 Unique 유지를 위해 충분히 길게
+    anonymized_email = f"deleted_{unique_id}_{timestamp}@deleted.user"
+
+    return anonymized_email, anonymized_nickname
+
+
 async def withdraw_user(user_id: int) -> User | None:
     """회원 탈퇴를 처리합니다.
 
@@ -334,18 +355,7 @@ async def withdraw_user(user_id: int) -> User | None:
     Returns:
         탈퇴 처리된 사용자 객체, 사용자가 없으면 None.
     """
-    import uuid
-    import time
-
-    unique_id = str(uuid.uuid4())
-    timestamp = int(time.time())
-
-    # 닉네임 길이 제한(20자) 등을 고려하여 짧게 생성
-    # 예: deleted_a1b2c3d4
-    anonymized_nickname = f"deleted_{unique_id[:8]}"
-
-    # 이메일은 Unique 유지를 위해 충분히 길게
-    anonymized_email = f"deleted_{unique_id}_{timestamp}@deleted.user"
+    anonymized_email, anonymized_nickname = _generate_anonymized_user_data()
 
     async with transactional() as cur:
         # 1. 연결 끊기: 게시글과 댓글의 author_id를 NULL로 설정
@@ -407,14 +417,7 @@ async def cleanup_deleted_user(user_id: int) -> User | None:
     Returns:
         정리된 사용자 객체, 사용자가 없으면 None.
     """
-    import uuid
-    import time
-
-    unique_id = str(uuid.uuid4())
-    timestamp = int(time.time())
-
-    anonymized_nickname = f"deleted_{unique_id[:8]}"
-    anonymized_email = f"deleted_{unique_id}_{timestamp}@deleted.user"
+    anonymized_email, anonymized_nickname = _generate_anonymized_user_data()
 
     async with transactional() as cur:
         # 1. 좀비 사용자의 연결 끊기
