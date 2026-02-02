@@ -60,65 +60,6 @@ def _row_to_post(row: tuple) -> Post:
 # ============ 게시글 관련 함수 ============
 
 
-async def get_posts(page: int = 0, limit: int = 10) -> list[Post]:
-    """게시글 목록을 조회합니다.
-
-    삭제되지 않은 게시글을 최신순으로 정렬하여 페이지네이션을 적용합니다.
-
-    Args:
-        page: 페이지 번호 (0부터 시작).
-        limit: 페이지당 게시글 수 (기본 10개).
-
-    Returns:
-        게시글 목록.
-    """
-    offset = page * limit
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
-                SELECT id, title, content, image_url, author_id, views,
-                       created_at, updated_at, deleted_at
-                FROM post
-                WHERE deleted_at IS NULL
-                ORDER BY created_at DESC, id DESC
-                LIMIT %s OFFSET %s
-                """,
-                (limit, offset),
-            )
-            rows = await cur.fetchall()
-            return [_row_to_post(row) for row in rows]
-
-
-async def get_posts_by_offset(offset: int = 0, limit: int = 10) -> list[Post]:
-    """offset 기반으로 게시글 목록을 조회합니다.
-
-    삭제되지 않은 게시글을 최신순으로 정렬하여 offset 기반 페이지네이션을 적용합니다.
-
-    Args:
-        offset: 시작 위치 (0부터 시작).
-        limit: 조회할 게시글 수 (기본 10개).
-
-    Returns:
-        게시글 목록.
-    """
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
-                SELECT id, title, content, image_url, author_id, views,
-                       created_at, updated_at, deleted_at
-                FROM post
-                WHERE deleted_at IS NULL
-                ORDER BY created_at DESC, id DESC
-                LIMIT %s OFFSET %s
-                """,
-                (limit, offset),
-            )
-            rows = await cur.fetchall()
-            return [_row_to_post(row) for row in rows]
-
-
 async def get_total_posts_count() -> int:
     """삭제되지 않은 게시글의 총 개수를 반환합니다.
 
@@ -425,5 +366,5 @@ async def get_post_with_details(post_id: int) -> dict | None:
 
 
 # get_comments_with_author는 comment_models.py에서 정의됨 (상단 import 참조)
-# 하위 호환성을 위해 재내보내기
+# 하위 호환성을 위해 다시 내보내기
 __all__ = ["Post", "get_comments_with_author"]
