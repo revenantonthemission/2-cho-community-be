@@ -286,6 +286,12 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
 
 ## changelog
 
+- 2026-02-04 (5차) - 아키텍처 리팩토링
+  - Service Layer(서비스 계층) 도입
+    - `services/post_service.py` 생성: 게시글 관련 비즈니스 로직 분리
+    - `PostController` 리팩토링: HTTP 요청/응답 처리만 담당 (Thin Controller)
+  - 코드 유지보수성 및 테스트 용이성 향상
+
 - 2026-02-04 (4차) - 테스트 인프라
   - 단위 테스트 도입
     - `tests/test_rate_limiter.py`: Rate Limiter 로직 검증
