@@ -45,9 +45,9 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
                                   ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                      FastAPI Backend (Port 8000)                │
-│  ┌──────────┐  ┌────────────┐  ┌──────────┐  ┌──────────────┐  │
-│  │ Routers  │→ │Controllers │→ │  Models  │→ │ aiomysql Pool│  │
-│  └──────────┘  └────────────┘  └──────────┘  └──────────────┘  │
+│  ┌──────────┐  ┌────────────┐  ┌──────────┐  ┌──────────────┐   │
+│  │ Routers  │→ │Controllers │→ │  Models  │→ │ aiomysql Pool│   │
+│  └──────────┘  └────────────┘  └──────────┘  └──────────────┘   │
 │                                                                 │
 │  Middleware: CORS → Session → Logging → Timing                  │
 └─────────────────────────────────┬───────────────────────────────┘
@@ -55,7 +55,7 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
                                   ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                        MySQL Database                           │
-│   Tables: user, user_session, post, comment, post_like, image   │
+│   Tables: user, user_session, post, comment, post_like          │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -298,6 +298,10 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
   - 코드 정리
     - 테스트 헬퍼 `clear_all_data()`를 `post_models.py`에서 `tests/conftest.py`로 이동
     - `post_controller.py`의 미사용 `import datetime` 제거
+    - `database/schema.sql`의 미사용 `image` 테이블 스키마 제거
+  - 구조 개선
+    - `auth_controller`와 `user_models` 간의 순환 참조 의존성 제거 (session import 분리)
+    - `user_controller` 로깅 표준화 (`traceback` 제거 → `logger.exception` 적용)
 
 - 2026-02-04 (1차)
   - 코드 중복 제거

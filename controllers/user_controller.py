@@ -18,7 +18,6 @@ from utils.password import hash_password, verify_password
 from utils.file_utils import save_upload_file
 from pymysql.err import IntegrityError
 from core.config import settings
-import traceback
 import logging
 
 # 프로필 이미지 저장 경로 (설정에서 로드)
@@ -153,13 +152,15 @@ async def create_user(
                 },
             )
         else:
-            logger.error(f"Unhandled IntegrityError: {e}\n{traceback.format_exc()}")
+            logger.exception(f"Unhandled IntegrityError: {e}")
             raise e
     except Exception as e:
-        logger.error(f"Unexpected error in create_user: {e}\n{traceback.format_exc()}")
+        logger.exception(f"Unexpected error in create_user: {e}")
         raise e
 
-    return create_response("SIGNUP_SUCCESS", "사용자 생성에 성공했습니다.", timestamp=timestamp)
+    return create_response(
+        "SIGNUP_SUCCESS", "사용자 생성에 성공했습니다.", timestamp=timestamp
+    )
 
 
 async def get_my_info(current_user: User, request: Request) -> dict:
@@ -319,7 +320,9 @@ async def change_password(
     hashed_new_password = hash_password(password_data.new_password)
     await user_models.update_password(current_user.id, hashed_new_password)
 
-    return create_response("PASSWORD_CHANGE_SUCCESS", "비밀번호 변경에 성공했습니다.", timestamp=timestamp)
+    return create_response(
+        "PASSWORD_CHANGE_SUCCESS", "비밀번호 변경에 성공했습니다.", timestamp=timestamp
+    )
 
 
 async def withdraw_user(
@@ -368,7 +371,9 @@ async def withdraw_user(
     # 세션 초기화 (로그아웃)
     request.session.clear()
 
-    return create_response("WITHDRAWAL_ACCEPTED", "탈퇴 신청이 접수되었습니다.", timestamp=timestamp)
+    return create_response(
+        "WITHDRAWAL_ACCEPTED", "탈퇴 신청이 접수되었습니다.", timestamp=timestamp
+    )
 
 
 async def upload_profile_image(

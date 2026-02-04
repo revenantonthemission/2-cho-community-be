@@ -5,7 +5,7 @@
 
 import uuid
 from fastapi import HTTPException, Request, status
-from models import user_models
+from models import user_models, session_models
 from models.user_models import User
 from schemas.auth_schemas import LoginRequest
 from schemas.common import create_response, serialize_user
@@ -60,8 +60,10 @@ async def login(credentials: LoginRequest, request: Request) -> dict:
     from datetime import datetime, timedelta, timezone
 
     # 설정에서 만료 시간 로드
-    expires_at = datetime.now(timezone.utc) + timedelta(hours=settings.SESSION_EXPIRE_HOURS)
-    await user_models.create_session(user.id, session_id, expires_at)
+    expires_at = datetime.now(timezone.utc) + timedelta(
+        hours=settings.SESSION_EXPIRE_HOURS
+    )
+    await session_models.create_session(user.id, session_id, expires_at)
 
     return create_response(
         "LOGIN_SUCCESS",
@@ -86,11 +88,13 @@ async def logout(current_user: User, request: Request) -> dict:
     # DB 세션 삭제
     session_id = request.session.get("session_id")
     if session_id:
-        await user_models.delete_session(session_id)
+        await session_models.delete_session(session_id)
 
     request.session.clear()
 
-    return create_response("LOGOUT_SUCCESS", "로그아웃에 성공했습니다.", timestamp=timestamp)
+    return create_response(
+        "LOGOUT_SUCCESS", "로그아웃에 성공했습니다.", timestamp=timestamp
+    )
 
 
 async def get_my_info(current_user: User, request: Request) -> dict:

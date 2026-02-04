@@ -48,7 +48,9 @@ class User:
 
 
 # 공통으로 사용되는 SELECT 필드
-USER_SELECT_FIELDS = "id, email, nickname, password, profile_img, created_at, updated_at, deleted_at"
+USER_SELECT_FIELDS = (
+    "id, email, nickname, password, profile_img, created_at, updated_at, deleted_at"
+)
 
 
 def _row_to_user(row: tuple) -> User:
@@ -419,9 +421,7 @@ async def withdraw_user(user_id: int) -> User | None:
         탈퇴 처리된 사용자 객체, 사용자가 없으면 None.
     """
     async with transactional() as cur:
-        return await _disconnect_and_anonymize_user(
-            cur, user_id, set_deleted_at=True
-        )
+        return await _disconnect_and_anonymize_user(cur, user_id, set_deleted_at=True)
 
 
 async def cleanup_deleted_user(user_id: int) -> User | None:
@@ -434,26 +434,11 @@ async def cleanup_deleted_user(user_id: int) -> User | None:
         정리된 사용자 객체, 사용자가 없으면 None.
     """
     async with transactional() as cur:
-        return await _disconnect_and_anonymize_user(
-            cur, user_id, set_deleted_at=False
-        )
+        return await _disconnect_and_anonymize_user(cur, user_id, set_deleted_at=False)
 
-
-# 세션 관련 함수는 session_models.py에서 정의됨
-# 하위 호환성을 위해 다시 내보내기
-from models.session_models import (  # noqa: E402
-    create_session,
-    get_session,
-    delete_session,
-    delete_user_sessions,
-)
 
 __all__ = [
     "User",
-    "create_session",
-    "get_session",
-    "delete_session",
-    "delete_user_sessions",
 ]
 
 
