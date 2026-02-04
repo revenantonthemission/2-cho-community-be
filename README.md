@@ -286,6 +286,15 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
 
 ## changelog
 
+- 2026-02-04 (4차) - 테스트 인프라
+  - 단위 테스트 도입
+    - `tests/test_rate_limiter.py`: Rate Limiter 로직 검증
+    - `tests/test_auth_controller.py`: Auth Controller 로직 검증 (Mock 활용)
+  - 커버리지 측정 설정
+    - `pytest-cov` 추가 및 `pytest.ini` 설정 (목표 50%, 달성 74%)
+  - 테스트 안정성 개선 (Test Isolation)
+    - `conftest.py`의 `clear_all_data`에 `TRUNCATE user_session`, `user` 추가
+
 - 2026-02-04 (3차) - 보안 강화
   - Rate Limiter 미들웨어 추가 (`middleware/rate_limiter.py`)
     - IP 기반 요청 속도 제한 (브루트포스 방지)

@@ -21,6 +21,8 @@ async def clear_all_data() -> None:
             await cur.execute("TRUNCATE TABLE post_like")
             await cur.execute("TRUNCATE TABLE comment")
             await cur.execute("TRUNCATE TABLE post")
+            await cur.execute("TRUNCATE TABLE user_session")
+            await cur.execute("TRUNCATE TABLE user")
             await cur.execute("SET FOREIGN_KEY_CHECKS = 1")
 
 
