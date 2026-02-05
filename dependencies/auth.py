@@ -5,7 +5,7 @@
 
 from datetime import datetime, timezone
 from fastapi import HTTPException, Request, status
-from models import user_models
+from models import user_models, session_models
 from models.user_models import User
 
 
@@ -39,7 +39,7 @@ async def _validate_session(request: Request) -> User | None:
     if expires_at.tzinfo is None:
         expires_at = expires_at.replace(tzinfo=timezone.utc)
     if expires_at < now:
-        await user_models.delete_session(session_id)
+        await session_models.delete_session(session_id)
         request.session.clear()
         return None
 
