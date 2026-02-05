@@ -334,7 +334,7 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
     - `tests/test_rate_limiter.py`: Rate Limiter 로직 검증
     - `tests/test_auth_controller.py`: Auth Controller 로직 검증 (Mock 활용)
   - 커버리지 측정 설정
-    - `pytest-cov` 추가 및 `pytest.ini` 설정 (목표 50%, 달성 74%)
+    - `pytest-cov` 추가 및 `pytest.ini` 설정 (목표 80%, 달성 85%)
   - 테스트 안정성 개선 (Test Isolation)
     - `conftest.py`의 `clear_all_data`에 `TRUNCATE user_session`, `user` 추가
 
