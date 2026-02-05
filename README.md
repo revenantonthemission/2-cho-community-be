@@ -319,6 +319,10 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
 
 ## changelog
 
+- 2026-02-05 (6차) - 코드 리팩토링
+  - `services/user_service.py` 생성: 사용자 관련 비즈니스 로직 분리
+  - `controllers/user_controller.py` 리팩토링: HTTP 요청/응답 처리만 담당하도록 변경
+
 - 2026-02-04 (5차) - 아키텍처 리팩토링
   - Service Layer(서비스 계층) 도입
     - `services/post_service.py` 생성: 게시글 관련 비즈니스 로직 분리
