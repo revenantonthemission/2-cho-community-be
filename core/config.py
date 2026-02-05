@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     IMAGE_UPLOAD_DIR: str = "assets/posts"
     PROFILE_IMAGE_UPLOAD_DIR: str = "assets/profiles"
 
+    # Rate Limiting Settings
+    RATE_LIMIT_MAX_IPS: int = 10000  # 메모리 보호를 위한 최대 추적 IP 수
+    TRUSTED_PROXIES: set[str] = set()  # 신뢰할 수 있는 프록시 IP (프로덕션에서 설정)
+
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )

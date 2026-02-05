@@ -1,9 +1,14 @@
-"""comment_models: 댓글 관련 데이터 모델 및 함수 모듈."""
+"""comment_models: 댓글 관련 데이터 모델 및 함수 모듈.
+
+주요 개선사항:
+- create_comment 함수에 명시적 트랜잭션 적용
+- INSERT와 SELECT을 원자적으로 처리
+"""
 
 from dataclasses import dataclass
 from datetime import datetime
 
-from database.connection import get_connection
+from database.connection import get_connection, transactional
 from schemas.common import build_author_dict
 
 
@@ -122,6 +127,8 @@ async def get_comment_by_id(comment_id: int) -> Comment | None:
 async def create_comment(post_id: int, author_id: int, content: str) -> Comment:
     """새 댓글을 생성합니다.
 
+    트랜잭션을 사용하여 INSERT와 SELECT을 원자적으로 처리합니다.
+
     Args:
         post_id: 게시글 ID.
         author_id: 작성자 ID.
@@ -129,28 +136,39 @@ async def create_comment(post_id: int, author_id: int, content: str) -> Comment:
 
     Returns:
         생성된 댓글 객체.
-    """
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
-                INSERT INTO comment (content, author_id, post_id)
-                VALUES (%s, %s, %s)
-                """,
-                (content, author_id, post_id),
-            )
-            comment_id = cur.lastrowid
 
-            await cur.execute(
-                """
-                SELECT id, content, author_id, post_id, created_at, updated_at, deleted_at
-                FROM comment
-                WHERE id = %s
-                """,
-                (comment_id,),
+    Raises:
+        RuntimeError: 삽입 직후 조회 실패 시 (발생하지 않아야 함).
+    """
+    async with transactional() as cur:
+        await cur.execute(
+            """
+            INSERT INTO comment (content, author_id, post_id)
+            VALUES (%s, %s, %s)
+            """,
+            (content, author_id, post_id),
+        )
+        comment_id = cur.lastrowid
+
+        # 같은 트랜잭션 내에서 조회
+        await cur.execute(
+            """
+            SELECT id, content, author_id, post_id, created_at, updated_at, deleted_at
+            FROM comment
+            WHERE id = %s
+            """,
+            (comment_id,),
+        )
+        row = await cur.fetchone()
+
+        # 삽입 직후 조회 실패는 발생하지 않아야 함
+        if not row:
+            raise RuntimeError(
+                f"댓글 삽입 직후 조회 실패: comment_id={comment_id}, "
+                f"post_id={post_id}, author_id={author_id}"
             )
-            row = await cur.fetchone()
-            return _row_to_comment(row)
+
+        return _row_to_comment(row)
 
 
 async def update_comment(comment_id: int, content: str) -> Comment | None:

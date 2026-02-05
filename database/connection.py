@@ -18,6 +18,10 @@ async def init_db() -> None:
     """데이터베이스 연결 풀을 초기화합니다.
 
     애플리케이션 시작 시 호출되어야 합니다.
+
+    트랜잭션 격리 수준:
+    - READ COMMITTED: Dirty Read 방지, REPEATABLE READ보다 가벼움
+    - 웹 애플리케이션에 적합한 수준
     """
     global _pool
     try:
@@ -29,12 +33,15 @@ async def init_db() -> None:
             db=settings.DB_NAME,
             charset="utf8mb4",
             autocommit=True,
-            minsize=1,
-            maxsize=10,
+            minsize=5,  # 최소 5개 연결 유지 (Cold Start 방지)
+            maxsize=50,  # 최대 50개 (트래픽에 따라 조정)
             connect_timeout=5,  # 5초 연결 타임아웃
+            # 트랜잭션 격리 수준 설정
+            init_command="SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED",
         )
         print(
-            f"MySQL 연결 풀 초기화 완료: {settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
+            f"MySQL 연결 풀 초기화 완료: {settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME} "
+            f"(격리 수준: READ COMMITTED, 풀 크기: 5-50)"
         )
     except Exception as e:
         print(f"MySQL 연결 풀 초기화 실패: {e}")
