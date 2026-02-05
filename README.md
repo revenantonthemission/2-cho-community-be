@@ -303,7 +303,7 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
 
 - **JWT vs Session**: JWT는 stateless하여 확장성이 좋으나, 로그아웃 시 토큰 무효화가 복잡함. 이 프로젝트는 단일 서버 환경이므로 세션 기반 인증이 더 단순하고 적합하다고 판단.
 - **ORM vs Raw SQL**: SQLAlchemy 등 ORM 사용을 고려했으나, 학습 목적으로 raw SQL을 직접 작성하여 쿼리 최적화 경험을 쌓기로 결정.
-- **SPA Framework**: React, Vue 등 프레임워크 대신 Vanilla JS를 선택. 프레임워크 학습 비용 없이 JavaScript 기본기를 다지는 것이 목표.
+- **Vanilla JS**: React, Vue 등 프레임워크 대신 Vanilla JS를 선택. 프레임워크 학습 비용 없이 JavaScript 기본기를 다지는 것이 목표.
 - **이미지 저장소**: S3 등 외부 스토리지 대신 로컬 파일시스템 사용. 프로젝트 규모상 충분하며, 인프라 비용 절감.
 - **Soft Delete**: 물리적 삭제 대신 `deleted_at` 컬럼 사용. 데이터 복구 가능성 확보 및 FK 무결성 유지.
 
@@ -319,17 +319,22 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
 
 ## changelog
 
-- 2026-02-05 (6차) - 코드 리팩토링
+- 2026-02-05: 코드 리팩토링
   - `services/user_service.py` 생성: 사용자 관련 비즈니스 로직 분리
   - `controllers/user_controller.py` 리팩토링: HTTP 요청/응답 처리만 담당하도록 변경
+  - 메모리 누수 방지 (LRU 메커니즘)
+  - IP 위조 방어 (프록시 검증, `ipaddress`)
+  - 트랜잭션 적용 (like, comment)
+  - DB 격리 수준 설정 (READ COMMITTED)
+  - 커넥션 풀 크기 증가 (5-50)
 
-- 2026-02-04 (5차) - 아키텍처 리팩토링
+- 2026-02-04: 아키텍처 리팩토링
   - Service Layer(서비스 계층) 도입
     - `services/post_service.py` 생성: 게시글 관련 비즈니스 로직 분리
     - `PostController` 리팩토링: HTTP 요청/응답 처리만 담당 (Thin Controller)
   - 코드 유지보수성 및 테스트 용이성 향상
 
-- 2026-02-04 (4차) - 테스트 인프라
+- 2026-02-04: 테스트 인프라
   - 단위 테스트 도입
     - `tests/test_rate_limiter.py`: Rate Limiter 로직 검증
     - `tests/test_auth_controller.py`: Auth Controller 로직 검증 (Mock 활용)
@@ -338,7 +343,7 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
   - 테스트 안정성 개선 (Test Isolation)
     - `conftest.py`의 `clear_all_data`에 `TRUNCATE user_session`, `user` 추가
 
-- 2026-02-04 (3차) - 보안 강화
+- 2026-02-04: 보안 강화
   - Rate Limiter 미들웨어 추가 (`middleware/rate_limiter.py`)
     - IP 기반 요청 속도 제한 (브루트포스 방지)
     - 로그인: 1분에 5회, 회원가입: 1분에 3회
@@ -351,7 +356,7 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
     - 에러 응답 헬퍼 함수 추가 (`utils/exceptions.py`)
     - `post_controller.py`에 에러 헬퍼 적용
 
-- 2026-02-04 (2차)
+- 2026-02-04
   - 버그 수정
     - `post_view_log` 테이블에 `UNIQUE KEY (user_id, post_id, view_date)` 누락으로 조회수가 매 방문마다 증가하던 버그 수정
     - `view_date` 컬럼을 VIRTUAL에서 STORED로 변경 (UNIQUE 인덱스 지원)
@@ -368,7 +373,7 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
     - `auth_controller`와 `user_models` 간의 순환 참조 의존성 제거 (session import 분리)
     - `user_controller` 로깅 표준화 (`traceback` 제거 → `logger.exception` 적용)
 
-- 2026-02-04 (1차)
+- 2026-02-04
   - 코드 중복 제거
     - `withdraw_user`/`cleanup_deleted_user` 공통 로직을 `_disconnect_and_anonymize_user`로 추출
     - 모든 컨트롤러의 응답 딕셔너리를 `create_response` 헬퍼로 통일
