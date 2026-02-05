@@ -33,7 +33,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-asyncio", "httpx", "ruff", "mypy"]
+dev = ["pytest", "pytest-asyncio", "pytest-cov", "httpx", "ruff", "mypy"]
 
 [tool.setuptools]
 packages = ["routers", "controllers", "schemas", "models", "dependencies", "middleware"]

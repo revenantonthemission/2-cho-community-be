@@ -38,6 +38,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     """전역 예외 처리 핸들러.
 
     모든 예외를 잡아서 일관된 형식의 500 에러 응답을 반환합니다.
+    프로덕션 환경(DEBUG=False)에서는 상세 에러 정보를 숨깁니다.
 
     Args:
         request: FastAPI Request 객체.
@@ -46,10 +47,12 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     Returns:
         500 에러 JSON 응답.
     """
+    from core.config import settings
+
     tracking_id = str(uuid.uuid4())
     timestamp = get_request_timestamp(request)
 
-    # 로깅
+    # 로깅 (항상 수행)
     logger.error(f"[{tracking_id}] Unhandled exception: {exc}")
 
     # 파일 로깅 (RotatingFileHandler 사용)
@@ -57,13 +60,20 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
         f"[{tracking_id}] Unhandled exception: {exc}\n{traceback.format_exc()}"
     )
 
+    # 프로덕션 환경에서는 상세 에러 숨김
+    content = {
+        "trackingID": tracking_id,
+        "error": "Internal Server Error",
+        "timestamp": timestamp,
+    }
+
+    # DEBUG 모드에서만 상세 정보 포함
+    if settings.DEBUG:
+        content["detail"] = str(exc)
+
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={
-            "trackingID": tracking_id,
-            "error": "Internal Server Error",
-            "timestamp": timestamp,
-        },
+        content=content,
     )
 
 

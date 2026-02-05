@@ -48,7 +48,9 @@ class User:
 
 
 # 공통으로 사용되는 SELECT 필드
-USER_SELECT_FIELDS = "id, email, nickname, password, profile_img, created_at, updated_at, deleted_at"
+USER_SELECT_FIELDS = (
+    "id, email, nickname, password, profile_img, created_at, updated_at, deleted_at"
+)
 
 
 def _row_to_user(row: tuple) -> User:
@@ -341,12 +343,76 @@ def _generate_anonymized_user_data() -> tuple[str, str]:
     return anonymized_email, anonymized_nickname
 
 
+async def _disconnect_and_anonymize_user(
+    cur, user_id: int, *, set_deleted_at: bool = False
+) -> User | None:
+    """사용자의 연결을 끊고 익명화하는 공통 로직.
+
+    게시글/댓글의 author_id를 NULL로 설정하고, 세션을 삭제하며,
+    이메일과 닉네임을 익명화합니다.
+
+    Args:
+        cur: 트랜잭션 커서.
+        user_id: 처리할 사용자의 ID.
+        set_deleted_at: True이면 deleted_at을 NOW()로 설정하고
+                        deleted_at IS NULL 조건으로 필터링합니다.
+
+    Returns:
+        처리된 사용자 객체, 사용자가 없으면 None.
+    """
+    anonymized_email, anonymized_nickname = _generate_anonymized_user_data()
+
+    # 1. 연결 끊기: 게시글과 댓글의 author_id를 NULL로 설정
+    await cur.execute(
+        "UPDATE post SET author_id = NULL WHERE author_id = %s",
+        (user_id,),
+    )
+    await cur.execute(
+        "UPDATE comment SET author_id = NULL WHERE author_id = %s",
+        (user_id,),
+    )
+
+    # 2. 세션 종료: 모든 활성 세션 삭제
+    await cur.execute(
+        "DELETE FROM user_session WHERE user_id = %s",
+        (user_id,),
+    )
+
+    # 3. 사용자 익명화
+    if set_deleted_at:
+        await cur.execute(
+            """
+            UPDATE user
+            SET deleted_at = NOW(), email = %s, nickname = %s
+            WHERE id = %s AND deleted_at IS NULL
+            """,
+            (anonymized_email, anonymized_nickname, user_id),
+        )
+    else:
+        await cur.execute(
+            """
+            UPDATE user
+            SET email = %s, nickname = %s
+            WHERE id = %s
+            """,
+            (anonymized_email, anonymized_nickname, user_id),
+        )
+
+    if cur.rowcount == 0:
+        return None
+
+    await cur.execute(
+        f"SELECT {USER_SELECT_FIELDS} FROM user WHERE id = %s",
+        (user_id,),
+    )
+    row = await cur.fetchone()
+    return _row_to_user(row) if row else None
+
+
 async def withdraw_user(user_id: int) -> User | None:
     """회원 탈퇴를 처리합니다.
 
     소프트 삭제를 수행하며, 재가입을 위해 이메일과 닉네임을 익명화합니다.
-    email -> deleted_{uuid}_{timestamp}
-    nickname -> deleted_{uuid_prefix}
 
     Args:
         user_id: 탈퇴할 사용자의 ID.
@@ -354,57 +420,8 @@ async def withdraw_user(user_id: int) -> User | None:
     Returns:
         탈퇴 처리된 사용자 객체, 사용자가 없으면 None.
     """
-    anonymized_email, anonymized_nickname = _generate_anonymized_user_data()
-
     async with transactional() as cur:
-        # 1. 연결 끊기: 게시글과 댓글의 author_id를 NULL로 설정
-        await cur.execute(
-            """
-            UPDATE post SET author_id = NULL WHERE author_id = %s
-            """,
-            (user_id,),
-        )
-        await cur.execute(
-            """
-            UPDATE comment SET author_id = NULL WHERE author_id = %s
-            """,
-            (user_id,),
-        )
-
-        # 2. 세션 종료: 모든 활성 세션 삭제
-        await cur.execute(
-            """
-            DELETE FROM user_session WHERE user_id = %s
-            """,
-            (user_id,),
-        )
-
-        # 3. 사용자 익명화 (소프트 삭제)
-        await cur.execute(
-            """
-            UPDATE user
-            SET deleted_at = NOW(),
-                email = %s,
-                nickname = %s
-            WHERE id = %s AND deleted_at IS NULL
-            """,
-            (anonymized_email, anonymized_nickname, user_id),
-        )
-
-        if cur.rowcount == 0:
-            return None
-
-        # 삭제된 사용자 조회 (deleted_at 포함)
-        await cur.execute(
-            f"""
-            SELECT {USER_SELECT_FIELDS}
-            FROM user
-            WHERE id = %s
-            """,
-            (user_id,),
-        )
-        row = await cur.fetchone()
-        return _row_to_user(row) if row else None
+        return await _disconnect_and_anonymize_user(cur, user_id, set_deleted_at=True)
 
 
 async def cleanup_deleted_user(user_id: int) -> User | None:
@@ -416,72 +433,12 @@ async def cleanup_deleted_user(user_id: int) -> User | None:
     Returns:
         정리된 사용자 객체, 사용자가 없으면 None.
     """
-    anonymized_email, anonymized_nickname = _generate_anonymized_user_data()
-
     async with transactional() as cur:
-        # 1. 좀비 사용자의 연결 끊기
-        await cur.execute(
-            """
-            UPDATE post SET author_id = NULL WHERE author_id = %s
-            """,
-            (user_id,),
-        )
-        await cur.execute(
-            """
-            UPDATE comment SET author_id = NULL WHERE author_id = %s
-            """,
-            (user_id,),
-        )
+        return await _disconnect_and_anonymize_user(cur, user_id, set_deleted_at=False)
 
-        # 2. 좀비 사용자의 세션 종료
-        await cur.execute(
-            """
-            DELETE FROM user_session WHERE user_id = %s
-            """,
-            (user_id,),
-        )
-
-        # 3. 사용자 익명화
-        await cur.execute(
-            """
-            UPDATE user
-            SET email = %s,
-            nickname = %s
-            WHERE id = %s
-            """,
-            (anonymized_email, anonymized_nickname, user_id),
-        )
-
-        if cur.rowcount == 0:
-            return None
-
-        await cur.execute(
-            f"""
-            SELECT {USER_SELECT_FIELDS}
-            FROM user
-            WHERE id = %s
-            """,
-            (user_id,),
-        )
-        row = await cur.fetchone()
-        return _row_to_user(row) if row else None
-
-
-# 세션 관련 함수는 session_models.py에서 정의됨
-# 하위 호환성을 위해 다시 내보내기
-from models.session_models import (  # noqa: E402
-    create_session,
-    get_session,
-    delete_session,
-    delete_user_sessions,
-)
 
 __all__ = [
     "User",
-    "create_session",
-    "get_session",
-    "delete_session",
-    "delete_user_sessions",
 ]
 
 

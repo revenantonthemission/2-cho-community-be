@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     # Auth Settings
     SESSION_EXPIRE_HOURS: int = 24
 
+    # Debug Mode (프로덕션에서는 False로 설정하여 상세 에러 숨김)
+    DEBUG: bool = True
+
     # File Upload Settings
     IMAGE_UPLOAD_DIR: str = "assets/posts"
     PROFILE_IMAGE_UPLOAD_DIR: str = "assets/profiles"

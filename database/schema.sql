@@ -74,10 +74,11 @@ CREATE TABLE post_view_log (
     user_id INT UNSIGNED NOT NULL,
     post_id INT UNSIGNED NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    view_date DATE GENERATED ALWAYS AS (DATE(created_at)) VIRTUAL,
-        FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE CASCADE,
-        FOREIGN KEY (post_id) REFERENCES post (id) ON DELETE CASCADE
-    );
+    view_date DATE GENERATED ALWAYS AS (DATE(created_at)) STORED,
+    UNIQUE KEY unique_daily_view (user_id, post_id, view_date),
+    FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE CASCADE,
+    FOREIGN KEY (post_id) REFERENCES post (id) ON DELETE CASCADE
+);
     
     -- 성능 최적화 인덱스
     -- 1. 인증/세션 (크리티컬)

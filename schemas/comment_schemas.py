@@ -6,6 +6,24 @@
 from pydantic import BaseModel, Field, field_validator
 
 
+def _validate_comment_content(v: str) -> str:
+    """댓글 내용을 검증하고 정규화합니다.
+
+    Args:
+        v: 입력된 내용.
+
+    Returns:
+        공백이 제거된 검증된 내용.
+
+    Raises:
+        ValueError: 내용이 1자 미만인 경우.
+    """
+    v = v.strip()
+    if len(v) < 1:
+        raise ValueError("댓글 내용은 최소 1자 이상이어야 합니다.")
+    return v
+
+
 class CreateCommentRequest(BaseModel):
     """댓글 생성 요청 모델.
 
@@ -18,21 +36,7 @@ class CreateCommentRequest(BaseModel):
     @field_validator("content")
     @classmethod
     def validate_content(cls, v: str) -> str:
-        """댓글 내용 형식을 검증합니다.
-
-        Args:
-            v: 입력된 내용.
-
-        Returns:
-            공백이 제거된 검증된 내용.
-
-        Raises:
-            ValueError: 내용이 1자 미만인 경우.
-        """
-        v = v.strip()
-        if len(v) < 1:
-            raise ValueError("댓글 내용은 최소 1자 이상이어야 합니다.")
-        return v
+        return _validate_comment_content(v)
 
 
 class UpdateCommentRequest(BaseModel):
@@ -47,18 +51,4 @@ class UpdateCommentRequest(BaseModel):
     @field_validator("content")
     @classmethod
     def validate_content(cls, v: str) -> str:
-        """댓글 내용 형식을 검증합니다.
-
-        Args:
-            v: 입력된 내용.
-
-        Returns:
-            공백이 제거된 검증된 내용.
-
-        Raises:
-            ValueError: 내용이 1자 미만인 경우.
-        """
-        v = v.strip()
-        if len(v) < 1:
-            raise ValueError("댓글 내용은 최소 1자 이상이어야 합니다.")
-        return v
+        return _validate_comment_content(v)

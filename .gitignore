@@ -120,9 +120,6 @@ server_error.log
 # Uploaded assets (user-generated content)
 assets/
 
-# Test configuration (if not needed in repo)
-pytest.ini
-
 # Local scripts
 scripts/
 

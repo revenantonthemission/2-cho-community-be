@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from database.connection import get_connection
+from schemas.common import build_author_dict
 
 
 @dataclass
@@ -227,20 +228,13 @@ async def get_comments_with_author(post_id: int) -> list[dict]:
             )
             rows = await cur.fetchall()
 
-            results = []
-            for row in rows:
-                results.append(
-                    {
-                        "comment_id": row[0],
-                        "content": row[1],
-                        "created_at": row[2],
-                        "updated_at": row[3],
-                        "author": {
-                            "user_id": row[4],
-                            "nickname": row[5] if row[5] else "탈퇴한 사용자",
-                            "profileImageUrl": row[6]
-                            or "/assets/profiles/default_profile.jpg",
-                        },
-                    }
-                )
-            return results
+            return [
+                {
+                    "comment_id": row[0],
+                    "content": row[1],
+                    "created_at": row[2],
+                    "updated_at": row[3],
+                    "author": build_author_dict(row[4], row[5], row[6]),
+                }
+                for row in rows
+            ]

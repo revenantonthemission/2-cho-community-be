@@ -23,7 +23,6 @@ from .post_models import (
     update_post,
     delete_post,
     increment_view_count,
-    clear_all_data,
     get_posts_with_details,
     get_post_with_details,
     get_comments_with_author,
@@ -85,7 +84,6 @@ __all__ = [
     "create_comment",
     "update_comment",
     "delete_comment",
-    "clear_all_data",
     # 최적화된 함수 (N+1 문제 해결)
     "get_posts_with_details",
     "get_post_with_details",

@@ -43,20 +43,20 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
                                   │ HTTP (JSON/FormData)
                                   │ credentials: include (Cookie)
                                   ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      FastAPI Backend (Port 8000)                │
-│  ┌──────────┐  ┌────────────┐  ┌──────────┐  ┌──────────────┐  │
-│  │ Routers  │→ │Controllers │→ │  Models  │→ │ aiomysql Pool│  │
-│  └──────────┘  └────────────┘  └──────────┘  └──────────────┘  │
-│                                                                 │
-│  Middleware: CORS → Session → Logging → Timing                  │
-└─────────────────────────────────┬───────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                      FastAPI Backend (Port 8000)                             │
+│  ┌──────────┐  ┌────────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────┐  │
+│  │ Routers  │→ │Controllers │→ │ Services │→ │  Models  │→ │ aiomysql Pool│  │
+│  └──────────┘  └────────────┘  └──────────┘  └──────────┘  └──────────────┘  │
+│                                                                              │
+│  Middleware: CORS → Session → Logging → Timing                               │
+└─────────────────────────────────┬────────────────────────────────────────────┘
                                   │ Async Connection Pool
                                   ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                        MySQL Database                           │
-│   Tables: user, user_session, post, comment, post_like, image   │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                        MySQL Database                                        │
+│   Tables: user, user_session, post, comment, post_like, image, post_view_log │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 2. 데이터베이스 설계
@@ -105,6 +105,34 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
 └──────────────────┘
 ```
 
+#### Image Table
+```text
+┌──────────────────┐
+│      image       │
+├──────────────────┤
+│ id (PK)          │
+│ image_url        │
+│ type (ENUM)      │
+│ uploader_id (FK) │
+│ uploaded_at      │
+└──────────────────┘
+```
+
+#### Post View Log Table (for Unique Views)
+```text
+┌──────────────────┐
+│  post_view_log   │
+├──────────────────┤
+│ id (PK)          │
+│ user_id (FK)     │
+│ post_id (FK)     │
+│ view_date        │
+│ created_at       │
+│ UNIQUE(user_id,  │
+│  post_id, date)  │
+└──────────────────┘
+```
+
 #### 주요 설계 결정
 
 - **Soft Delete**: `user`, `post`, `comment` 테이블에 `deleted_at` 컬럼 사용. 물리적 삭제 대신 논리적 삭제로 데이터 보존.
@@ -130,8 +158,10 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
 |--------|----------|------|------|
 | POST | `/v1/users` | 회원가입 | X |
 | GET | `/v1/users/{user_id}` | 사용자 프로필 조회 | X |
-| PATCH | `/v1/users/{user_id}` | 프로필 수정 | O |
-| DELETE | `/v1/users/{user_id}` | 회원 탈퇴 | O |
+| PATCH | `/v1/users/me` | 프로필 수정 (본인) | O |
+| DELETE | `/v1/users/me` | 회원 탈퇴 (본인) | O |
+| PUT | `/v1/users/me/password` | 비밀번호 변경 | O |
+| POST | `/v1/users/profile/image` | 프로필 이미지 업로드 | O |
 
 #### 게시글 API (`/v1/posts`)
 
@@ -146,7 +176,10 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
 | DELETE | `/v1/posts/{post_id}/likes` | 좋아요 취소 | O |
 | POST | `/v1/posts/{post_id}/comments` | 댓글 작성 | O |
 | PUT | `/v1/posts/{post_id}/comments/{comment_id}` | 댓글 수정 | O (작성자) |
+| POST | `/v1/posts/{post_id}/comments` | 댓글 작성 | O |
+| PUT | `/v1/posts/{post_id}/comments/{comment_id}` | 댓글 수정 | O (작성자) |
 | DELETE | `/v1/posts/{post_id}/comments/{comment_id}` | 댓글 삭제 | O (작성자) |
+| POST | `/v1/posts/image` | 게시글 이미지 업로드 | O |
 
 #### 응답 형식
 
@@ -285,6 +318,65 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
 | 5단계 | 5주차 | 문서화, 코드 리뷰, 최종 배포 |
 
 ## changelog
+
+- 2026-02-05 (6차) - 코드 리팩토링
+  - `services/user_service.py` 생성: 사용자 관련 비즈니스 로직 분리
+  - `controllers/user_controller.py` 리팩토링: HTTP 요청/응답 처리만 담당하도록 변경
+
+- 2026-02-04 (5차) - 아키텍처 리팩토링
+  - Service Layer(서비스 계층) 도입
+    - `services/post_service.py` 생성: 게시글 관련 비즈니스 로직 분리
+    - `PostController` 리팩토링: HTTP 요청/응답 처리만 담당 (Thin Controller)
+  - 코드 유지보수성 및 테스트 용이성 향상
+
+- 2026-02-04 (4차) - 테스트 인프라
+  - 단위 테스트 도입
+    - `tests/test_rate_limiter.py`: Rate Limiter 로직 검증
+    - `tests/test_auth_controller.py`: Auth Controller 로직 검증 (Mock 활용)
+  - 커버리지 측정 설정
+    - `pytest-cov` 추가 및 `pytest.ini` 설정 (목표 80%, 달성 85%)
+  - 테스트 안정성 개선 (Test Isolation)
+    - `conftest.py`의 `clear_all_data`에 `TRUNCATE user_session`, `user` 추가
+
+- 2026-02-04 (3차) - 보안 강화
+  - Rate Limiter 미들웨어 추가 (`middleware/rate_limiter.py`)
+    - IP 기반 요청 속도 제한 (브루트포스 방지)
+    - 로그인: 1분에 5회, 회원가입: 1분에 3회
+    - 엔드포인트별 설정 가능
+  - 프로덕션 에러 마스킹 (`DEBUG` 설정 추가)
+    - `DEBUG=False`일 때 상세 에러 정보 숨김
+    - 트래킹 ID는 항상 포함하여 로그 추적 가능
+  - 코드 리팩토링
+    - 닉네임 검증 로직을 `_NICKNAME_PATTERN` 상수로 추출
+    - 에러 응답 헬퍼 함수 추가 (`utils/exceptions.py`)
+    - `post_controller.py`에 에러 헬퍼 적용
+
+- 2026-02-04 (2차)
+  - 버그 수정
+    - `post_view_log` 테이블에 `UNIQUE KEY (user_id, post_id, view_date)` 누락으로 조회수가 매 방문마다 증가하던 버그 수정
+    - `view_date` 컬럼을 VIRTUAL에서 STORED로 변경 (UNIQUE 인덱스 지원)
+  - 코드 중복 제거
+    - 댓글 스키마 검증 로직을 `_validate_comment_content()` 공통 함수로 추출
+    - 비밀번호 검증 로직을 `_validate_password()` + `_PASSWORD_PATTERN` 상수로 추출
+    - `_build_author_dict`를 `schemas/common.py`의 `build_author_dict`로 이동, `comment_models.py`에서도 공유
+    - 기본 프로필 이미지 경로를 `DEFAULT_PROFILE_IMAGE` 상수로 통합
+  - 코드 정리
+    - 테스트 헬퍼 `clear_all_data()`를 `post_models.py`에서 `tests/conftest.py`로 이동
+    - `post_controller.py`의 미사용 `import datetime` 제거
+    - `database/schema.sql`의 미사용 `image` 테이블 스키마 제거
+  - 구조 개선
+    - `auth_controller`와 `user_models` 간의 순환 참조 의존성 제거 (session import 분리)
+    - `user_controller` 로깅 표준화 (`traceback` 제거 → `logger.exception` 적용)
+
+- 2026-02-04 (1차)
+  - 코드 중복 제거
+    - `withdraw_user`/`cleanup_deleted_user` 공통 로직을 `_disconnect_and_anonymize_user`로 추출
+    - 모든 컨트롤러의 응답 딕셔너리를 `create_response` 헬퍼로 통일
+    - 사용자 직렬화 로직을 `serialize_user` 헬퍼로 추출
+    - `post_models.py`의 author 딕셔너리 구성을 `_build_author_dict`로 추출
+  - 버그 수정
+    - `get_optional_user`에서 만료된 세션을 DB에서 삭제하지 않던 문제 수정
+    - `get_optional_user`에서 탈퇴한 사용자의 세션을 clear하지 않던 문제 수정
 
 - 2026-02-02: 코드 리뷰 & 문서화
   - `bcrypt` 의존성 추가

@@ -3,6 +3,7 @@
 from fastapi import HTTPException, Request, status
 from models import post_models, like_models
 from models.user_models import User
+from schemas.common import create_response
 from dependencies.request_context import get_request_timestamp
 
 
@@ -48,15 +49,12 @@ async def like_post(
             },
         )
 
-    return {
-        "code": "LIKE_ADDED",
-        "message": "좋아요가 추가되었습니다.",
-        "data": {
-            "likes_count": await like_models.get_post_likes_count(post_id),
-        },
-        "errors": [],
-        "timestamp": timestamp,
-    }
+    return create_response(
+        "LIKE_ADDED",
+        "좋아요가 추가되었습니다.",
+        data={"likes_count": await like_models.get_post_likes_count(post_id)},
+        timestamp=timestamp,
+    )
 
 
 async def unlike_post(
@@ -101,12 +99,9 @@ async def unlike_post(
             },
         )
 
-    return {
-        "code": "LIKE_REMOVED",
-        "message": "좋아요가 취소되었습니다.",
-        "data": {
-            "likes_count": await like_models.get_post_likes_count(post_id),
-        },
-        "errors": [],
-        "timestamp": timestamp,
-    }
+    return create_response(
+        "LIKE_REMOVED",
+        "좋아요가 취소되었습니다.",
+        data={"likes_count": await like_models.get_post_likes_count(post_id)},
+        timestamp=timestamp,
+    )

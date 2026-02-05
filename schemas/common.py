@@ -68,3 +68,43 @@ class UserData(BaseModel):
     email: str
     nickname: str
     profileImageUrl: str
+
+
+DEFAULT_PROFILE_IMAGE = "/assets/profiles/default_profile.jpg"
+
+
+def build_author_dict(user_id, nickname, profile_img) -> dict[str, Any]:
+    """작성자 정보 딕셔너리를 생성합니다.
+
+    탈퇴한 사용자인 경우 기본값으로 대체합니다.
+
+    Args:
+        user_id: 사용자 ID (탈퇴 시 None).
+        nickname: 닉네임 (탈퇴 시 None).
+        profile_img: 프로필 이미지 URL (없으면 기본 이미지).
+
+    Returns:
+        작성자 정보 딕셔너리.
+    """
+    return {
+        "user_id": user_id,
+        "nickname": nickname if nickname else "탈퇴한 사용자",
+        "profileImageUrl": profile_img or DEFAULT_PROFILE_IMAGE,
+    }
+
+
+def serialize_user(user) -> dict[str, Any]:
+    """User 객체를 API 응답용 딕셔너리로 변환합니다.
+
+    Args:
+        user: User 데이터 객체 (id, email, nickname, profileImageUrl 속성 필요).
+
+    Returns:
+        사용자 정보 딕셔너리.
+    """
+    return {
+        "user_id": user.id,
+        "email": user.email,
+        "nickname": user.nickname,
+        "profileImageUrl": user.profileImageUrl,
+    }

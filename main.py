@@ -11,7 +11,7 @@ from routers.auth_router import auth_router
 from routers.user_router import user_router
 from routers.post_router import post_router
 from routers.terms_router import terms_router
-from middleware import TimingMiddleware, LoggingMiddleware
+from middleware import TimingMiddleware, LoggingMiddleware, RateLimitMiddleware
 from middleware.exception_handler import (
     global_exception_handler,
     request_validation_exception_handler,
@@ -53,6 +53,9 @@ app.add_middleware(TimingMiddleware)
 
 # LoggingMiddleware: 요청/응답을 로깅
 app.add_middleware(LoggingMiddleware)
+
+# RateLimitMiddleware: API 요청 속도 제한 (브루트포스 방지)
+app.add_middleware(RateLimitMiddleware)
 
 # SessionMiddleware: 모든 요청과 응답에서 세션을 처리
 # 프로젝트 루트에 .env 파일이 있어야 하고 그 안에 SECRET_KEY="..."가 있어야 함

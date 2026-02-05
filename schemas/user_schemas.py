@@ -6,6 +6,36 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator
 import re
 
+_PASSWORD_PATTERN = re.compile(
+    r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,20}$"
+)
+_PASSWORD_ERROR = (
+    "비밀번호는 대문자, 소문자, 숫자, 특수문자(@, $, !, %, *, ?, &)를 "
+    "포함하여 8자 이상 20자 이하여야 합니다."
+)
+
+_NICKNAME_PATTERN = re.compile(r"^[a-zA-Z0-9_]{3,10}$")
+_NICKNAME_ERROR = (
+    "닉네임은 3자 이상 10자 이하의 영문, 숫자, 언더바로 구성하여야 합니다."
+)
+
+
+def _validate_password(v: str) -> str:
+    """비밀번호 형식을 검증합니다.
+
+    Args:
+        v: 입력된 비밀번호.
+
+    Returns:
+        검증된 비밀번호.
+
+    Raises:
+        ValueError: 비밀번호 형식이 올바르지 않은 경우.
+    """
+    if not _PASSWORD_PATTERN.match(v):
+        raise ValueError(_PASSWORD_ERROR)
+    return v
+
 
 class CreateUserRequest(BaseModel):
     """사용자 등록 요청 모델.
@@ -25,46 +55,14 @@ class CreateUserRequest(BaseModel):
     @field_validator("password")
     @classmethod
     def validate_password(cls, v: str) -> str:
-        """비밀번호 형식을 검증합니다.
-        비밀번호는 대문자, 소문자, 숫자, 특수문자(@, $, !, %, *, ?, &)를 포함하여 8자 이상 20자 이하여야 합니다.
-
-        Args:
-            v: 입력된 비밀번호.
-
-        Returns:
-            검증된 비밀번호.
-
-        Raises:
-            ValueError: 비밀번호 형식이 올바르지 않은 경우.
-        """
-        pattern = (
-            r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,20}$"
-        )
-        if not re.match(pattern, v):
-            raise ValueError(
-                "비밀번호는 대문자, 소문자, 숫자, 특수문자(@, $, !, %, *, ?, &)를 포함하여 8자 이상 20자 이하여야 합니다."
-            )
-        return v
+        return _validate_password(v)
 
     @field_validator("nickname")
     @classmethod
     def validate_nickname(cls, v: str) -> str:
-        """닉네임 형식을 검증합니다.
-        닉네임은 3자 이상 20자 이하의 영문, 숫자, 언더바로 구성하여야 합니다.
-
-        Args:
-            v: 입력된 닉네임.
-
-        Returns:
-            검증된 닉네임.
-
-        Raises:
-            ValueError: 닉네임 형식이 올바르지 않은 경우.
-        """
-        if not re.match(r"^[a-zA-Z0-9_]{3,10}$", v):
-            raise ValueError(
-                "닉네임은 3자 이상 10자 이하의 영문, 숫자, 언더바로 구성하여야 합니다."
-            )
+        """닉네임 형식을 검증합니다."""
+        if not _NICKNAME_PATTERN.match(v):
+            raise ValueError(_NICKNAME_ERROR)
         return v
 
     @field_validator("profileImageUrl")
@@ -103,24 +101,11 @@ class UpdateUserRequest(BaseModel):
     @field_validator("nickname")
     @classmethod
     def validate_nickname(cls, v: str | None) -> str | None:
-        """닉네임 형식을 검증합니다.
-        닉네임은 3자 이상 10자 이하의 영문, 숫자, 언더바로 구성하여야 합니다.
-
-        Args:
-            v: 입력된 닉네임.
-
-        Returns:
-            검증된 닉네임 또는 None.
-
-        Raises:
-            ValueError: 닉네임 형식이 올바르지 않은 경우.
-        """
+        """닉네임 형식을 검증합니다."""
         if v is None:
             return None
-        if not re.match(r"^[a-zA-Z0-9_]{3,10}$", v):
-            raise ValueError(
-                "닉네임은 3자 이상 10자 이하의 영문, 숫자, 언더바로 구성하여야 합니다."
-            )
+        if not _NICKNAME_PATTERN.match(v):
+            raise ValueError(_NICKNAME_ERROR)
         return v
 
     @field_validator("profileImageUrl")
@@ -156,26 +141,7 @@ class ChangePasswordRequest(BaseModel):
     @field_validator("new_password")
     @classmethod
     def validate_new_password(cls, v: str) -> str:
-        """새 비밀번호 형식을 검증합니다.
-        비밀번호는 대문자, 소문자, 숫자, 특수문자(@, $, !, %, *, ?, &)를 포함하여 8자 이상 20자 이하여야 합니다.
-
-        Args:
-            v: 입력된 새 비밀번호.
-
-        Returns:
-            검증된 새 비밀번호.
-
-        Raises:
-            ValueError: 비밀번호 형식이 올바르지 않은 경우.
-        """
-        pattern = (
-            r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,20}$"
-        )
-        if not re.match(pattern, v):
-            raise ValueError(
-                "비밀번호는 대문자, 소문자, 숫자, 특수문자(@, $, !, %, *, ?, &)를 포함하여 8자 이상 20자 이하여야 합니다."
-            )
-        return v
+        return _validate_password(v)
 
 
 class WithdrawRequest(BaseModel):

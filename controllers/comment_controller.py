@@ -4,6 +4,7 @@ from fastapi import HTTPException, Request, status
 from models import post_models, comment_models
 from models.user_models import User
 from schemas.comment_schemas import CreateCommentRequest, UpdateCommentRequest
+from schemas.common import create_response
 from dependencies.request_context import get_request_timestamp
 from utils.formatters import format_datetime
 
@@ -107,17 +108,16 @@ async def create_comment(
         content=comment_data.content,
     )
 
-    return {
-        "code": "COMMENT_CREATED",
-        "message": "댓글이 생성되었습니다.",
-        "data": {
+    return create_response(
+        "COMMENT_CREATED",
+        "댓글이 생성되었습니다.",
+        data={
             "comment_id": comment.id,
             "content": comment.content,
             "created_at": format_datetime(comment.created_at),
         },
-        "errors": [],
-        "timestamp": timestamp,
-    }
+        timestamp=timestamp,
+    )
 
 
 async def update_comment(
@@ -151,17 +151,16 @@ async def update_comment(
         comment_id, comment_data.content
     )
 
-    return {
-        "code": "COMMENT_UPDATED",
-        "message": "댓글이 수정되었습니다.",
-        "data": {
+    return create_response(
+        "COMMENT_UPDATED",
+        "댓글이 수정되었습니다.",
+        data={
             "comment_id": updated_comment.id,
             "content": updated_comment.content,
             "updated_at": format_datetime(updated_comment.updated_at),
         },
-        "errors": [],
-        "timestamp": timestamp,
-    }
+        timestamp=timestamp,
+    )
 
 
 async def delete_comment(
@@ -191,10 +190,4 @@ async def delete_comment(
 
     await comment_models.delete_comment(comment_id)
 
-    return {
-        "code": "COMMENT_DELETED",
-        "message": "댓글이 삭제되었습니다.",
-        "data": {},
-        "errors": [],
-        "timestamp": timestamp,
-    }
+    return create_response("COMMENT_DELETED", "댓글이 삭제되었습니다.", timestamp=timestamp)
