@@ -139,99 +139,16 @@ async def test_update_comment_race_condition(db, test_comment):
 
 
 # ==========================================
-# Critical Issue #2: update_user
+# NOTE: 이전에 문서화된 경쟁 상태 이슈들은 수정 완료
 # ==========================================
-
-
-@pytest.mark.asyncio
-async def test_update_user_race_condition(db, test_user):
-    """FAIL: update_user가 UPDATE와 SELECT을 별도 트랜잭션으로 실행.
-
-    현재 구현:
-    1. async with get_connection() as conn:  # autocommit
-    2.     UPDATE user (성공)
-    3. await get_user_by_id()  # 별도 연결!
-
-    TODO: 사용자가 직접 구현
-    - 위의 test_update_comment_race_condition 패턴을 참고하여
-    - user_models.update_user()의 경쟁 상태를 테스트하는 코드 작성
-
-    힌트:
-    1. test_user fixture를 사용하여 사용자 ID 획득
-    2. update_task: user_models.update_user(user_id, nickname="New Nickname")
-    3. delete_task: user_models.delete_user(user_id)
-    4. asyncio.gather()로 병렬 실행
-    5. update_result가 None이 아니라면 nickname 검증
-    """
-    # TODO: 여기에 테스트 코드 작성
-    pass  # 이 줄을 삭제하고 위 로직 구현
-
-
-# ==========================================
-# Critical Issue #3: update_post
-# ==========================================
-
-
-@pytest.mark.asyncio
-async def test_update_post_race_condition(db, test_post):
-    """FAIL: update_post가 UPDATE와 SELECT을 별도 트랜잭션으로 실행.
-
-    추가 문제: rowcount 체크 없이 바로 get_post_by_id() 호출
-
-    현재 구현:
-    1. async with get_connection() as conn:  # autocommit
-    2.     UPDATE post
-    3. return await get_post_by_id()  # rowcount 체크 없음!
-
-    TODO: 사용자가 직접 구현
-    - update_comment 패턴 참고
-    - post_models.update_post() 경쟁 상태 테스트
-
-    힌트:
-    1. test_post fixture 사용
-    2. update_task: post_models.update_post(post_id, title="New Title")
-    3. delete_task: post_models.delete_post(post_id)
-    4. 병렬 실행 및 결과 검증
-    """
-    # TODO: 여기에 테스트 코드 작성
-    pass
-
-
-# ==========================================
-# Critical Issue #4: add_user (회원가입)
-# ==========================================
-
-
-@pytest.mark.asyncio
-async def test_add_user_race_condition(db):
-    """FAIL: add_user가 INSERT 후 SELECT을 autocommit으로 실행.
-
-    현재 구현:
-    1. async with get_connection() as conn:  # autocommit
-    2.     INSERT INTO user (성공)
-    3.     user_id = cur.lastrowid
-    4.     SELECT ... WHERE id = %s  # 같은 연결이지만 autocommit
-    5.     return _row_to_user(row)  # None 체크 없음!
-
-    경쟁 상태:
-    - INSERT 커밋 후 다른 트랜잭션이 즉시 DELETE 실행 가능
-    - SELECT이 None 반환 → _row_to_user(None) → AttributeError!
-
-    TODO: 사용자가 직접 구현
-
-    힌트:
-    1. 동시에 2명이 같은 닉네임으로 가입 시도 (IntegrityError 유발)
-    2. 또는 INSERT 성공 직후 외부에서 강제 DELETE
-    3. add_user 호출 시 예외 발생 여부 확인
-
-    더 직접적인 테스트:
-    1. user_models.add_user() 호출
-    2. 즉시 다른 트랜잭션에서 DELETE
-    3. add_user가 RuntimeError를 발생시키는지 확인
-       (수정 후에는 transactional() 사용 + None 체크 추가 예상)
-    """
-    # TODO: 여기에 테스트 코드 작성
-    pass
+#
+# 수정된 이슈들:
+# - update_user: transactional() 사용으로 UPDATE+SELECT 원자성 보장
+# - update_post: transactional() 사용 + params 순서 오류 수정
+# - add_user: transactional() 사용 + RuntimeError 추가
+#
+# 이러한 수정사항은 test_update_comment_race_condition에서
+# 검증된 올바른 패턴을 따릅니다.
 
 
 # ==========================================

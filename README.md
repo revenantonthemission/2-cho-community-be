@@ -319,6 +319,26 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
 
 ## changelog
 
+- 2026-02-09: 코드 리뷰 기반 주요 이슈 수정
+  - 보안 관련 수정
+    - `main.py`: CSRF 미들웨어 순서 수정 (DoS 우회 방지)
+      - 변경 전: `LoggingMiddleware → RateLimitMiddleware → CSRFProtectionMiddleware → SessionMiddleware`
+      - 변경 후: `LoggingMiddleware → SessionMiddleware → CSRFProtectionMiddleware → RateLimitMiddleware`
+      - 공격자가 잘못된 CSRF 토큰으로 Rate Limit 우회하는 취약점 제거
+    - `middleware/csrf_protection.py`: CSRF 쿠키 보안 플래그 환경 변수화
+      - `secure=False` (하드코딩) → `secure=settings.HTTPS_ONLY` (환경 기반)
+      - 프로덕션 환경에서 HTTPS 강제, MITM 공격 방어
+  - 테스트 품질 개선
+    - `tests/test_transaction_race_conditions.py`: 빈 테스트 플레이스홀더 3개 제거
+      - 제거: `test_update_user_race_condition`, `test_update_post_race_condition`, `test_add_user_race_condition`
+      - 실제 검증 로직 없이 `pass`만 포함, 허위 통과 결과 제공
+  - 문서 정확성 개선
+    - `README.md`: 변경사항 설명 정확성 수정 (line 335-336)
+      - 이전: "rowcount 체크를 쿼리 실행 전에 하여 UPDATE가 절대 실행되지 않던 버그"
+      - 수정: "params 순서 오류 수정 (post_id를 params 끝에 추가)" + "transactional() 사용으로 UPDATE+SELECT 원자성 보장"
+  - 의존성 추가
+    - `cryptography>=46.0.0` 패키지 추가 (MySQL 8.0 `caching_sha2_password` 인증 지원)
+
 - 2026-02-09: CSRF Protection 구현
   - Double Submit Cookie 패턴을 사용한 CSRF 방어 추가
     - `middleware/csrf_protection.py`: 상태 변경 요청(POST/PUT/PATCH/DELETE)에 CSRF 토큰 검증
@@ -329,15 +349,11 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
     - `tests/test_csrf.py`: CSRF 보호 로직 검증 (9개 테스트 케이스)
     - `tests/conftest.py`: CSRF 토큰 자동 포함 테스트 클라이언트 (CSRFAsyncClient)
   - 전체 테스트 통과: 51개 (기존 42개 + CSRF 9개)
-  - P1 Quick Wins
-    - 메모리 누수 수정: `HeaderView.cleanup()` 메서드 추가 (이벤트 리스너 제거)
-    - 민감 정보 로깅 제거: `helpers.js::getImageUrl()` console.warn 삭제
-    - 중복 제출 방지: `CommentController::submitComment()` isSubmitting 플래그 추가
 
 - 2026-02-09: 코드 품질 & 보안 강화
   - 크리티컬 버그 수정
-    - `models/post_models.py::update_post()`: rowcount 체크를 쿼리 실행 전에 하여 UPDATE가 절대 실행되지 않던 버그 수정
-    - `models/post_models.py::update_post()`: params 리스트를 쿼리에 전달하지 않던 버그 수정
+    - `models/post_models.py::update_post()`: params 순서 오류 수정 (post_id를 params 끝에 추가하도록 수정)
+    - `models/post_models.py::update_post()`: transactional() 사용으로 UPDATE+SELECT 원자성 보장
     - `models/user_models.py::add_user()`, `update_user()`: transactional()을 connection처럼 사용하던 버그 수정
     - `models/user_models.py::update_password()`: 트랜잭션 없이 UPDATE 후 다른 연결에서 SELECT하던 Phantom Read 가능성 수정
   - 보안 강화

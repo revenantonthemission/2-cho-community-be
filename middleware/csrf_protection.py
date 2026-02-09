@@ -68,6 +68,8 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
 
     async def _handle_safe_request(self, request: Request, call_next: Callable) -> Response:
         """안전한 요청 처리 (GET 등) - CSRF 토큰 발급."""
+        from core.config import settings
+
         response = await call_next(request)
 
         # CSRF 토큰이 없으면 새로 발급
@@ -77,7 +79,7 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
                 key=self.cookie_name,
                 value=csrf_token,
                 httponly=False,  # JavaScript에서 읽을 수 있어야 함
-                secure=False,  # 프로덕션에서는 True (HTTPS)
+                secure=settings.HTTPS_ONLY,  # 프로덕션 환경에서는 HTTPS 강제
                 samesite="strict",
                 max_age=86400,  # 24시간
                 path="/",
