@@ -11,6 +11,10 @@ from models.comment_models import get_comments_with_author
 from schemas.common import build_author_dict
 
 
+# SQL Injection 방지: 허용된 컬럼명 whitelist
+ALLOWED_POST_COLUMNS = {'title', 'content', 'image_url'}
+
+
 @dataclass
 class Post:
     """게시글 데이터 클래스.
@@ -172,20 +176,37 @@ async def update_post(
     if not updates:
         return await get_post_by_id(post_id)
 
-    params.append(post_id)
+    # SQL Injection 방지: 컬럼명 검증
+    for update_clause in updates:
+        column_name = update_clause.split(' = ')[0]
+        if column_name not in ALLOWED_POST_COLUMNS:
+            raise ValueError(f"Invalid column name: {column_name}")
 
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                f"""
-                UPDATE post
-                SET {", ".join(updates)}
-                WHERE id = %s AND deleted_at IS NULL
-                """,
-                tuple(params),
-            )
+    async with transactional() as cur:
+        await cur.execute(
+            f"""
+            UPDATE post
+            SET {", ".join(updates)}
+            WHERE id = %s AND deleted_at IS NULL
+            """,
+            (*params, post_id),
+        )
 
-            return await get_post_by_id(post_id)
+        if cur.rowcount == 0:
+            return None
+
+        # 같은 트랜잭션 내에서 수정된 게시글 조회
+        await cur.execute(
+            """
+            SELECT id, title, content, image_url, author_id, views,
+                   created_at, updated_at, deleted_at
+            FROM post
+            WHERE id = %s
+            """,
+            (post_id,),
+        )
+        row = await cur.fetchone()
+        return _row_to_post(row) if row else None
 
 
 async def delete_post(post_id: int) -> bool:

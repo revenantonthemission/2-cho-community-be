@@ -319,6 +319,19 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
 
 ## changelog
 
+- 2026-02-09: 코드 품질 & 보안 강화
+  - 크리티컬 버그 수정
+    - `models/post_models.py::update_post()`: rowcount 체크를 쿼리 실행 전에 하여 UPDATE가 절대 실행되지 않던 버그 수정
+    - `models/post_models.py::update_post()`: params 리스트를 쿼리에 전달하지 않던 버그 수정
+    - `models/user_models.py::add_user()`, `update_user()`: transactional()을 connection처럼 사용하던 버그 수정
+    - `models/user_models.py::update_password()`: 트랜잭션 없이 UPDATE 후 다른 연결에서 SELECT하던 Phantom Read 가능성 수정
+  - 보안 강화
+    - SQL Injection 방어: 동적 UPDATE 쿼리에 whitelist 검증 추가 (ALLOWED_POST_COLUMNS, ALLOWED_USER_COLUMNS)
+    - 컬럼명을 f-string으로 삽입하는 패턴에 명시적 검증 로직 추가
+  - 코드 품질 개선
+    - `services/user_service.py`의 중복 함수 `_generate_anonymized_user_data()` 제거 (models에만 유지)
+  - 테스트 검증: 42개 전체 테스트 통과 확인 (커버리지 79.59%)
+
 - 2026-02-05: 코드 리팩토링
   - `services/user_service.py` 생성: 사용자 관련 비즈니스 로직 분리
   - `controllers/user_controller.py` 리팩토링: HTTP 요청/응답 처리만 담당하도록 변경

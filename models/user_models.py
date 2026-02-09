@@ -11,6 +11,10 @@ from datetime import datetime
 from database.connection import get_connection, transactional
 
 
+# SQL Injection 방지: 허용된 컬럼명 whitelist
+ALLOWED_USER_COLUMNS = {'nickname', 'profile_img'}
+
+
 @dataclass(frozen=True)
 class User:
     """사용자 데이터 클래스.
@@ -226,28 +230,29 @@ async def add_user(
     Returns:
         생성된 사용자 객체.
     """
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
-                INSERT INTO user (email, password, nickname, profile_img)
-                VALUES (%s, %s, %s, %s)
-                """,
-                (email, password, nickname, profile_image_url),
-            )
-            user_id = cur.lastrowid
+    async with transactional() as cur:
+        await cur.execute(
+            """
+            INSERT INTO user (email, password, nickname, profile_img)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (email, password, nickname, profile_image_url),
+        )
+        user_id = cur.lastrowid
 
-            # 생성된 사용자 조회
-            await cur.execute(
-                f"""
-                SELECT {USER_SELECT_FIELDS}
-                FROM user
-                WHERE id = %s
-                """,
-                (user_id,),
-            )
-            row = await cur.fetchone()
-            return _row_to_user(row)
+        # 생성된 사용자 조회
+        await cur.execute(
+            f"""
+            SELECT {USER_SELECT_FIELDS}
+            FROM user
+            WHERE id = %s
+            """,
+            (user_id,),
+        )
+        row = await cur.fetchone()
+        if not row:
+            raise RuntimeError(f"User 생성 직후 조회 실패: user_id={user_id}")
+        return _row_to_user(row)
 
 
 async def update_user(
@@ -279,23 +284,36 @@ async def update_user(
     if not updates:
         return await get_user_by_id(user_id)
 
-    params.append(user_id)
+    # SQL Injection 방지: 컬럼명 검증
+    for update_clause in updates:
+        column_name = update_clause.split(' = ')[0]
+        if column_name not in ALLOWED_USER_COLUMNS:
+            raise ValueError(f"Invalid column name: {column_name}")
 
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                f"""
-                UPDATE user
-                SET {", ".join(updates)}
-                WHERE id = %s AND deleted_at IS NULL
-                """,
-                tuple(params),
-            )
+    async with transactional() as cur:
+        await cur.execute(
+            f"""
+            UPDATE user
+            SET {", ".join(updates)}
+            WHERE id = %s AND deleted_at IS NULL
+            """,
+            (*params, user_id),
+        )
 
-            if cur.rowcount == 0:
-                return None
+        if cur.rowcount == 0:
+            return None
 
-            return await get_user_by_id(user_id)
+        # 같은 트랜잭션 내에서 수정된 사용자 조회
+        await cur.execute(
+            f"""
+            SELECT {USER_SELECT_FIELDS}
+            FROM user
+            WHERE id = %s
+            """,
+            (user_id,),
+        )
+        row = await cur.fetchone()
+        return _row_to_user(row) if row else None
 
 
 async def update_password(user_id: int, new_password: str) -> User | None:
@@ -308,21 +326,30 @@ async def update_password(user_id: int, new_password: str) -> User | None:
     Returns:
         업데이트된 사용자 객체, 사용자가 없으면 None.
     """
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
-                UPDATE user
-                SET password = %s
-                WHERE id = %s AND deleted_at IS NULL
-                """,
-                (new_password, user_id),
-            )
+    async with transactional() as cur:
+        await cur.execute(
+            """
+            UPDATE user
+            SET password = %s
+            WHERE id = %s AND deleted_at IS NULL
+            """,
+            (new_password, user_id),
+        )
 
-            if cur.rowcount == 0:
-                return None
+        if cur.rowcount == 0:
+            return None
 
-            return await get_user_by_id(user_id)
+        # 같은 트랜잭션 내에서 수정된 사용자 조회
+        await cur.execute(
+            f"""
+            SELECT {USER_SELECT_FIELDS}
+            FROM user
+            WHERE id = %s
+            """,
+            (user_id,),
+        )
+        row = await cur.fetchone()
+        return _row_to_user(row) if row else None
 
 
 def _generate_anonymized_user_data() -> tuple[str, str]:

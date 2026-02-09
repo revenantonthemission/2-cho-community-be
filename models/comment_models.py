@@ -174,6 +174,8 @@ async def create_comment(post_id: int, author_id: int, content: str) -> Comment:
 async def update_comment(comment_id: int, content: str) -> Comment | None:
     """댓글을 수정합니다.
 
+    트랜잭션을 사용하여 UPDATE와 SELECT을 원자적으로 처리합니다.
+
     Args:
         comment_id: 수정할 댓글 ID.
         content: 새 내용.
@@ -181,21 +183,30 @@ async def update_comment(comment_id: int, content: str) -> Comment | None:
     Returns:
         수정된 댓글 객체, 없거나 삭제된 경우 None.
     """
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
-                UPDATE comment
-                SET content = %s
-                WHERE id = %s AND deleted_at IS NULL
-                """,
-                (content, comment_id),
-            )
+    async with transactional() as cur:
+        await cur.execute(
+            """
+            UPDATE comment
+            SET content = %s
+            WHERE id = %s AND deleted_at IS NULL
+            """,
+            (content, comment_id),
+        )
 
-            if cur.rowcount == 0:
-                return None
+        if cur.rowcount == 0:
+            return None
 
-            return await get_comment_by_id(comment_id)
+        # 같은 트랜잭션 내에서 수정된 댓글 조회
+        await cur.execute(
+            """
+            SELECT id, content, author_id, post_id, created_at, updated_at, deleted_at
+            FROM comment
+            WHERE id = %s
+            """,
+            (comment_id,),
+        )
+        row = await cur.fetchone()
+        return _row_to_comment(row) if row else None
 
 
 async def delete_comment(comment_id: int) -> bool:

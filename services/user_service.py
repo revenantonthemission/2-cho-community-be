@@ -134,12 +134,3 @@ class UserService:
         # 3. 탈퇴 처리 (익명화 등은 모델의 withdraw_user 위임)
         # models.withdraw_user는 트랜잭션 내에서 연결 끊기, 세션 삭제, 익명화를 수행함
         await user_models.withdraw_user(user_id)
-
-    @staticmethod
-    def _generate_anonymized_user_data() -> Tuple[str, str]:
-        """익명화된 이메일과 닉네임 생성 (Helper)."""
-        unique_id = str(uuid.uuid4())
-        timestamp_val = int(time.time())
-        anonymized_nickname = f"deleted_{unique_id[:8]}"
-        anonymized_email = f"deleted_{unique_id}_{timestamp_val}@deleted.user"
-        return anonymized_email, anonymized_nickname
