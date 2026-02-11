@@ -272,8 +272,8 @@ async def increment_view_count(post_id: int, user_id: int) -> bool:
 async def get_posts_with_details(offset: int = 0, limit: int = 10) -> list[dict]:
     """게시글 목록을 작성자 정보, 좋아요 수, 댓글 수와 함께 조회합니다.
 
-    N+1 문제를 해결하기 위해 LEFT JOIN과 GROUP BY를 사용합니다.
-    서브쿼리 대신 조인으로 한 번의 쿼리로 모든 데이터를 가져옵니다.
+    N+1 문제를 해결하기 위해 서브쿼리를 사용합니다.
+    Cartesian Product를 방지하여 대량의 데이터에서도 빠른 성능을 보장합니다.
 
     Args:
         offset: 시작 위치.
@@ -286,17 +286,26 @@ async def get_posts_with_details(offset: int = 0, limit: int = 10) -> list[dict]
         async with conn.cursor() as cur:
             await cur.execute(
                 """
-                SELECT p.id, p.title, p.content, p.image_url, p.views, p.created_at, p.updated_at,
-                       u.id, u.nickname, u.profile_img,
-                       COUNT(DISTINCT pl.id) as likes_count,
-                       COUNT(DISTINCT c.id) as comments_count
+                SELECT
+                    p.id, p.title, p.content, p.image_url, p.views,
+                    p.created_at, p.updated_at,
+                    u.id, u.nickname, u.profile_img,
+                    COALESCE(likes.count, 0) as likes_count,
+                    COALESCE(comments.count, 0) as comments_count
                 FROM post p
                 LEFT JOIN user u ON p.author_id = u.id
-                LEFT JOIN post_like pl ON p.id = pl.post_id
-                LEFT JOIN comment c ON p.id = c.post_id AND c.deleted_at IS NULL
+                LEFT JOIN (
+                    SELECT post_id, COUNT(*) as count
+                    FROM post_like
+                    GROUP BY post_id
+                ) likes ON p.id = likes.post_id
+                LEFT JOIN (
+                    SELECT post_id, COUNT(*) as count
+                    FROM comment
+                    WHERE deleted_at IS NULL
+                    GROUP BY post_id
+                ) comments ON p.id = comments.post_id
                 WHERE p.deleted_at IS NULL
-                GROUP BY p.id, p.title, p.content, p.image_url, p.views, p.created_at, p.updated_at,
-                         u.id, u.nickname, u.profile_img
                 ORDER BY p.created_at DESC, p.id DESC
                 LIMIT %s OFFSET %s
                 """,
