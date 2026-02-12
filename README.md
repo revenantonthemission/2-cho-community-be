@@ -318,17 +318,24 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
 | 4단계 | 4주차 | E2E 테스트 작성, QA, 버그 수정 |
 | 5단계 | 5주차 | 문서화, 코드 리뷰, 최종 배포 |
 
+## 최근 변경사항 (Recent Changes)
+
 ## changelog
 
-- 2026-02-12: 프론트엔드 개발 환경 변경
+- 2026-02-12: 프론트엔드 개발 환경 변경, Single-Origin Nginx 배포 설정
+  - 쿠키 설정 변경
+    - `main.py`: `same_site="none"` → `same_site="lax"` (보안 강화)
+    - `csrf_protection.py`: `samesite="none"` → `samesite="strict"` (CSRF 최대 보호)
+    - `HTTPS_ONLY`를 환경변수 기반으로 변경 (유연성 향상)
+  - 프론트엔드 API 설정
+    - `config.js`: `API_BASE_URL = ""` (same-origin, nginx가 프록시)
+  - 배포 방식 단순화
+    - Cross-domain (S3 + EC2) → Single-origin (nginx reverse proxy)
+    - 쿠키 문제 해결, 보안 강화, 설정 간소화
   - 프론트엔드가 npm serve로 마이그레이션 완료
     - 로컬 개발: FastAPI/uvicorn → `npm serve` (Port 8080)
     - 프론트엔드는 순수 정적 파일(HTML/CSS/JS)로 Python 의존성 없음
-    - 프로덕션: nginx로 정적 파일 서빙 (기존과 동일)
-  - 백엔드 영향 없음
-    - CORS 설정은 `localhost:8080` 유지
-    - API 엔드포인트 및 세션 쿠키 동작 동일
-    - 백엔드는 프론트엔드 서버와 무관하게 API만 제공
+    - 프로덕션: nginx로 정적 파일 서빙
 
 - 2026-02-09: 코드 리뷰 기반 주요 이슈 수정
   - 보안 관련 수정

@@ -19,10 +19,12 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     HTTPS_ONLY: bool = False
     ALLOWED_ORIGINS: list[str] = [
-        "http://127.0.0.1:8000",
-        "http://127.0.0.1:8080",
-        "http://localhost:8080",
-        "http://localhost:8000",
+        "http://127.0.0.1:8080",  # Local dev (frontend)
+        "http://localhost:8080",  # Local dev (frontend)
+        # For same-origin deployment with nginx reverse proxy, CORS is not strictly needed
+        # since requests appear to come from same origin. But keeping for flexibility:
+        "http://your-frontend-ec2-ip",  # Frontend EC2 (replace with actual IP or domain)
+        "https://your-frontend-ec2-domain",  # Frontend EC2 with HTTPS (if using domain)
     ]
 
     # MySQL Database Settings
