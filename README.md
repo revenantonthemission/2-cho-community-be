@@ -318,17 +318,98 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
 | 4단계 | 4주차 | E2E 테스트 작성, QA, 버그 수정 |
 | 5단계 | 5주차 | 문서화, 코드 리뷰, 최종 배포 |
 
-## changelog
+## Quick Start (Development)
 
-- 2026-02-12: 프론트엔드 개발 환경 변경
-  - 프론트엔드가 npm serve로 마이그레이션 완료
-    - 로컬 개발: FastAPI/uvicorn → `npm serve` (Port 8080)
-    - 프론트엔드는 순수 정적 파일(HTML/CSS/JS)로 Python 의존성 없음
-    - 프로덕션: nginx로 정적 파일 서빙 (기존과 동일)
-  - 백엔드 영향 없음
-    - CORS 설정은 `localhost:8080` 유지
-    - API 엔드포인트 및 세션 쿠키 동작 동일
-    - 백엔드는 프론트엔드 서버와 무관하게 API만 제공
+### 로컬 개발 환경
+
+```bash
+# 1. MySQL 실행 확인
+brew services list | grep mysql
+
+# 2. 가상환경 활성화
+cd 2-cho-community-be
+source .venv/bin/activate
+
+# 3. 백엔드 실행 (Port 8000)
+uvicorn main:app --reload --port 8000
+
+# 4. 프론트엔드 실행 (별도 터미널)
+cd ../2-cho-community-fe
+npm run dev  # Port 8080
+
+# 5. 브라우저에서 접속
+# http://localhost:8080
+```
+
+### 테스트 실행
+
+```bash
+cd 2-cho-community-be
+pytest                  # 전체 테스트
+pytest --cov            # 커버리지
+ruff check .            # 린팅
+mypy .                  # 타입 체크
+```
+
+## 프로덕션 배포 (Production Deployment)
+
+### 권장 방식: Single-Origin Nginx Reverse Proxy
+
+프론트엔드와 백엔드를 같은 도메인에서 제공하여 쿠키 문제 해결.
+
+**Architecture:**
+```
+Internet → Nginx (Port 80/443)
+           ├── /css, /js, *.html → Serve static files
+           └── /v1/*, /health    → Proxy to Backend (Port 8000)
+```
+
+**배포 옵션:**
+1. **단일 EC2 + nginx** - 가장 간단, 저렴 (권장)
+2. **2x EC2 + nginx 프록시** - 확장성, 보안
+
+**상세 가이드:**
+- 단일 EC2: `../2-cho-community-fe/DEPLOYMENT.md`
+- 2x EC2 프록시: `../NGINX_REVERSE_PROXY_SETUP.md`
+
+### 주요 설정
+
+**쿠키 설정 (Single-Origin):**
+- Session: `SameSite=Lax` (more secure)
+- CSRF: `SameSite=Strict` (maximum protection)
+- `HTTPS_ONLY`: Optional (not mandatory for same-origin)
+
+**환경 변수 (`.env`):**
+```bash
+HTTPS_ONLY=false  # HTTP 또는 true for HTTPS
+DB_HOST="your-rds-endpoint-or-ip"
+SECRET_KEY="your-secret-key"
+```
+
+## 최근 변경사항 (Recent Changes)
+
+### 2026-02-12: Single-Origin Nginx 배포 설정
+- 쿠키 설정 변경
+  - `main.py`: `same_site="none"` → `same_site="lax"` (보안 강화)
+  - `csrf_protection.py`: `samesite="none"` → `samesite="strict"` (CSRF 최대 보호)
+  - `HTTPS_ONLY`를 환경변수 기반으로 변경 (유연성 향상)
+- 프론트엔드 API 설정
+  - `config.js`: `API_BASE_URL = ""` (same-origin, nginx가 프록시)
+- 배포 방식 단순화
+  - Cross-domain (S3 + EC2) → Single-origin (nginx reverse proxy)
+  - 쿠키 문제 해결, 보안 강화, 설정 간소화
+
+### 2026-02-12: 프론트엔드 개발 환경 변경
+- 프론트엔드가 npm serve로 마이그레이션 완료
+  - 로컬 개발: FastAPI/uvicorn → `npm serve` (Port 8080)
+  - 프론트엔드는 순수 정적 파일(HTML/CSS/JS)로 Python 의존성 없음
+  - 프로덕션: nginx로 정적 파일 서빙
+- 백엔드 영향 없음
+  - CORS 설정은 `localhost:8080` 유지
+  - API 엔드포인트 및 세션 쿠키 동작 동일
+  - 백엔드는 프론트엔드 서버와 무관하게 API만 제공
+
+## changelog
 
 - 2026-02-09: 코드 리뷰 기반 주요 이슈 수정
   - 보안 관련 수정
