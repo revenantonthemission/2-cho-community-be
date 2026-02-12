@@ -13,7 +13,7 @@ from schemas.user_schemas import (
 )
 from schemas.common import create_response, serialize_user
 from dependencies.request_context import get_request_timestamp
-from utils.file_utils import save_upload_file
+from utils.s3_utils import upload_to_s3
 from core.config import settings
 from services.user_service import UserService
 
@@ -67,9 +67,7 @@ async def create_user(
     profile_image_url = user_data.profileImageUrl
     if profile_image:
         try:
-            profile_image_url = await save_upload_file(
-                profile_image, PROFILE_IMAGE_UPLOAD_DIR
-            )
+            profile_image_url = await upload_to_s3(profile_image, folder="profiles")
         except HTTPException as e:
             if isinstance(e.detail, dict):
                 e.detail["timestamp"] = timestamp
@@ -200,7 +198,7 @@ async def upload_profile_image(
     timestamp = get_request_timestamp(request)
 
     try:
-        url = await save_upload_file(file, PROFILE_IMAGE_UPLOAD_DIR)
+        url = await upload_to_s3(file, folder="profiles")
     except HTTPException as e:
         if isinstance(e.detail, dict):
             e.detail["timestamp"] = timestamp

@@ -3,7 +3,7 @@ from models.user_models import User
 from schemas.post_schemas import CreatePostRequest, UpdatePostRequest
 from schemas.common import create_response
 from dependencies.request_context import get_request_timestamp
-from utils.file_utils import save_upload_file
+from utils.s3_utils import upload_to_s3
 from core.config import settings
 from services.post_service import PostService
 
@@ -234,7 +234,7 @@ async def upload_image(
     timestamp = get_request_timestamp(request)
 
     try:
-        url = await save_upload_file(file, IMAGE_UPLOAD_DIR)
+        url = await upload_to_s3(file, folder="posts")
     except HTTPException as e:
         if isinstance(e.detail, dict):
             e.detail["timestamp"] = timestamp
