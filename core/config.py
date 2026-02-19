@@ -21,10 +21,14 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: list[str] = [
         "http://127.0.0.1:8080",  # Local dev (frontend)
         "http://localhost:8080",  # Local dev (frontend)
-        # For CloudFront + S3 deployment: add your CloudFront domain here
-        # e.g. "https://d1234abcd.cloudfront.net" or "https://your-custom-domain.com"
-        # Note: with Approach A (CloudFront proxies /v1/*), all requests appear same-origin
-        # and CORS is not strictly required, but explicit origins are good practice.
+        # EC2 + nginx reverse proxy deployment:
+        # "http://your-frontend-ec2-ip",
+        # "https://your-frontend-ec2-domain",
+        # CloudFront + S3 deployment (Approach A: CloudFront proxies /v1/*):
+        # Requests appear same-origin via CloudFront, so CORS is not strictly required,
+        # but adding the domain is good practice and protects local dev CORS.
+        # "https://d1234abcd.cloudfront.net",
+        # "https://your-custom-domain.com",
     ]
 
     # MySQL Database Settings

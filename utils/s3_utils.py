@@ -74,17 +74,23 @@ def extract_s3_key(image_url: str) -> str:
     Returns:
         S3 객체 키 (예: "profiles/uuid.jpg")
     """
-    # CloudFront URL: https://domain.cloudfront.net/profiles/uuid.jpg
+    # CloudFront URL (설정된 도메인으로 매칭):
+    # https://d1234.cloudfront.net/profiles/uuid.jpg
     if settings.CLOUDFRONT_DOMAIN and settings.CLOUDFRONT_DOMAIN in image_url:
-        return image_url.split(f"https://{settings.CLOUDFRONT_DOMAIN}/")[-1]
+        domain = settings.CLOUDFRONT_DOMAIN.rstrip("/")
+        return image_url.split(f"https://{domain}/")[-1]
+
+    # CloudFront URL (도메인 미설정 시 패턴으로 매칭):
+    # CLOUDFRONT_DOMAIN이 초기화된 후 롤백하거나 환경변수를 지운 경우에도 동작
+    if ".cloudfront.net/" in image_url:
+        return image_url.split(".cloudfront.net/")[-1]
 
     # 직접 S3 URL: https://bucket.s3.region.amazonaws.com/profiles/uuid.jpg
     s3_suffix = f".s3.{settings.AWS_REGION}.amazonaws.com/"
     if s3_suffix in image_url:
         return image_url.split(s3_suffix)[-1]
 
-    # Fallback: 로컬 경로 (/assets/posts/image.jpg) 또는 알 수 없는 형식
-    # 앞의 슬래시를 제거하여 S3 키 형식으로 변환
+    # Fallback: 로컬 경로 (/assets/posts/image.jpg 등 S3 이전 레거시 레코드)
     return image_url.lstrip("/")
 
 
@@ -205,7 +211,7 @@ async def upload_to_s3(
         # CLOUDFRONT_DOMAIN이 설정되기 전(전환 기간)에는 public-read ACL을 유지하여
         # 직접 S3 URL로도 이미지에 접근 가능하도록 함.
         # CloudFront OAC 설정 후에는 ACL 없이 버킷 정책으로만 접근 제어.
-        extra_args: dict = {"ContentType": file.content_type}
+        extra_args: dict[str, str] = {"ContentType": file.content_type}
         if not settings.CLOUDFRONT_DOMAIN:
             extra_args["ACL"] = "public-read"
 
