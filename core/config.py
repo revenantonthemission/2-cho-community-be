@@ -52,12 +52,15 @@ class Settings(BaseSettings):
     RATE_LIMIT_MAX_IPS: int = 10000  # 메모리 보호를 위한 최대 추적 IP 수
     TRUSTED_PROXIES: set[str] = set()  # 신뢰할 수 있는 프록시 IP (프로덕션에서 설정)
 
-    # AWS S3 Settings
-    AWS_ACCESS_KEY_ID: str
-    AWS_SECRET_ACCESS_KEY: str
-    AWS_REGION: str
-    AWS_S3_BUCKET_NAME: str
-    CLOUDFRONT_DOMAIN: str = ""  # e.g. "d1234abcd.cloudfront.net" — set in production .env
+    # AWS S3 Settings (optional - only needed for S3 storage)
+    AWS_ACCESS_KEY_ID: str = ""
+    AWS_SECRET_ACCESS_KEY: str = ""
+    AWS_REGION: str = "ap-northeast-2"
+    AWS_S3_BUCKET_NAME: str = ""
+    CLOUDFRONT_DOMAIN: str = ""
+
+    # Storage type: "local" or "s3"
+    STORAGE_TYPE: str = "local"  # e.g. "d1234abcd.cloudfront.net" — set in production .env
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"

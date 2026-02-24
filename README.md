@@ -39,7 +39,7 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
 ┌─────────────────────────────────────────────────────────────────┐
 │                         Client (Browser)                        │
 │              Vanilla JS MPA (정적 파일: HTML/CSS/JS)              │
-│              개발: npm serve (8080) | 프로덕션: nginx              │
+│         개발: npm serve (8080) | 프로덕션: CloudFront + S3          │
 └─────────────────────────────────┬───────────────────────────────┘
                                   │ HTTP (JSON/FormData)
                                   │ credentials: include (Cookie)
@@ -305,7 +305,7 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
 - **JWT vs Session**: JWT는 stateless하여 확장성이 좋으나, 로그아웃 시 토큰 무효화가 복잡함. 이 프로젝트는 단일 서버 환경이므로 세션 기반 인증이 더 단순하고 적합하다고 판단.
 - **ORM vs Raw SQL**: SQLAlchemy 등 ORM 사용을 고려했으나, 학습 목적으로 raw SQL을 직접 작성하여 쿼리 최적화 경험을 쌓기로 결정.
 - **Vanilla JS**: React, Vue 등 프레임워크 대신 Vanilla JS를 선택. 프레임워크 학습 비용 없이 JavaScript 기본기를 다지는 것이 목표.
-- **이미지 저장소**: S3 등 외부 스토리지 대신 로컬 파일시스템 사용. 프로젝트 규모상 충분하며, 인프라 비용 절감.
+- **이미지 저장소**: 초기에는 로컬 파일시스템을 사용했으나, CloudFront+S3 배포로 전환하면서 이미지도 S3에 저장하고 CloudFront URL로 서빙. `utils/s3_utils.py`에서 `CLOUDFRONT_DOMAIN` 환경변수로 URL 빌드.
 - **Soft Delete**: 물리적 삭제 대신 `deleted_at` 컬럼 사용. 데이터 복구 가능성 확보 및 FK 무결성 유지.
 
 ## 마일스톤 (Milestones)
@@ -321,6 +321,16 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
 ## 최근 변경사항 (Recent Changes)
 
 ## changelog
+
+- 2026-02-19: CloudFront + S3 배포 전환
+  - 배포 아키텍처 변경: Single-Origin Nginx (EC2) → **CloudFront + S3 + ELB**
+    - 정적 파일: S3 버킷 + CloudFront CDN 서빙
+    - API 요청: CloudFront `/v1/*` → ELB → EC2:8000
+    - WAF WebACL 연결 (IP Reputation, Common Rule Set, Known Bad Inputs)
+  - WAF `SizeRestrictions_BODY` COUNT 모드 오버라이드 (이미지 업로드 8KB 제한 해제)
+  - 이미지 저장/서빙을 S3 + CloudFront URL 방식으로 전환 (`utils/s3_utils.py`)
+  - `CLOUDFRONT_DOMAIN` 환경변수 추가 (`.env`에서 설정)
+  - ELB Health Check 통과를 위해 uvicorn `--host 0.0.0.0` 바인딩으로 변경
 
 - 2026-02-12: 프론트엔드 개발 환경 변경, Single-Origin Nginx 배포 설정
   - 쿠키 설정 변경
