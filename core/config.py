@@ -28,7 +28,7 @@ class Settings(BaseSettings):
         # Requests appear same-origin via CloudFront, so CORS is not strictly required,
         # but adding the domain is good practice and protects local dev CORS.
         # "https://d1234abcd.cloudfront.net",
-        # "https://your-custom-domain.com",
+        "https://my-community.shop",
     ]
 
     # MySQL Database Settings

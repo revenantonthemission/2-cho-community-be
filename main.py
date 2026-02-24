@@ -21,6 +21,7 @@ from core.config import settings
 from database.connection import init_db, close_db
 from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 import os
 
 
@@ -81,6 +82,10 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["Content-Type", "X-CSRF-Token"],  # CSRF 토큰 헤더 허용
 )
+
+# ProxyHeadersMiddleware: 리버스 프록시(nginx) 뒤에서 X-Forwarded-Proto 헤더를 처리
+# HTTPS 리다이렉트가 올바른 프로토콜을 사용하도록 함
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
 # 라우터 추가
 app.include_router(auth_router)
