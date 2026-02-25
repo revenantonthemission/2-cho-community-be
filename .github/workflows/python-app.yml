@@ -174,10 +174,10 @@ jobs:
 
           # ECR 레지스트리를 DOCKER_REGISTRY로 설정하여 이미지 pull
           export DOCKER_REGISTRY="${ECR_REGISTRY}/"
-          docker compose -f docker-compose.yml pull backend database
+          sudo docker compose -f docker-compose.yml pull backend database
 
           # 변경된 서비스만 재시작 (무중단: 기존 컨테이너 교체)
-          docker compose -f docker-compose.yml up -d backend database
+          sudo docker compose -f docker-compose.yml up -d backend database
 
           # 사용하지 않는 이전 이미지 정리
-          docker image prune -f
+          sudo docker image prune -f
