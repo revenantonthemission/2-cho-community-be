@@ -6,7 +6,7 @@ FROM python:3.11-slim
 ARG APP_VERSION=1.0.0
 LABEL maintainer="corpseonthemission@icloud.com"
 LABEL version="${APP_VERSION}"
-LABEL description="my-community-backend API"
+LABEL description="my-community-be: A community platform backend API built with FastAPI and served by Uvicorn"
 
 # Install uv (fast Python package manager)
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/

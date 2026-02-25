@@ -1,4 +1,4 @@
-name: Build and Push FastAPI to AWS ECR
+name: Backend CI/CD — Test, Build, Deploy
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
       - 'pyproject.toml'
       - 'requirements*.txt'
       - 'Dockerfile'
-      - 'database/schema.sql'
+      - 'database/**'
       - '.github/workflows/python-app.yml'
   pull_request:
     branches: [ "main" ]
@@ -17,9 +17,9 @@ on:
       - 'pyproject.toml'
       - 'requirements*.txt'
       - 'Dockerfile'
-      - 'database/schema.sql'
+      - 'database/**'
       - '.github/workflows/python-app.yml'
-  workflow_dispatch:  # 수동 실행은 항상 가능
+  workflow_dispatch:
 
 jobs:
   test:
@@ -82,21 +82,15 @@ jobs:
       run: pytest --cov --cov-report=term-missing
 
   deploy:
-    name: Deploy to ECR
+    name: Build & Push to ECR
     runs-on: ubuntu-latest
-    needs: test  # 테스트 통과 후에만 배포
-    if: github.event_name == 'push'  # push 이벤트에서만 배포 (PR에서는 테스트만)
+    needs: test
+    if: github.event_name == 'push'
 
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v4
-      with:
-        python-version: "3.11"
-
-    # 1. AWS 자격 증명 설정
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
@@ -104,33 +98,86 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ secrets.AWS_REGION }}
 
-    # 2. AWS ECR 로그인
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
 
-    # 3. 레포지토리가 없으면 생성하는 단계
-    - name: Check or Create ECR Repository
-      env:
-        ECR_REPOSITORY: my-community-be
+    # ECR 레포지토리가 없으면 자동 생성
+    - name: Ensure ECR repositories exist
       run: |
-        aws ecr describe-repositories --repository-names $ECR_REPOSITORY || \
-        aws ecr create-repository --repository-name $ECR_REPOSITORY \
-          --image-scanning-configuration scanOnPush=true \
-          --encryption-configuration encryptionType=AES256
-        echo "Repository is ready."
+        for REPO in my-community-be my-community-db; do
+          aws ecr describe-repositories --repository-names $REPO 2>/dev/null || \
+          aws ecr create-repository --repository-name $REPO \
+            --image-scanning-configuration scanOnPush=true \
+            --encryption-configuration encryptionType=AES256
+        done
 
-    # 4. Docker 이미지 빌드 및 푸시
-    - name: Build, tag, and push image to Amazon ECR
+    - name: Build and push backend image
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        ECR_REPOSITORY: my-community-be
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        # 이미지 빌드 (플랫폼 명시)
-        docker build --platform linux/amd64 -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-        docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        docker build --platform linux/amd64 \
+          -t $ECR_REGISTRY/my-community-be:$IMAGE_TAG \
+          -t $ECR_REGISTRY/my-community-be:latest .
+        docker push $ECR_REGISTRY/my-community-be:$IMAGE_TAG
+        docker push $ECR_REGISTRY/my-community-be:latest
 
-        # ECR로 푸시
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+    - name: Build and push database image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        docker build --platform linux/amd64 \
+          -t $ECR_REGISTRY/my-community-db:$IMAGE_TAG \
+          -t $ECR_REGISTRY/my-community-db:latest ./database
+        docker push $ECR_REGISTRY/my-community-db:$IMAGE_TAG
+        docker push $ECR_REGISTRY/my-community-db:latest
+
+  deploy-ec2:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: github.event_name == 'push'
+
+    steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Deploy via SSH
+      uses: appleboy/ssh-action@v1
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        AWS_REGION: ${{ secrets.AWS_REGION }}
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        envs: ECR_REGISTRY,AWS_REGION
+        script: |
+          set -e
+
+          APP_DIR="${APP_DIR:-$HOME/my-community}"
+          cd "$APP_DIR"
+
+          # ECR 로그인
+          aws ecr get-login-password --region $AWS_REGION | \
+            docker login --username AWS --password-stdin $ECR_REGISTRY
+
+          # ECR 레지스트리를 DOCKER_REGISTRY로 설정하여 이미지 pull
+          export DOCKER_REGISTRY="${ECR_REGISTRY}/"
+          docker compose -f docker-compose.prod.yml pull backend database
+
+          # 변경된 서비스만 재시작 (무중단: 기존 컨테이너 교체)
+          docker compose -f docker-compose.prod.yml up -d backend database
+
+          # 사용하지 않는 이전 이미지 정리
+          docker image prune -f
