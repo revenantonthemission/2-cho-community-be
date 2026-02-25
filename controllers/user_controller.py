@@ -124,10 +124,12 @@ async def update_user(
     timestamp = get_request_timestamp(request)
 
     # Service Layer 호출
+    # profileImageUrl은 str | None으로 변환됨
+    profile_image_url: str | None = update_data.profileImageUrl  # type: ignore[assignment]
     updated_user = await UserService.update_user(
         user_id=current_user.id,
         nickname=update_data.nickname,
-        profile_image_url=update_data.profileImageUrl,
+        profile_image_url=profile_image_url,
         current_user=current_user,
         timestamp=timestamp,
     )

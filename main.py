@@ -117,4 +117,4 @@ async def health_check():
 
 
 app.add_exception_handler(Exception, global_exception_handler)
-app.add_exception_handler(RequestValidationError, request_validation_exception_handler)
+app.add_exception_handler(RequestValidationError, request_validation_exception_handler)  # type: ignore[arg-type]

@@ -109,6 +109,7 @@ class PostService:
             content=updates.get("content"),
             image_url=updates.get("image_url"),
         )
+        assert updated_post is not None  # 게시글 존재는 위에서 검증됨
 
         return {
             "post_id": updated_post.id,

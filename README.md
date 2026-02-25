@@ -322,7 +322,7 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
 
 ## changelog
 
-- 2026-02-25: 보안 강화 및 CI/CD 개선
+- 2026-02-25: 보안 강화, CI/CD 개선, 코드 품질 향상
   - `ProxyHeadersMiddleware` 보안 수정
     - `trusted_hosts="*"` → `settings.TRUSTED_PROXIES` 또는 기본값 `["127.0.0.1", "::1"]`
     - IP 스푸핑 방지를 위해 신뢰할 프록시 IP만 명시적으로 허용
@@ -333,6 +333,11 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
     - 테스트 게이팅: `needs: test`로 테스트 통과 후에만 배포
     - PR에서는 테스트만 실행: `if: github.event_name == 'push'` 조건 추가
     - Docker 빌드 시 `--platform linux/amd64` 명시
+  - 코드 품질 개선 (ruff/mypy CI 통과)
+    - 13개 미사용 import 제거 (`seed_data.py`, `user_service.py`, `test_*.py`)
+    - `__init__.py` 추가: `utils/`, `database/`, `tests/` (mypy 패키지 인식)
+    - `pyproject.toml`에 `[tool.mypy]` 설정 추가 (pydantic 플러그인, ignore_missing_imports)
+    - 타입 에러 수정: `assert` 문으로 None 체크, `# type: ignore` 주석 추가
 
 - 2026-02-24: Docker + EC2 배포로 전환
   - 배포 아키텍처 변경: CloudFront + S3 + ELB → Docker Compose + 단일 EC2

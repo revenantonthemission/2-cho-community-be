@@ -150,6 +150,7 @@ async def update_comment(
     updated_comment = await comment_models.update_comment(
         comment_id, comment_data.content
     )
+    assert updated_comment is not None  # 댓글 존재는 위에서 검증됨
 
     return create_response(
         "COMMENT_UPDATED",

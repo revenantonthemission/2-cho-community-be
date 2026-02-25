@@ -44,7 +44,7 @@ jobs:
       run: ruff check .
 
     - name: Run type checking (mypy)
-      run: mypy . --ignore-missing-imports
+      run: mypy .
 
     - name: Wait for MySQL
       run: |

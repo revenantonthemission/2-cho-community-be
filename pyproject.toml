@@ -41,3 +41,13 @@ dev = ["pytest", "pytest-asyncio", "pytest-cov", "httpx", "ruff", "mypy"]
 [tool.setuptools]
 packages = ["routers", "controllers", "schemas", "models", "dependencies", "middleware"]
 py-modules = ["main"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+# pydantic-settings loads from .env at runtime
+plugins = ["pydantic.mypy"]
+# Allow untyped definitions in tests
+[[tool.mypy.overrides]]
+module = "tests.*"
+ignore_errors = true
