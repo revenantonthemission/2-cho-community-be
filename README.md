@@ -3,7 +3,7 @@ AWS AI School 2기 3주차 과제: 커뮤니티 백엔드 서버
 
 ## 요약 (Summary)
 
-커뮤니티 포럼 "아무 말 대잔치"를 구축합니다. FastAPI를 기반으로 하는 비동기 백엔드와 Vanilla JavaScript 프론트엔드로 구성된 모노레포 구조이며, 세션 기반 인증과 MySQL 데이터베이스를 사용합니다. 게시글 CRUD, 댓글, 좋아요, 회원 관리 기능을 제공합니다.
+커뮤니티 포럼 "아무 말 대잔치"를 구축합니다. FastAPI를 기반으로 하는 비동기 백엔드와 Vanilla JavaScript 프론트엔드로 구성된 모노레포 구조이며, JWT 기반 인증(Access Token + Refresh Token)과 MySQL 데이터베이스를 사용합니다. 게시글 CRUD, 댓글, 좋아요, 회원 관리 기능을 제공합니다.
 
 ## 배경 (Background)
 
@@ -41,19 +41,19 @@ flowchart TD
         FE["Vanilla JS MPA<br/>정적 파일: HTML/CSS/JS<br/>개발: npm serve :8080 | 프로덕션: Docker + nginx"]
     end
 
-    Client -->|"HTTP (JSON/FormData)<br/>credentials: include (Cookie)"| Backend
+    Client -->|"HTTP (JSON/FormData)<br/>Bearer Token + HttpOnly Cookie"| Backend
 
     subgraph Backend["FastAPI Backend (Port 8000)"]
         direction LR
         Routers --> Controllers --> Services --> Models --> Pool["aiomysql Pool"]
     end
 
-    note["Middleware: CORS → Session → Logging → Timing"]
+    note["Middleware: CORS → Logging → Timing → RateLimit"]
 
     Backend -->|"Async Connection Pool"| DB
 
     subgraph DB["MySQL Database"]
-        Tables["user, user_session, post, comment,<br/>post_like, image, post_view_log"]
+        Tables["user, refresh_token, post, comment,<br/>post_like, image, post_view_log"]
     end
 ```
 
@@ -63,7 +63,7 @@ flowchart TD
 
 ```mermaid
 erDiagram
-    user ||--o{ user_session : "has sessions"
+    user ||--o{ refresh_token : "has tokens"
     user ||--o{ post : "creates"
     user ||--o{ comment : "writes"
     user ||--o{ post_like : "likes"
@@ -83,10 +83,10 @@ erDiagram
         datetime created_at
     }
 
-    user_session {
+    refresh_token {
         int id PK
         int user_id FK
-        varchar session_id
+        varchar token_hash UK
         datetime expires_at
         datetime created_at
     }
@@ -138,9 +138,9 @@ erDiagram
 #### 주요 설계 결정
 
 - **Soft Delete**: `user`, `post`, `comment` 테이블에 `deleted_at` 컬럼 사용. 물리적 삭제 대신 논리적 삭제로 데이터 보존.
-- **Session 기반 인증**: JWT 대신 서버 사이드 세션 사용. `user_session` 테이블에 세션 정보 저장, 24시간 만료.
+- **JWT 기반 인증**: Access Token(30분, HS256) + Refresh Token(7일, opaque random). Access Token은 프론트엔드 in-memory 저장, Refresh Token은 HttpOnly 쿠키로 전달하고 SHA-256 해시로 DB 저장. JWT payload에는 `sub`(user_id)만 포함하여 PII 노출 방지. 토큰 회전(rotation)으로 Refresh Token 탈취 시 자동 무효화.
 - **인덱스 전략**:
-  - `idx_user_session_session_id`: 매 요청마다 세션 조회
+  - `idx_refresh_token_hash`: Refresh Token 해시 조회
   - `idx_post_created_deleted`: 최신순 게시글 목록 조회
   - `idx_comment_post_deleted`: 게시글별 댓글 목록 조회
 
@@ -150,8 +150,9 @@ erDiagram
 
 | Method | Endpoint | 설명 | 인증 |
 | ------ | -------- | ---- | ---- |
-| POST | `/v1/auth/session` | 로그인 | X |
-| DELETE | `/v1/auth/session` | 로그아웃 | O |
+| POST | `/v1/auth/session` | 로그인 (Access Token + Refresh Token 발급) | X |
+| DELETE | `/v1/auth/session` | 로그아웃 (Refresh Token 무효화) | O |
+| POST | `/v1/auth/token/refresh` | 토큰 갱신 (Refresh Token → 새 Access Token) | X (쿠키) |
 | GET | `/v1/auth/me` | 현재 사용자 정보 | O |
 
 #### 사용자 API (`/v1/users`)
@@ -200,7 +201,7 @@ erDiagram
 | HTTP Status | 설명 |
 | ----------- | ---- |
 | 400 | 잘못된 요청 (유효성 검사 실패) |
-| 401 | 인증 필요 (세션 만료/미로그인) |
+| 401 | 인증 필요 (토큰 만료/미로그인) |
 | 403 | 권한 없음 (타인의 게시글 수정 시도 등) |
 | 404 | 리소스 없음 |
 | 409 | 충돌 (이메일/닉네임 중복) |
@@ -220,17 +221,30 @@ sequenceDiagram
         Server->>MySQL: SELECT user WHERE email
         MySQL-->>Server: user data
         Server->>Server: bcrypt.verify(password)
-        Server->>MySQL: INSERT user_session
-        MySQL-->>Server: session created
-        Server-->>Client: Set-Cookie: session_id
+        Server->>Server: JWT Access Token 생성 (30분)
+        Server->>Server: Refresh Token 생성 (opaque random)
+        Server->>MySQL: INSERT refresh_token (SHA-256 hash)
+        MySQL-->>Server: token stored
+        Server-->>Client: {access_token} + Set-Cookie: refresh_token (HttpOnly)
     end
 
     rect rgb(255, 248, 240)
         Note over Client,MySQL: 인증된 요청
-        Client->>Server: GET /v1/posts (with cookie)
-        Server->>MySQL: SELECT session, user<br/>WHERE session_id AND expires_at > NOW()
-        MySQL-->>Server: session + user data
+        Client->>Server: GET /v1/posts<br/>Authorization: Bearer {access_token}
+        Server->>Server: JWT 디코딩 + 검증 (stateless)
+        Server->>MySQL: SELECT user WHERE id = sub
+        MySQL-->>Server: user data
         Server-->>Client: 200 OK + posts data
+    end
+
+    rect rgb(240, 255, 240)
+        Note over Client,MySQL: 토큰 갱신 (Access Token 만료 시)
+        Client->>Server: POST /v1/auth/token/refresh<br/>Cookie: refresh_token
+        Server->>MySQL: SELECT refresh_token WHERE hash
+        MySQL-->>Server: token record
+        Server->>Server: 새 Access Token + Refresh Token 생성
+        Server->>MySQL: DELETE old + INSERT new (atomic rotation)
+        Server-->>Client: {new_access_token} + Set-Cookie: new_refresh_token
     end
 ```
 
@@ -278,7 +292,7 @@ sequenceDiagram
 
 - **정적 메서드**: 모든 클래스가 static 메서드만 사용
 - **IntersectionObserver**: 무한 스크롤 구현
-- **Custom Event**: `auth:session-expired` 이벤트로 401 처리
+- **Custom Event**: `auth:session-expired` 이벤트로 401 처리 (silent refresh 실패 시 발생)
 - **XSS 방지**: `escapeHtml()` 유틸리티로 사용자 입력 이스케이프
 
 ### 6. 보안 고려사항
@@ -286,7 +300,7 @@ sequenceDiagram
 | 항목 | 구현 방식 |
 | ---- | --------- |
 | 비밀번호 해싱 | bcrypt (cost factor 기본값) |
-| 세션 관리 | HTTP-Only Cookie, 24시간 만료 |
+| JWT 인증 | Access Token(30분, in-memory) + Refresh Token(7일, HttpOnly Cookie, SHA-256 해시 DB 저장) |
 | CORS | 허용 출처 명시적 설정 (localhost:8080) |
 | SQL Injection | Parameterized queries (aiomysql) |
 | XSS | 프론트엔드에서 escapeHtml() 적용 |
@@ -299,7 +313,7 @@ sequenceDiagram
 
 ## 이외 고려 사항들 (Other Considerations)
 
-- **JWT vs Session**: JWT는 stateless하여 확장성이 좋으나, 로그아웃 시 토큰 무효화가 복잡함. 이 프로젝트는 단일 서버 환경이므로 세션 기반 인증이 더 단순하고 적합하다고 판단.
+- **JWT 인증**: Access Token(HS256, 30분) + Refresh Token(opaque random, 7일) 이중 토큰 전략 사용. Access Token은 프론트엔드 in-memory(JS 변수)에 저장하여 XSS 노출 최소화, Refresh Token은 HttpOnly 쿠키로 전달하고 SHA-256 해시로 DB에 저장. 토큰 회전(rotation)을 통해 Refresh Token 탈취 시 자동 무효화. CSRF 미들웨어는 제거됨 (Bearer 토큰이 CSRF 방어 역할).
 - **ORM vs Raw SQL**: SQLAlchemy 등 ORM 사용을 고려했으나, 학습 목적으로 raw SQL을 직접 작성하여 쿼리 최적화 경험을 쌓기로 결정.
 - **Vanilla JS**: React, Vue 등 프레임워크 대신 Vanilla JS를 선택. 프레임워크 학습 비용 없이 JavaScript 기본기를 다지는 것이 목표.
 - **이미지 저장소**: Docker 환경에서는 `/app/uploads` 볼륨에 저장하고 nginx가 직접 서빙. 로컬 개발 시에도 로컬 파일시스템 사용.
@@ -318,6 +332,28 @@ sequenceDiagram
 ## 최근 변경사항 (Recent Changes)
 
 ## changelog
+
+- 2026-02-25: JWT payload 최소화 + 코드 리뷰 수정
+  - JWT payload에서 PII 제거: `email`, `nickname`, `role` 클레임 삭제, `sub`(user_id)만 유지
+  - 파일명 변경: `session_models.py` → `token_models.py`
+  - 변수명 개선: `_ALGORITHM` → `_JWT_ALGORITHM`, `DUMMY_HASH` → `_TIMING_ATTACK_DUMMY_HASH` 등
+  - 주석 정리: 중복 주석 제거, 영어 → 한국어, 잘못된 주석 수정
+
+- 2026-02-25: JWT 인증으로 전환 (세션 기반 → JWT)
+  - 인증 방식 변경: 서버 사이드 세션 → JWT (Access Token 30분 + Refresh Token 7일)
+    - Access Token: HS256 JWT, 프론트엔드 in-memory 저장 (XSS 최소화)
+    - Refresh Token: opaque random string, HttpOnly 쿠키, SHA-256 해시로 DB 저장
+    - 토큰 회전(rotation): 갱신 시 기존 Refresh Token 삭제 + 새 토큰 발급 (원자적 트랜잭션)
+  - DB 스키마 변경: `user_session` 테이블 → `refresh_token` 테이블
+  - 새 엔드포인트: `POST /v1/auth/token/refresh` (토큰 갱신)
+  - CSRF 미들웨어 제거: Bearer 토큰이 CSRF 방어 역할 수행
+  - SessionMiddleware 제거: JWT는 stateless, 서버 사이드 세션 불필요
+  - 프론트엔드 변경:
+    - `ApiService.js`: Bearer 토큰 관리, silent refresh, thundering herd 보호
+    - `AuthModel.js`: 페이지 새로고침 시 HttpOnly 쿠키로 silent refresh
+  - 의존성 변경: `itsdangerous` → `PyJWT`
+  - 만료 토큰 자동 정리: `_periodic_token_cleanup()` 백그라운드 작업 (1시간 간격, `main.py` lifespan)
+  - 테스트 업데이트: 59개 전체 통과
 
 - 2026-02-25: 보안 강화, CI/CD 개선, 코드 품질 향상
   - `ProxyHeadersMiddleware` 보안 수정

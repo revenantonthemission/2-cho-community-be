@@ -57,13 +57,15 @@ async def test_auth_05_me(client: AsyncClient, authorized_user):
 
 @pytest.mark.asyncio
 async def test_auth_06_logout(client: AsyncClient, authorized_user):
-    """AUTH-06: 로그아웃"""
+    """AUTH-06: 로그아웃 — Refresh Token이 무효화되어 토큰 갱신 실패 확인."""
     cli, _, _ = authorized_user
     res = await cli.delete("/v1/auth/session")
     assert res.status_code == 200
-    
-    res_me = await cli.get("/v1/auth/me")
-    assert res_me.status_code == 401
+
+    # JWT 기반 인증에서 Access Token은 stateless이므로 로그아웃 후에도 유효함.
+    # 대신 Refresh Token이 무효화되어 토큰 갱신이 실패하는지 확인.
+    refresh_res = await cli.post("/v1/auth/token/refresh")
+    assert refresh_res.status_code == 401
 
 # ==========================================
 # 2. Post Tests (POST-01 ~ POST-08)
@@ -113,19 +115,25 @@ async def test_post_02_unauthorized_create(client: AsyncClient):
 async def test_post_06_forbidden_update(client: AsyncClient, authorized_user, fake):
     """POST-06: 타인의 게시글 수정 실패"""
     cli1, user1, _ = authorized_user
-    
+
     res = await cli1.post("/v1/posts/", json={"title": "User1 Post", "content": "c"})
     post_id = res.json()["data"]["post_id"]
-    
+
     user2_payload = {
         "email": fake.email(),
         "password": "Password123!",
         "nickname": fake.lexify(text="?????") + str(fake.random_int(10, 99))
     }
     await client.post("/v1/users/", data=user2_payload)
-    await client.post("/v1/auth/session", json={"email": user2_payload["email"], "password": "Password123!"})
-    
-    fail_res = await client.patch(f"/v1/posts/{post_id}", json={"title": "Hacked"})
+    login_res = await client.post("/v1/auth/session", json={"email": user2_payload["email"], "password": "Password123!"})
+    access_token = login_res.json()["data"]["access_token"]
+
+    # JWT Bearer Token으로 인증된 요청 전송
+    fail_res = await client.patch(
+        f"/v1/posts/{post_id}",
+        json={"title": "Hacked"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
     assert fail_res.status_code == 403
 
 # ==========================================

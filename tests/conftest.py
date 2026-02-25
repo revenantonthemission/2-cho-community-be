@@ -12,35 +12,8 @@ from database.connection import get_connection, init_db, close_db
 from faker import Faker
 
 
-class CSRFAsyncClient(AsyncClient):
-    """CSRF 토큰을 자동으로 포함하는 AsyncClient 래퍼."""
-
-    async def request(self, method, url, **kwargs):
-        """요청 시 CSRF 토큰을 자동으로 헤더에 추가."""
-        # POST, PUT, PATCH, DELETE 요청에만 CSRF 토큰 추가
-        if method.upper() in ["POST", "PUT", "PATCH", "DELETE"]:
-            # 쿠키에서 CSRF 토큰 가져오기
-            csrf_token = self.cookies.get("csrf_token")
-            if csrf_token:
-                # 기존 헤더가 None이면 새 dict 생성
-                headers = kwargs.get("headers")
-                if headers is None:
-                    headers = {}
-                elif not isinstance(headers, dict):
-                    # 다른 타입(예: list of tuples)이면 dict로 변환
-                    headers = dict(headers)
-                else:
-                    # dict면 복사본 생성 (원본 수정 방지)
-                    headers = dict(headers)
-
-                headers["X-CSRF-Token"] = csrf_token
-                kwargs["headers"] = headers
-
-        return await super().request(method, url, **kwargs)
-
-
 async def clear_all_data() -> None:
-    """테스트용 헬퍼: 모든 게시글 관련 데이터를 삭제합니다."""
+    """테스트용 헬퍼: 모든 데이터를 삭제합니다."""
     async with get_connection() as conn:
         async with conn.cursor() as cur:
             await cur.execute("SET FOREIGN_KEY_CHECKS = 0")
@@ -48,7 +21,7 @@ async def clear_all_data() -> None:
             await cur.execute("TRUNCATE TABLE post_like")
             await cur.execute("TRUNCATE TABLE comment")
             await cur.execute("TRUNCATE TABLE post")
-            await cur.execute("TRUNCATE TABLE user_session")
+            await cur.execute("TRUNCATE TABLE refresh_token")
             await cur.execute("TRUNCATE TABLE user")
             await cur.execute("SET FOREIGN_KEY_CHECKS = 1")
 
@@ -69,11 +42,9 @@ async def db():
 
 @pytest_asyncio.fixture
 async def client(db):
-    """API 테스트를 위한 CSRF 지원 Async Client"""
+    """API 테스트를 위한 Async Client"""
     transport = ASGITransport(app=app)
-    async with CSRFAsyncClient(transport=transport, base_url="http://test") as ac:
-        # GET 요청으로 CSRF 토큰 획득
-        await ac.get("/health")
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
 
 
@@ -95,7 +66,10 @@ def user_payload(fake):
 
 @pytest_asyncio.fixture
 async def authorized_user(client, user_payload):
-    """회원가입 및 로그인이 완료된 클라이언트와 유저 정보 반환"""
+    """회원가입 및 로그인이 완료된 클라이언트와 유저 정보 반환.
+
+    JWT Bearer Token을 Authorization 헤더에 설정한 새 클라이언트를 반환합니다.
+    """
     # 회원가입 (Form)
     signup_res = await client.post("/v1/users/", data=user_payload)
 
@@ -111,5 +85,18 @@ async def authorized_user(client, user_payload):
     )
     assert login_res.status_code == 200
 
-    user_info = login_res.json()["data"]["user"]
-    return client, user_info, user_payload
+    login_data = login_res.json()
+    access_token = login_data["data"]["access_token"]
+    user_info = login_data["data"]["user"]
+
+    # Bearer Token이 설정된 새 클라이언트 생성
+    transport = ASGITransport(app=app)
+    auth_client = AsyncClient(
+        transport=transport,
+        base_url="http://test",
+        headers={"Authorization": f"Bearer {access_token}"},
+        cookies=login_res.cookies,  # refresh_token 쿠키 전달
+    )
+
+    async with auth_client as ac:
+        yield ac, user_info, user_payload

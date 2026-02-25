@@ -375,7 +375,7 @@ async def _disconnect_and_anonymize_user(
 ) -> User | None:
     """사용자의 연결을 끊고 익명화하는 공통 로직.
 
-    게시글/댓글의 author_id를 NULL로 설정하고, 세션을 삭제하며,
+    게시글/댓글의 author_id를 NULL로 설정하고, 리프레시 토큰을 삭제하며,
     이메일과 닉네임을 익명화합니다.
 
     Args:
@@ -399,9 +399,9 @@ async def _disconnect_and_anonymize_user(
         (user_id,),
     )
 
-    # 2. 세션 종료: 모든 활성 세션 삭제
+    # 2. 토큰 무효화: 모든 리프레시 토큰 삭제
     await cur.execute(
-        "DELETE FROM user_session WHERE user_id = %s",
+        "DELETE FROM refresh_token WHERE user_id = %s",
         (user_id,),
     )
 
@@ -467,45 +467,6 @@ async def cleanup_deleted_user(user_id: int) -> User | None:
 __all__ = [
     "User",
 ]
-
-
-async def get_user_and_session(session_id: str) -> dict | None:
-    """세션 ID로 세션 만료 시간과 사용자 정보를 함께 조회합니다.
-
-    JOIN을 사용하여 데이터베이스 쿼리 횟수를 줄입니다.
-
-    Args:
-        session_id: 세션 ID.
-
-    Returns:
-        딕셔너리: {"expires_at": datetime, "user": User}, 없으면 None.
-    """
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
-                SELECT s.expires_at,
-                       u.id, u.email, u.nickname, u.password, u.profile_img,
-                       u.created_at, u.updated_at, u.deleted_at
-                FROM user_session s
-                INNER JOIN user u ON s.user_id = u.id
-                WHERE s.session_id = %s
-                """,
-                (session_id,),
-            )
-            row = await cur.fetchone()
-
-            if not row:
-                return None
-
-            # row[0] is expires_at
-            # row[1:] corresponds to User columns
-            user = _row_to_user(row[1:])
-
-            return {
-                "expires_at": row[0],
-                "user": user,
-            }
 
 
 async def register_user(

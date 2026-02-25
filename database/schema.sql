@@ -10,11 +10,11 @@ CREATE TABLE user (
     deleted_at TIMESTAMP NULL
 );
 
--- 유저 세션 테이블
-CREATE TABLE user_session (
+-- 리프레시 토큰 테이블 (JWT 인증용)
+CREATE TABLE refresh_token (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id INT UNSIGNED NOT NULL,
-    session_id varchar(2048) NOT NULL,
+    token_hash VARCHAR(64) NOT NULL UNIQUE,
     expires_at TIMESTAMP NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE CASCADE
@@ -81,8 +81,9 @@ CREATE TABLE post_view_log (
 );
     
     -- 성능 최적화 인덱스
-    -- 1. 인증/세션 (크리티컬)
-    CREATE INDEX idx_user_session_session_id ON user_session (session_id (255));
+    -- 1. 인증/리프레시 토큰 (크리티컬)
+    CREATE INDEX idx_refresh_token_hash ON refresh_token (token_hash);
+    CREATE INDEX idx_refresh_token_user_id ON refresh_token (user_id);
     
     -- 2. 사용자/게시글/댓글 (Soft Delete 필터링)
     CREATE INDEX idx_user_deleted_at ON user (deleted_at);

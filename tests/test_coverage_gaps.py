@@ -105,53 +105,43 @@ async def test_upload_profile_image_endpoint(client: AsyncClient, authorized_use
 
 
 @pytest.mark.asyncio
-async def test_session_expiration(client: AsyncClient, authorized_user):
+async def test_token_expiration(client: AsyncClient, authorized_user):
     """
-    Test that expired sessions are automatically deleted and access is denied.
+    Test that expired JWT access tokens are denied with 401.
     """
+    from httpx import ASGITransport
+    from main import app
+    import jwt
+    from datetime import datetime, timedelta, timezone
+
     cli, user_info, _ = authorized_user
 
-    # authorized_user fixture logs in and sets a session cookie.
-    # We need to find the session in DB and expire it.
-    from database.connection import get_connection
-    from datetime import datetime, timedelta
+    user_id = user_info.get("user_id") or user_info.get("id")
 
-    # 1. Get the session ID from DB directly (more robust than cookie inspection here)
-    # user_info has user_id
-    user_id = user_info.get("id") or user_info.get("user_id")
+    # 1. 만료된 Access Token 생성
+    from core.config import settings
 
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                "SELECT session_id FROM user_session WHERE user_id = %s", (user_id,)
-            )
-            row = await cur.fetchone()
-            session_id = row[0] if row else None
+    expired_payload = {
+        "sub": str(user_id),
+        "email": "test@example.com",
+        "nickname": "testuser",
+        "role": "user",
+        "iat": int((datetime.now(timezone.utc) - timedelta(hours=2)).timestamp()),
+        "exp": int((datetime.now(timezone.utc) - timedelta(hours=1)).timestamp()),
+        "type": "access",
+    }
+    expired_token = jwt.encode(expired_payload, settings.SECRET_KEY, algorithm="HS256")
 
-    assert session_id is not None
-
-    # 2. Update DB to make it expired
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            # Set expires_at to 1 hour ago
-            past_time = datetime.utcnow() - timedelta(hours=1)
-            await cur.execute(
-                "UPDATE user_session SET expires_at = %s WHERE session_id = %s",
-                (past_time, session_id),
-            )
-
-    # 3. Try to access protected endpoint
-    res = await cli.get("/v1/users/me")
-    assert res.status_code == 401
-
-    # 4. Verify session is deleted from DB
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                "SELECT * FROM user_session WHERE session_id = %s", (session_id,)
-            )
-            row = await cur.fetchone()
-            assert row is None
+    # 2. 만료된 토큰으로 보호된 엔드포인트 접근 시도
+    transport = ASGITransport(app=app)
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://test",
+        headers={"Authorization": f"Bearer {expired_token}"},
+    ) as expired_client:
+        res = await expired_client.get("/v1/users/me")
+        assert res.status_code == 401
+        assert res.json()["detail"]["error"] == "token_expired"
 
 
 @pytest.mark.asyncio

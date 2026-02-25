@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     환경 변수에서 설정을 로드하며, 기본값을 제공합니다.
 
     Attributes:
-        SECRET_KEY: 세션 암호화 키.
+        SECRET_KEY: JWT 토큰 서명 키.
         ALLOWED_ORIGINS: CORS 허용 오리진 목록.
         DB_HOST: MySQL 호스트 주소.
         DB_PORT: MySQL 포트 번호.
@@ -19,48 +19,39 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     HTTPS_ONLY: bool = False
     ALLOWED_ORIGINS: list[str] = [
-        "http://127.0.0.1:8080",  # Local dev (frontend)
-        "http://localhost:8080",  # Local dev (frontend)
-        # EC2 + nginx reverse proxy deployment:
-        # "http://your-frontend-ec2-ip",
-        # "https://your-frontend-ec2-domain",
-        # CloudFront + S3 deployment (Approach A: CloudFront proxies /v1/*):
-        # Requests appear same-origin via CloudFront, so CORS is not strictly required,
-        # but adding the domain is good practice and protects local dev CORS.
-        # "https://d1234abcd.cloudfront.net",
+        "http://127.0.0.1:8080",  # 로컬 개발 (프론트엔드)
+        "http://localhost:8080",  # 로컬 개발 (프론트엔드)
+        # CloudFront 배포 시 same-origin이므로 CORS 불필요하나,
+        # 로컬 개발 CORS 보호를 위해 도메인 추가 권장
         "https://my-community.shop",
     ]
 
-    # MySQL Database Settings
     DB_HOST: str
     DB_PORT: int
     DB_USER: str
     DB_PASSWORD: str
     DB_NAME: str
 
-    # Auth Settings
-    SESSION_EXPIRE_HOURS: int = 24
+    JWT_ACCESS_EXPIRE_MINUTES: int = 30
+    JWT_REFRESH_EXPIRE_DAYS: int = 7
 
-    # Debug Mode (프로덕션에서는 False로 설정하여 상세 에러 숨김)
+    # 프로덕션에서는 False로 설정하여 상세 에러 메시지 노출 방지
     DEBUG: bool = True
 
-    # File Upload Settings
     IMAGE_UPLOAD_DIR: str = "assets/posts"
     PROFILE_IMAGE_UPLOAD_DIR: str = "assets/profiles"
 
-    # Rate Limiting Settings
     RATE_LIMIT_MAX_IPS: int = 10000  # 메모리 보호를 위한 최대 추적 IP 수
-    TRUSTED_PROXIES: set[str] = set()  # 신뢰할 수 있는 프록시 IP (프로덕션에서 설정)
+    TRUSTED_PROXIES: set[str] = set()  # 프로덕션에서 ALB/nginx 등의 프록시 IP 설정 필요
 
-    # AWS S3 Settings (optional - only needed for S3 storage)
+    # S3 스토리지 사용 시에만 필요 (STORAGE_TYPE="s3")
     AWS_ACCESS_KEY_ID: str = ""
     AWS_SECRET_ACCESS_KEY: str = ""
     AWS_REGION: str = "ap-northeast-2"
     AWS_S3_BUCKET_NAME: str = ""
     CLOUDFRONT_DOMAIN: str = ""
 
-    # Storage type: "local" or "s3"
-    STORAGE_TYPE: str = "local"  # e.g. "d1234abcd.cloudfront.net" — set in production .env
+    STORAGE_TYPE: str = "local"  # "local" (로컬 파일) 또는 "s3" (AWS S3)
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"

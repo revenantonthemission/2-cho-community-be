@@ -1,7 +1,7 @@
-"""test_auth_controller: 인증 컨트롤러 단위 테스트."""
+"""test_auth_controller: 인증 컨트롤러 단위 테스트 (JWT 기반)."""
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from controllers import auth_controller
 from models.user_models import User
 
@@ -13,8 +13,15 @@ class TestLogin:
     def mock_request(self):
         """Mock Request 객체 생성."""
         request = MagicMock()
-        request.session = {}
+        request.state = MagicMock()
         return request
+
+    @pytest.fixture
+    def mock_response(self):
+        """Mock Response 객체 생성."""
+        response = MagicMock()
+        response.set_cookie = MagicMock()
+        return response
 
     @pytest.fixture
     def mock_credentials(self):
@@ -38,17 +45,24 @@ class TestLogin:
         )
 
     @pytest.mark.asyncio
-    @patch("controllers.auth_controller.user_models.get_user_by_email")
+    @patch(
+        "controllers.auth_controller.user_models.get_user_by_email",
+        new_callable=AsyncMock,
+    )
     @patch("controllers.auth_controller.verify_password")
-    @patch("controllers.auth_controller.session_models.create_session")
+    @patch(
+        "controllers.auth_controller.token_models.create_refresh_token",
+        new_callable=AsyncMock,
+    )
     @patch("controllers.auth_controller.get_request_timestamp")
     async def test_login_success(
         self,
         mock_timestamp,
-        mock_create_session,
+        mock_create_refresh,
         mock_verify,
         mock_get_user,
         mock_request,
+        mock_response,
         mock_credentials,
         mock_user,
     ):
@@ -56,16 +70,26 @@ class TestLogin:
         mock_timestamp.return_value = "2026-02-04T12:00:00Z"
         mock_get_user.return_value = mock_user
         mock_verify.return_value = True
-        mock_create_session.return_value = None
+        mock_create_refresh.return_value = None
 
-        result = await auth_controller.login(mock_credentials, mock_request)
+        result = await auth_controller.login(
+            mock_credentials, mock_request, mock_response
+        )
 
         assert result["code"] == "LOGIN_SUCCESS"
+        assert "access_token" in result["data"]
         assert "user" in result["data"]
-        assert mock_request.session["email"] == "test@example.com"
+        # Refresh Token이 DB에 저장되었는지 확인
+        mock_create_refresh.assert_awaited_once()
+        assert mock_create_refresh.call_args[0][0] == mock_user.id
+        # Refresh Token 쿠키가 설정되었는지 확인
+        mock_response.set_cookie.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("controllers.auth_controller.user_models.get_user_by_email")
+    @patch(
+        "controllers.auth_controller.user_models.get_user_by_email",
+        new_callable=AsyncMock,
+    )
     @patch("controllers.auth_controller.verify_password")
     @patch("controllers.auth_controller.get_request_timestamp")
     async def test_login_invalid_password(
@@ -74,6 +98,7 @@ class TestLogin:
         mock_verify,
         mock_get_user,
         mock_request,
+        mock_response,
         mock_credentials,
         mock_user,
     ):
@@ -85,16 +110,27 @@ class TestLogin:
         mock_verify.return_value = False
 
         with pytest.raises(HTTPException) as exc_info:
-            await auth_controller.login(mock_credentials, mock_request)
+            await auth_controller.login(
+                mock_credentials, mock_request, mock_response
+            )
 
         assert exc_info.value.status_code == 401
 
     @pytest.mark.asyncio
-    @patch("controllers.auth_controller.user_models.get_user_by_email")
+    @patch(
+        "controllers.auth_controller.user_models.get_user_by_email",
+        new_callable=AsyncMock,
+    )
     @patch("controllers.auth_controller.verify_password")
     @patch("controllers.auth_controller.get_request_timestamp")
     async def test_login_user_not_found(
-        self, mock_timestamp, mock_verify, mock_get_user, mock_request, mock_credentials
+        self,
+        mock_timestamp,
+        mock_verify,
+        mock_get_user,
+        mock_request,
+        mock_response,
+        mock_credentials,
     ):
         """존재하지 않는 사용자로 로그인 시도."""
         from fastapi import HTTPException
@@ -104,7 +140,9 @@ class TestLogin:
         mock_verify.return_value = False  # 타이밍 공격 방지를 위해 항상 검증 수행
 
         with pytest.raises(HTTPException) as exc_info:
-            await auth_controller.login(mock_credentials, mock_request)
+            await auth_controller.login(
+                mock_credentials, mock_request, mock_response
+            )
 
         assert exc_info.value.status_code == 401
 
@@ -116,8 +154,16 @@ class TestLogout:
     def mock_request(self):
         """Mock Request 객체 생성."""
         request = MagicMock()
-        request.session = {"session_id": "test-session-id", "email": "test@example.com"}
+        request.cookies = {"refresh_token": "test-refresh-token"}
+        request.state = MagicMock()
         return request
+
+    @pytest.fixture
+    def mock_response(self):
+        """Mock Response 객체 생성."""
+        response = MagicMock()
+        response.delete_cookie = MagicMock()
+        return response
 
     @pytest.fixture
     def mock_user(self):
@@ -133,19 +179,30 @@ class TestLogout:
         )
 
     @pytest.mark.asyncio
-    @patch("controllers.auth_controller.session_models.delete_session")
+    @patch(
+        "controllers.auth_controller.token_models.delete_refresh_token",
+        new_callable=AsyncMock,
+    )
     @patch("controllers.auth_controller.get_request_timestamp")
     async def test_logout_success(
-        self, mock_timestamp, mock_delete_session, mock_request, mock_user
+        self,
+        mock_timestamp,
+        mock_delete_refresh,
+        mock_request,
+        mock_response,
+        mock_user,
     ):
         """로그아웃 성공."""
         mock_timestamp.return_value = "2026-02-04T12:00:00Z"
-        mock_delete_session.return_value = None
+        mock_delete_refresh.return_value = None
 
-        result = await auth_controller.logout(mock_user, mock_request)
+        result = await auth_controller.logout(
+            mock_user, mock_request, mock_response
+        )
 
         assert result["code"] == "LOGOUT_SUCCESS"
-        mock_delete_session.assert_called_once_with("test-session-id")
+        mock_delete_refresh.assert_awaited_once_with("test-refresh-token")
+        mock_response.delete_cookie.assert_called_once()
 
 
 class TestGetMyInfo:

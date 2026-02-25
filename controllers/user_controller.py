@@ -134,10 +134,6 @@ async def update_user(
         timestamp=timestamp,
     )
 
-    # 세션 정보 업데이트 (닉네임 변경 시)
-    if update_data.nickname is not None:
-        request.session["nickname"] = update_data.nickname
-
     return create_response(
         "UPDATE_SUCCESS",
         "유저 정보 수정에 성공했습니다.",
@@ -179,9 +175,6 @@ async def withdraw_user(
         current_user=current_user,
         timestamp=timestamp,
     )
-
-    # 세션 초기화 (로그아웃)
-    request.session.clear()
 
     return create_response(
         "WITHDRAWAL_ACCEPTED", "탈퇴 신청이 접수되었습니다.", timestamp=timestamp

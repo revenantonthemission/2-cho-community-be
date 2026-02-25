@@ -46,11 +46,13 @@ from .like_models import (
     remove_like,
 )
 
-from .session_models import (
-    create_session,
-    get_session,
-    delete_session,
-    delete_user_sessions,
+from .token_models import (
+    create_refresh_token,
+    get_refresh_token,
+    delete_refresh_token,
+    rotate_refresh_token,
+    delete_user_refresh_tokens,
+    cleanup_expired_tokens,
 )
 
 __all__ = [
@@ -88,9 +90,11 @@ __all__ = [
     "get_posts_with_details",
     "get_post_with_details",
     "get_comments_with_author",
-    # 세션 모델
-    "create_session",
-    "get_session",
-    "delete_session",
-    "delete_user_sessions",
+    # 리프레시 토큰 모델
+    "create_refresh_token",
+    "get_refresh_token",
+    "delete_refresh_token",
+    "rotate_refresh_token",
+    "delete_user_refresh_tokens",
+    "cleanup_expired_tokens",
 ]

@@ -17,7 +17,7 @@ dependencies = [
     "h11>=0.16.0",
     "httptools>=0.7.1",
     "idna>=3.11",
-    "itsdangerous>=2.2.0",
+    "pyjwt>=2.9.0",
     "pydantic>=2.12.5",
     "pydantic_core>=2.41.5",
     "pydantic-settings>=2.0.0",
@@ -40,7 +40,7 @@ dependencies = [
 dev = ["pytest", "pytest-asyncio", "pytest-cov", "httpx", "ruff", "mypy"]
 
 [tool.setuptools]
-packages = ["routers", "controllers", "schemas", "models", "dependencies", "middleware"]
+packages = ["routers", "controllers", "schemas", "models", "dependencies", "middleware", "utils"]
 py-modules = ["main"]
 
 [tool.mypy]
