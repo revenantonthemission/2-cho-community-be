@@ -22,7 +22,7 @@ from database.connection import init_db, close_db
 from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
-from mangum import mangum
+from mangum import Mangum
 import os
 
 
