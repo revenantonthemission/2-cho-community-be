@@ -1,0 +1,61 @@
+name: Build and Push FastAPI to AWS ECR
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to ECR
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+
+    # 1. AWS 자격 증명 설정
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    # 2. AWS ECR 로그인
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    # [추가됨] 레포지토리가 없으면 생성하는 단계
+    - name: Check or Create ECR Repository
+      env:
+        ECR_REPOSITORY: community-api
+      run: |
+        aws ecr describe-repositories --repository-names $ECR_REPOSITORY || \
+        aws ecr create-repository --repository-name $ECR_REPOSITORY \
+          --image-scanning-configuration scanOnPush=true \
+          --encryption-configuration encryptionType=AES256
+        echo "Repository is ready."
+
+    # 3. Docker 이미지 빌드 및 푸시
+    - name: Build, tag, and push image to Amazon ECR
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: community-api # AWS ECR에 미리 만들어둔 레포지토리 이름
+        IMAGE_TAG: ${{ github.sha }}   # 커밋 해시값을 태그로 사용 (버전 관리 용이)
+      run: |
+        # 이미지 빌드 (플랫폼 명시 권장)
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        
+        # ECR로 푸시
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
