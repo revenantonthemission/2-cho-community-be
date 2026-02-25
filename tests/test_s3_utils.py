@@ -7,7 +7,6 @@ Tests build_image_url and extract_s3_key across all URL format branches:
 - Legacy local path (pre-S3 records)
 """
 
-import pytest
 from utils.s3_utils import build_image_url, extract_s3_key
 
 

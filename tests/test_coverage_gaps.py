@@ -1,8 +1,7 @@
 import pytest
 from httpx import AsyncClient
 from unittest.mock import AsyncMock, patch
-from fastapi import status, HTTPException
-import pytest_asyncio
+from fastapi import HTTPException
 
 # ==========================================
 # Gaps in User Controller
@@ -161,8 +160,6 @@ async def test_validation_handler_binary_sanitization():
     Unit test for request_validation_exception_handler to verify binary data sanitization.
     """
     from middleware.exception_handler import request_validation_exception_handler
-    from fastapi.exceptions import RequestValidationError
-    from pydantic import ValidationError
     from fastapi import Request
     import json
 

@@ -1,9 +1,7 @@
 """user_service: 사용자 관련 비즈니스 로직을 처리하는 서비스."""
 
-import time
-import uuid
 import logging
-from typing import Optional, Tuple
+from typing import Optional
 from models import user_models
 from models.user_models import User
 from schemas.user_schemas import CreateUserRequest

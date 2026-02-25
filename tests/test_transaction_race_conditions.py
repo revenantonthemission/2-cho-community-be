@@ -18,8 +18,8 @@
 import pytest
 import pytest_asyncio
 import asyncio
-from database.connection import get_connection, transactional
-from models import user_models, post_models, comment_models
+from database.connection import transactional
+from models import post_models, comment_models
 from utils.password import hash_password
 
 

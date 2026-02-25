@@ -1,11 +1,10 @@
 """Tests for local file storage utility."""
 
 import pytest
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi import UploadFile, HTTPException
 
-from utils.storage import save_uploaded_file, delete_file, UPLOAD_DIR
+from utils.storage import save_uploaded_file, delete_file
 
 
 @pytest.fixture

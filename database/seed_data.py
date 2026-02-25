@@ -22,7 +22,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from database.connection import init_db, close_db, get_connection, transactional
+from database.connection import init_db, close_db, transactional
 from utils.password import hash_password
 
 fake = Faker("ko_KR")
