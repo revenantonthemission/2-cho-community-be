@@ -7,6 +7,8 @@ Tests build_image_url and extract_s3_key across all URL format branches:
 - Legacy local path (pre-S3 records)
 """
 
+from unittest.mock import MagicMock, patch
+
 from utils.s3_utils import build_image_url, extract_s3_key
 
 
@@ -105,3 +107,39 @@ class TestExtractS3Key:
         monkeypatch.setattr("utils.s3_utils.settings.AWS_REGION", REGION)
 
         assert extract_s3_key("/assets/profiles/avatar.png") == "assets/profiles/avatar.png"
+
+
+# ---------------------------------------------------------------------------
+# get_s3_client
+# ---------------------------------------------------------------------------
+
+
+class TestGetS3Client:
+    def test_skips_credentials_when_empty(self, monkeypatch):
+        """Empty credentials should not be passed to boto3 — allows IAM role fallback."""
+        monkeypatch.setattr("utils.s3_utils.settings.AWS_ACCESS_KEY_ID", "")
+        monkeypatch.setattr("utils.s3_utils.settings.AWS_SECRET_ACCESS_KEY", "")
+        monkeypatch.setattr("utils.s3_utils.settings.AWS_REGION", "ap-northeast-2")
+
+        with patch("utils.s3_utils.boto3.client") as mock_client:
+            mock_client.return_value = MagicMock()
+            from utils.s3_utils import get_s3_client
+            get_s3_client()
+            mock_client.assert_called_once_with("s3", region_name="ap-northeast-2")
+
+    def test_passes_credentials_when_present(self, monkeypatch):
+        """Non-empty credentials should be passed to boto3."""
+        monkeypatch.setattr("utils.s3_utils.settings.AWS_ACCESS_KEY_ID", "AKID")
+        monkeypatch.setattr("utils.s3_utils.settings.AWS_SECRET_ACCESS_KEY", "SECRET")
+        monkeypatch.setattr("utils.s3_utils.settings.AWS_REGION", "ap-northeast-2")
+
+        with patch("utils.s3_utils.boto3.client") as mock_client:
+            mock_client.return_value = MagicMock()
+            from utils.s3_utils import get_s3_client
+            get_s3_client()
+            mock_client.assert_called_once_with(
+                "s3",
+                region_name="ap-northeast-2",
+                aws_access_key_id="AKID",
+                aws_secret_access_key="SECRET",
+            )
