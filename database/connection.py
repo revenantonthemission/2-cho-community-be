@@ -3,8 +3,6 @@
 aiomysql을 사용하여 비동기 MySQL 연결 풀을 관리합니다.
 """
 
-import os
-
 import aiomysql
 from typing import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -14,9 +12,6 @@ from core.config import settings
 
 # 전역 연결 풀
 _pool: aiomysql.Pool | None = None
-
-# Lambda 환경 감지: Lambda는 컨테이너별 독립 메모리이므로 풀 크기를 최소화
-_is_lambda = bool(os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
 
 
 async def init_db() -> None:
@@ -30,10 +25,6 @@ async def init_db() -> None:
     """
     global _pool
     try:
-        # Lambda: 컨테이너당 최소 연결로 DB 커넥션 폭증 방지 (RDS Proxy가 풀링 담당)
-        # EC2/로컬: 기존처럼 5-50 풀 유지
-        pool_min = 1 if _is_lambda else 5
-        pool_max = 5 if _is_lambda else 50
         _pool = await aiomysql.create_pool(
             host=settings.DB_HOST,
             port=settings.DB_PORT,
@@ -42,16 +33,15 @@ async def init_db() -> None:
             db=settings.DB_NAME,
             charset="utf8mb4",
             autocommit=True,
-            minsize=pool_min,
-            maxsize=pool_max,
+            minsize=5,
+            maxsize=50,
             connect_timeout=5,  # 5초 연결 타임아웃
             # 트랜잭션 격리 수준 설정
             init_command="SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED",
         )
-        env_label = "Lambda" if _is_lambda else "EC2/로컬"
         print(
             f"MySQL 연결 풀 초기화 완료: {settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME} "
-            f"(격리 수준: READ COMMITTED, 풀 크기: {pool_min}-{pool_max}, 환경: {env_label})"
+            f"(격리 수준: READ COMMITTED, 풀 크기: 5-50)"
         )
     except Exception as e:
         print(f"MySQL 연결 풀 초기화 실패: {e}")

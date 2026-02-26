@@ -21,9 +21,6 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: list[str] = [
         "http://127.0.0.1:8080",  # 로컬 개발 (프론트엔드)
         "http://localhost:8080",  # 로컬 개발 (프론트엔드)
-        # CloudFront 배포 시 same-origin이므로 CORS 불필요하나,
-        # 로컬 개발 CORS 보호를 위해 도메인 추가 권장
-        "https://my-community.shop",
     ]
 
     DB_HOST: str
@@ -42,16 +39,7 @@ class Settings(BaseSettings):
     PROFILE_IMAGE_UPLOAD_DIR: str = "assets/profiles"
 
     RATE_LIMIT_MAX_IPS: int = 10000  # 메모리 보호를 위한 최대 추적 IP 수
-    TRUSTED_PROXIES: set[str] = set()  # 프로덕션에서 ALB/nginx 등의 프록시 IP 설정 필요
-
-    # S3 스토리지 사용 시에만 필요 (STORAGE_TYPE="s3")
-    AWS_ACCESS_KEY_ID: str = ""
-    AWS_SECRET_ACCESS_KEY: str = ""
-    AWS_REGION: str = "ap-northeast-2"
-    AWS_S3_BUCKET_NAME: str = ""
-    CLOUDFRONT_DOMAIN: str = ""
-
-    STORAGE_TYPE: str = "local"  # "local" (로컬 파일) 또는 "s3" (AWS S3)
+    TRUSTED_PROXIES: set[str] = set()  # 프로덕션에서 nginx 등의 프록시 IP 설정 필요
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"

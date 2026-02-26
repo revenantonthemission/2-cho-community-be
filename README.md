@@ -333,18 +333,11 @@ sequenceDiagram
 
 ## changelog
 
-- 2026-02-26: AWS Lambda 배포 호환성 + OpenAPI 스펙 생성
-  - Lambda 환경 감지: `AWS_LAMBDA_FUNCTION_NAME` 환경변수로 자동 전환
-  - `database/connection.py`: Lambda 시 DB 풀 크기 축소 (5-50 → 1-5, RDS Proxy 전제)
-  - `main.py`: Lambda 시 정적 파일 마운트 생략 (S3 사용), 토큰 정리 백그라운드 작업 생략
-  - `openapi.json` 생성: FastAPI `app.openapi()` → OpenAPI 3.0.3 변환 (API Gateway 호환)
-    - `anyOf` null 패턴 → `nullable: true` 변환
-    - 스키마명 alphanumeric 변환 (API Gateway 제약)
-
-- 2026-02-25: GitHub Actions CI/CD 확장 — ECR → EC2 자동 배포
-  - 백엔드 워크플로우: database 이미지 빌드/푸시 추가, `deploy-ec2` job으로 SSH 배포
-  - `appleboy/ssh-action@v1`으로 EC2 접속, ECR pull → `docker compose up -d`
-  - paths 필터 확장: `database/schema.sql` → `database/**` (Dockerfile 변경도 트리거)
+- 2026-02-26: AWS 인프라 제거 및 로컬 개발 환경 정리
+  - AWS Lambda/S3/CloudFront 관련 코드 전면 제거
+  - `mangum`, `boto3`, `boto` 의존성 제거
+  - `STORAGE_TYPE` 설정 제거 (로컬 파일시스템만 사용)
+  - CI/CD 워크플로우 간소화: 테스트 job만 유지
 
 - 2026-02-25: JWT payload 최소화 + 코드 리뷰 수정
   - JWT payload에서 PII 제거: `email`, `nickname`, `role` 클레임 삭제, `sub`(user_id)만 유지
@@ -380,43 +373,14 @@ sequenceDiagram
     - PR에서는 테스트만 실행: `if: github.event_name == 'push'` 조건 추가
     - Docker 빌드 시 `--platform linux/amd64` 명시
     - `.py`, `pyproject.toml`, `Dockerfile`, `schema.sql` 등 코드 변경 시에만 CI/CD 실행
-    - README, 문서 변경 시 불필요한 Docker 빌드/ECR 푸시 방지
+    - README, 문서 변경 시 불필요한 CI 실행 방지
   - 코드 품질 개선 (ruff/mypy CI 통과)
     - 13개 미사용 import 제거 (`seed_data.py`, `user_service.py`, `test_*.py`)
     - `__init__.py` 추가: `utils/`, `database/`, `tests/` (mypy 패키지 인식)
     - `pyproject.toml`에 `[tool.mypy]` 설정 추가 (pydantic 플러그인, ignore_missing_imports)
     - 타입 에러 수정: `assert` 문으로 None 체크, `# type: ignore` 주석 추가
 
-- 2026-02-24: Docker + EC2 배포로 전환
-  - 배포 아키텍처 변경: CloudFront + S3 + ELB → Docker Compose + 단일 EC2
-    - 이전: CloudFront (CDN) → S3 (정적 파일) + ELB → EC2 (API)
-    - 현재: EC2 (nginx + uvicorn + MySQL, 단일 인스턴스)
-  - Docker Compose 프로덕션 설정 (`docker-compose.prod.yml`)
-    - `frontend`: nginx:alpine 기반, 정적 파일 서빙 + 리버스 프록시
-    - `backend`: FastAPI + uvicorn, `/app/uploads` 볼륨 마운트
-    - `database`: MySQL 9.6, 데이터 영속성을 위한 볼륨 마운트
-    - 컨테이너 간 통신: Docker 내부 네트워크 (`my-community-network`)
-  - nginx 리버스 프록시 설정 (`2-cho-community-fe/nginx.conf`)
-    - HTTPS 강제 리다이렉트 (80 → 443)
-    - Let's Encrypt SSL 인증서 (`/etc/letsencrypt/live/my-community.shop/`)
-    - Clean URL 지원 (`/main` → `post_list.html`, `/login` → `user_login.html`)
-    - API 프록시: `/v1/*`, `/health` → `backend:8000`
-  - 프론트엔드 Dockerfile (`2-cho-community-fe/Dockerfile`)
-    - nginx:alpine 기반 경량 이미지
-    - 헬스체크 포함 (`wget --spider http://localhost:80/`)
-  - 장점: 단일 EC2로 비용 절감, Docker로 환경 일관성 보장, 배포 단순화 (`docker compose up -d`)
-
-- 2026-02-19: CloudFront + S3 배포 전환
-  - 배포 아키텍처 변경: Single-Origin Nginx (EC2) → **CloudFront + S3 + ELB**
-    - 정적 파일: S3 버킷 + CloudFront CDN 서빙
-    - API 요청: CloudFront `/v1/*` → ELB → EC2:8000
-    - WAF WebACL 연결 (IP Reputation, Common Rule Set, Known Bad Inputs)
-  - WAF `SizeRestrictions_BODY` COUNT 모드 오버라이드 (이미지 업로드 8KB 제한 해제)
-  - 이미지 저장/서빙을 S3 + CloudFront URL 방식으로 전환 (`utils/s3_utils.py`)
-  - `CLOUDFRONT_DOMAIN` 환경변수 추가 (`.env`에서 설정)
-  - ELB Health Check 통과를 위해 uvicorn `--host 0.0.0.0` 바인딩으로 변경
-
-- 2026-02-12: 프론트엔드 개발 환경 변경, Single-Origin Nginx 배포 설정
+- 2026-02-12: 프론트엔드 개발 환경 변경
   - 쿠키 설정 변경
     - `main.py`: `same_site="none"` → `same_site="lax"` (보안 강화)
     - `csrf_protection.py`: `samesite="none"` → `samesite="strict"` (CSRF 최대 보호)
@@ -424,7 +388,6 @@ sequenceDiagram
   - 프론트엔드 API 설정
     - `config.js`: `API_BASE_URL = ""` (same-origin, nginx가 프록시)
   - 배포 방식 단순화
-    - Cross-domain (S3 + EC2) → Single-origin (nginx reverse proxy)
     - 쿠키 문제 해결, 보안 강화, 설정 간소화
   - 프론트엔드가 npm serve로 마이그레이션 완료
     - 로컬 개발: FastAPI/uvicorn → `npm serve` (Port 8080)

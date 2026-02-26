@@ -13,7 +13,7 @@ from fastapi import HTTPException, UploadFile, status
 # Upload directory (configurable via environment variable)
 UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "/app/uploads"))
 
-# Allowed image extensions and MIME types (same as s3_utils.py)
+# 허용된 이미지 확장자 및 MIME 타입
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 ALLOWED_MIME_TYPES = {
     "image/jpeg",

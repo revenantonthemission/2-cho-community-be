@@ -1,4 +1,4 @@
-name: Backend CI/CD — Test, Build, Deploy
+name: Backend CI — Test & Lint
 
 on:
   push:
@@ -7,7 +7,6 @@ on:
       - '**.py'
       - 'pyproject.toml'
       - 'requirements*.txt'
-      - 'Dockerfile'
       - 'database/**'
       - '.github/workflows/python-app.yml'
   pull_request:
@@ -16,7 +15,6 @@ on:
       - '**.py'
       - 'pyproject.toml'
       - 'requirements*.txt'
-      - 'Dockerfile'
       - 'database/**'
       - '.github/workflows/python-app.yml'
   workflow_dispatch:
@@ -80,104 +78,3 @@ jobs:
         SECRET_KEY: "test-secret-key-for-ci"
         TESTING: "true"
       run: pytest --cov --cov-report=term-missing
-
-  deploy:
-    name: Build & Push to ECR
-    runs-on: ubuntu-latest
-    needs: test
-    if: github.event_name == 'push'
-
-    steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
-
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_REGION }}
-
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v2
-
-    # ECR 레포지토리가 없으면 자동 생성
-    - name: Ensure ECR repositories exist
-      run: |
-        for REPO in my-community-be my-community-db; do
-          aws ecr describe-repositories --repository-names $REPO 2>/dev/null || \
-          aws ecr create-repository --repository-name $REPO \
-            --image-scanning-configuration scanOnPush=true \
-            --encryption-configuration encryptionType=AES256
-        done
-
-    - name: Build and push backend image
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ github.sha }}
-      run: |
-        docker build --platform linux/amd64 \
-          -t $ECR_REGISTRY/my-community-be:$IMAGE_TAG \
-          -t $ECR_REGISTRY/my-community-be:latest .
-        docker push $ECR_REGISTRY/my-community-be:$IMAGE_TAG
-        docker push $ECR_REGISTRY/my-community-be:latest
-
-    - name: Build and push database image
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ github.sha }}
-      run: |
-        docker build --platform linux/amd64 \
-          -t $ECR_REGISTRY/my-community-db:$IMAGE_TAG \
-          -t $ECR_REGISTRY/my-community-db:latest ./database
-        docker push $ECR_REGISTRY/my-community-db:$IMAGE_TAG
-        docker push $ECR_REGISTRY/my-community-db:latest
-
-  deploy-ec2:
-    name: Deploy to EC2
-    runs-on: ubuntu-latest
-    needs: deploy
-    if: github.event_name == 'push'
-
-    steps:
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_REGION }}
-
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v2
-
-    - name: Deploy via SSH
-      uses: appleboy/ssh-action@v1
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        AWS_REGION: ${{ secrets.AWS_REGION }}
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ${{ secrets.EC2_USER }}
-        key: ${{ secrets.EC2_SSH_KEY }}
-        envs: ECR_REGISTRY,AWS_REGION
-        script: |
-          set -e
-
-          APP_DIR="${APP_DIR:-$HOME/my-community}"
-          cd "$APP_DIR"
-
-          # ECR 로그인
-          aws ecr get-login-password --region $AWS_REGION | \
-            docker login --username AWS --password-stdin $ECR_REGISTRY
-
-          # ECR 레지스트리를 DOCKER_REGISTRY로 설정하여 이미지 pull
-          export DOCKER_REGISTRY="${ECR_REGISTRY}/"
-          sudo docker compose -f docker-compose.yml pull backend database
-
-          # 변경된 서비스만 재시작 (무중단: 기존 컨테이너 교체)
-          sudo docker compose -f docker-compose.yml up -d backend database
-
-          # 사용하지 않는 이전 이미지 정리
-          sudo docker image prune -f

@@ -5,6 +5,7 @@
 
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,8 +23,6 @@ from database.connection import init_db, close_db
 from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
-from mangum import Mangum
-import os
 
 
 _TOKEN_CLEANUP_INTERVAL_HOURS = 1
@@ -43,9 +42,6 @@ async def _periodic_token_cleanup() -> None:
             logger.exception("Refresh Token 정리 중 오류 발생")
 
 
-_is_lambda = bool(os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """애플리케이션 생명주기 관리.
@@ -53,17 +49,11 @@ async def lifespan(app: FastAPI):
     시작 시 데이터베이스 연결 풀을 초기화하고,
     만료 토큰 정리 작업을 스케줄링하며,
     종료 시 백그라운드 작업과 연결 풀을 정리합니다.
-
-    Lambda 환경에서는 토큰 정리 백그라운드 작업을 생략합니다.
-    (Lambda 컨테이너는 호출 간 동결되므로 EventBridge 스케줄 사용 권장)
     """
     await init_db()
-    cleanup_task = None
-    if not _is_lambda:
-        cleanup_task = asyncio.create_task(_periodic_token_cleanup())
+    cleanup_task = asyncio.create_task(_periodic_token_cleanup())
     yield
-    if cleanup_task:
-        cleanup_task.cancel()
+    cleanup_task.cancel()
     await close_db()
 
 
@@ -101,10 +91,8 @@ app.include_router(user_router)
 app.include_router(post_router)
 app.include_router(terms_router)
 
-# Lambda 환경에서는 로컬 파일 시스템이 없으므로 정적 파일 마운트 생략 (S3 사용)
-if not _is_lambda:
-    os.makedirs("assets", exist_ok=True)
-    app.mount("/assets", StaticFiles(directory="assets"), name="assets")
+os.makedirs("assets", exist_ok=True)
+app.mount("/assets", StaticFiles(directory="assets"), name="assets")
 
 
 @app.get("/health", status_code=200)
@@ -119,6 +107,3 @@ async def health_check():
 
 app.add_exception_handler(Exception, global_exception_handler)
 app.add_exception_handler(RequestValidationError, request_validation_exception_handler)  # type: ignore[arg-type]
-
-# AWS Lambda 배포 시 Mangum이 ASGI 앱을 Lambda 핸들러로 변환
-handler = Mangum(app)

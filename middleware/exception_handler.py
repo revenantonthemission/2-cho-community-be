@@ -20,7 +20,6 @@ logger = logging.getLogger("api")
 error_logger = logging.getLogger("api.error")
 error_logger.setLevel(logging.ERROR)
 
-# RotatingFileHandler: 10MB 단위로 로테이션, 최대 5개 백업 파일
 if not error_logger.handlers:
     error_file_handler = RotatingFileHandler(
         "server_error.log",
