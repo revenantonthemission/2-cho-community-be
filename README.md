@@ -333,6 +333,19 @@ sequenceDiagram
 
 ## changelog
 
+- 2026-02-26: AWS Lambda 배포 호환성 + OpenAPI 스펙 생성
+  - Lambda 환경 감지: `AWS_LAMBDA_FUNCTION_NAME` 환경변수로 자동 전환
+  - `database/connection.py`: Lambda 시 DB 풀 크기 축소 (5-50 → 1-5, RDS Proxy 전제)
+  - `main.py`: Lambda 시 정적 파일 마운트 생략 (S3 사용), 토큰 정리 백그라운드 작업 생략
+  - `openapi.json` 생성: FastAPI `app.openapi()` → OpenAPI 3.0.3 변환 (API Gateway 호환)
+    - `anyOf` null 패턴 → `nullable: true` 변환
+    - 스키마명 alphanumeric 변환 (API Gateway 제약)
+
+- 2026-02-25: GitHub Actions CI/CD 확장 — ECR → EC2 자동 배포
+  - 백엔드 워크플로우: database 이미지 빌드/푸시 추가, `deploy-ec2` job으로 SSH 배포
+  - `appleboy/ssh-action@v1`으로 EC2 접속, ECR pull → `docker compose up -d`
+  - paths 필터 확장: `database/schema.sql` → `database/**` (Dockerfile 변경도 트리거)
+
 - 2026-02-25: JWT payload 최소화 + 코드 리뷰 수정
   - JWT payload에서 PII 제거: `email`, `nickname`, `role` 클레임 삭제, `sub`(user_id)만 유지
   - 파일명 변경: `session_models.py` → `token_models.py`

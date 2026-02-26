@@ -1,5 +1,5 @@
 # Backend Docker Image
-# Build: docker build -t my-community-backend:latest ./2-cho-community-be
+# Build: docker build -t my-community-be:latest ./2-cho-community-be
 
 FROM python:3.11-slim
 
