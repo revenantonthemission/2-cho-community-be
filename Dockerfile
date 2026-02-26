@@ -1,5 +1,5 @@
 # Backend Docker Image for AWS Lambda
-FROM public.ecr.aws/lambda/python:3.11
+FROM public.ecr.aws/lambda/python:3.13
 
 ARG APP_VERSION=1.0.0
 LABEL maintainer="corpseonthemission@icloud.com"
@@ -13,7 +13,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# Install system dependencies using dnf (Amazon Linux)
+# Install system dependencies using dnf (Amazon Linux 2023)
 RUN dnf update -y && dnf install -y \
     gcc \
     gcc-c++ \
