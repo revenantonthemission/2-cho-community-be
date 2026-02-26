@@ -333,6 +333,13 @@ sequenceDiagram
 
 ## changelog
 
+- 2026-02-26: Terraform 인프라 구축
+  - `terraform/` 디렉토리에 AWS IaC 구성 (13개 모듈, 3개 환경)
+  - 아키텍처: S3(프론트엔드) → API Gateway → Lambda(FastAPI+Mangum) → RDS + EFS
+  - IAM 사용자/그룹/정책 모듈 (루트 계정 대체)
+  - CloudWatch 알람/대시보드 + CloudTrail 감사 로그
+  - Free Tier 최적화 (t3.micro, 단일 NAT Gateway)
+
 - 2026-02-26: AWS 인프라 제거 및 로컬 개발 환경 정리
   - AWS Lambda/S3/CloudFront 관련 코드 전면 제거
   - `mangum`, `boto3`, `boto` 의존성 제거

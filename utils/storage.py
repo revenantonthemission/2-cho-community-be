@@ -11,7 +11,7 @@ from pathlib import Path
 from fastapi import HTTPException, UploadFile, status
 
 # Upload directory (configurable via environment variable)
-UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "/app/uploads"))
+UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "/mnt/uploads"))
 
 # 허용된 이미지 확장자 및 MIME 타입
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}

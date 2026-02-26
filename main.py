@@ -23,6 +23,7 @@ from database.connection import init_db, close_db
 from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+from mangum import Mangum
 
 
 _TOKEN_CLEANUP_INTERVAL_HOURS = 1
@@ -107,3 +108,6 @@ async def health_check():
 
 app.add_exception_handler(Exception, global_exception_handler)
 app.add_exception_handler(RequestValidationError, request_validation_exception_handler)  # type: ignore[arg-type]
+
+# AWS 핸들러 설정
+handler = Mangum(app)
