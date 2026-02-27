@@ -1,0 +1,87 @@
+###############################################################################
+# Backend CD — Docker Build → ECR Push → Lambda Update
+#
+# 수동 트리거: workflow_dispatch로 환경 선택 후 배포
+# 인증: GitHub Actions OIDC → AWS IAM Role
+#
+# 사전 설정:
+#   - Repository variable: AWS_ACCOUNT_ID (12자리 AWS 계정 ID)
+#   - GitHub Environments: dev, staging, prod (선택적으로 required reviewers 설정)
+#   - Bootstrap에서 OIDC provider + IAM role 생성 완료
+###############################################################################
+
+name: Backend CD — ECR + Lambda
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "배포 환경"
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+jobs:
+  deploy:
+    name: Deploy to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    permissions:
+      id-token: write   # OIDC 토큰 발급
+      contents: read
+
+    env:
+      AWS_REGION: ap-northeast-2
+      ECR_REPOSITORY: my-community-${{ inputs.environment }}-backend
+      LAMBDA_FUNCTION: my-community-${{ inputs.environment }}-backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/my-community-${{ inputs.environment }}-github-actions
+          role-session-name: backend-deploy-${{ inputs.environment }}-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # --provenance=false 필수: Lambda가 Docker buildx OCI attestation manifest를 거부
+      # SHA 태그 + latest 태그 병행: 롤백 가능 + 기존 전략 유지
+      - name: Build and Push Docker Image
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE_TAG: sha-${{ github.sha }}
+        run: |
+          docker build --provenance=false \
+            -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
+            -t "$ECR_REGISTRY/$ECR_REPOSITORY:latest" .
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
+
+      # SHA 태그로 Lambda 업데이트 (불변 태그 → 동시 배포 시 race condition 방지)
+      - name: Update Lambda Function
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE_TAG: sha-${{ github.sha }}
+        run: |
+          aws lambda update-function-code \
+            --function-name "$LAMBDA_FUNCTION" \
+            --image-uri "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
+            --region "$AWS_REGION"
+
+      # Lambda 함수 업데이트가 완료될 때까지 대기
+      - name: Wait for Lambda Update
+        run: |
+          aws lambda wait function-updated \
+            --function-name "$LAMBDA_FUNCTION" \
+            --region "$AWS_REGION"
+          echo "Lambda function updated successfully"

@@ -331,6 +331,11 @@ sequenceDiagram
 
 ### 2026-02 (Feb)
 
+- **02-27: GitHub Actions CD 파이프라인 구축**
+  - `deploy-backend.yml`: `workflow_dispatch` → Docker build → ECR push (SHA + latest) → Lambda update
+  - OIDC 인증 (GitHub → AWS IAM Role), 환경 선택 (dev/staging/prod)
+  - `--provenance=false` 필수, `aws lambda wait function-updated`로 배포 완료 대기
+
 - **02-26: AWS 인프라 Terraform 구축 및 배포**
   - 14개 Terraform 모듈 구성 및 dev 환경 전체 배포
   - CloudFront CDN + HTTPS + Clean URL (CloudFront Functions)
