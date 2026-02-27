@@ -79,7 +79,7 @@ async def test_post_crud_flow(client: AsyncClient, authorized_user):
     post_payload = {
         "title": "Test Title",
         "content": "Test Content",
-        "image_url": "http://example.com/img.jpg"
+        "image_url": "/uploads/images/test_img.jpg"
     }
     create_res = await cli.post("/v1/posts/", json=post_payload)
     assert create_res.status_code == 201

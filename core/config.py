@@ -1,4 +1,43 @@
+import logging
+import os
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
+
+
+def _resolve_ssm_secrets() -> None:
+    """Lambda 환경에서 SSM Parameter Store의 SecureString 값을 환경 변수로 설정합니다.
+
+    SSM 파라미터 이름은 Lambda 환경변수 DB_PASSWORD_SSM_NAME, SECRET_KEY_SSM_NAME에 지정.
+    pydantic-settings가 환경변수에서 값을 읽기 전에 호출해야 합니다.
+    """
+    if os.getenv("AWS_LAMBDA_EXEC") != "true":
+        return
+
+    ssm_mappings = {
+        "DB_PASSWORD": os.getenv("DB_PASSWORD_SSM_NAME"),
+        "SECRET_KEY": os.getenv("SECRET_KEY_SSM_NAME"),
+    }
+
+    params_to_fetch = {k: v for k, v in ssm_mappings.items() if v}
+    if not params_to_fetch:
+        return
+
+    import boto3  # Lambda 런타임에 기본 포함
+
+    ssm = boto3.client("ssm")
+    for env_var, ssm_name in params_to_fetch.items():
+        try:
+            response = ssm.get_parameter(Name=ssm_name, WithDecryption=True)
+            os.environ[env_var] = response["Parameter"]["Value"]
+        except Exception:
+            logger.exception("SSM 파라미터 조회 실패: %s", ssm_name)
+            raise
+
+
+# Settings 인스턴스 생성 전에 SSM에서 시크릿을 환경변수로 설정
+_resolve_ssm_secrets()
 
 
 class Settings(BaseSettings):

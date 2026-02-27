@@ -73,6 +73,9 @@ class CreatePostRequest(BaseModel):
         """
         if v is None:
             return None
+        # 보안: 자체 업로드 경로만 허용 (외부 URL → SSRF/Content Injection 방지)
+        if not v.startswith("/uploads/"):
+            raise ValueError("이미지 URL은 업로드된 파일 경로만 허용됩니다.")
         allowed_extensions = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
         if not any(v.lower().endswith(ext) for ext in allowed_extensions):
             raise ValueError(
@@ -92,6 +95,21 @@ class UpdatePostRequest(BaseModel):
     title: str | None = Field(None, min_length=3, max_length=100)
     content: str | None = Field(None, min_length=1, max_length=10000)
     image_url: str | None = None
+
+    @field_validator("image_url")
+    @classmethod
+    def validate_image_url(cls, v: str | None) -> str | None:
+        """이미지 URL 형식을 검증합니다 (수정 시에도 동일한 보안 검증 적용)."""
+        if v is None:
+            return None
+        if not v.startswith("/uploads/"):
+            raise ValueError("이미지 URL은 업로드된 파일 경로만 허용됩니다.")
+        allowed_extensions = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+        if not any(v.lower().endswith(ext) for ext in allowed_extensions):
+            raise ValueError(
+                "이미지는 .jpg, .jpeg, .png, .gif, .webp 형식만 허용됩니다."
+            )
+        return v
 
     @field_validator("title")
     @classmethod
