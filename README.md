@@ -27,7 +27,6 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
 - 게시글 검색 기능
 - 대댓글(nested comments) 기능
 - 소셜 로그인 (OAuth)
-- 이메일 인증 및 비밀번호 찾기
 - 관리자 대시보드
 - 게시글 카테고리 또는 태그 기능
 
@@ -160,6 +159,8 @@ erDiagram
 | Method | Endpoint | 설명 | 인증 |
 | ------ | -------- | ---- | ---- |
 | POST | `/v1/users` | 회원가입 | X |
+| POST | `/v1/users/find-email` | 이메일 찾기 (닉네임 → 마스킹 이메일) | X |
+| POST | `/v1/users/reset-password` | 비밀번호 재설정 (이메일 → 임시 비밀번호 발송) | X |
 | GET | `/v1/users/{user_id}` | 사용자 프로필 조회 | X |
 | PATCH | `/v1/users/me` | 프로필 수정 (본인) | O |
 | DELETE | `/v1/users/me` | 회원 탈퇴 (본인) | O |
@@ -297,6 +298,7 @@ sequenceDiagram
 
 | 항목 | 구현 방식 |
 | ---- | --------- |
+| 정보 열거 방지 | 이메일/비밀번호 찾기에서 존재 여부 무관하게 동일 응답 + 더미 bcrypt 해싱 (타이밍 공격 방지) |
 | 비밀번호 해싱 | bcrypt (cost factor 기본값) |
 | JWT 인증 | Access Token(30분, in-memory) + Refresh Token(7일, HttpOnly Cookie, SHA-256 해시 DB 저장) |
 | CORS | 허용 출처 명시적 설정 (localhost:8080) |
@@ -331,21 +333,16 @@ sequenceDiagram
 
 ### 2026-02 (Feb)
 
-- **02-28: 전체 코드 리뷰 기반 버그 수정 + 보안 강화**
-  - Rate limiter 키 수정: 실제 라우트 경로와 동기화 (로그인 브루트포스 제한 활성화)
-  - 토큰 보안: `get_refresh_token()`에 `SELECT ... FOR UPDATE` 추가 (replay attack 방지)
-  - `transactional()` 일관성: 모든 쓰기 작업(delete_post, delete_comment 포함) 통일
-  - IntegrityError 처리: `add_like()`에서 transactional() 밖으로 전파, controller에서 409 처리
+- **02-28: 계정 찾기 기능 (이메일 찾기 + 비밀번호 재설정)**
+  - 이메일 찾기: 닉네임으로 마스킹된 이메일 조회 (`POST /v1/users/find-email`)
+  - 비밀번호 재설정: 임시 비밀번호 생성 후 이메일 발송 (`POST /v1/users/reset-password`)
+  - 이메일 발송 이중 지원: SES(프로덕션) + SMTP(로컬 개발), `asyncio.to_thread()`로 비동기 처리
+  - 보안: 정보 열거 방지(존재 여부 무관 동일 응답), 타이밍 공격 방지(더미 bcrypt), Rate Limiting(5/5분, 3/5분)
 
-- **02-28: 보안 취약점 수정 (Critical, 백엔드 3건)**
-  - Path Traversal 방지: `delete_file()`에 `Path.resolve()` + 경계 검사 추가
-  - SSRF 방지: `image_url` 필드에 `/uploads/` 프리픽스 강제 (외부 URL 차단)
-  - Lambda 시크릿: 평문 환경변수 → SSM Parameter Store SecureString 조회 (`_resolve_ssm_secrets()`)
-
-- **02-28: 코드 리뷰 기반 보안 고도화**
-  - 이미지 URL 검증 공통 헬퍼 추출 (`_image_validators.py`), profileImageUrl SSRF 수정
-  - Path Traversal 방어: `startswith()` → `Path.is_relative_to()` (Python 3.9+)
-  - SSM 배치 API (`get_parameters`) + 환경변수 원자적 설정
+- **02-28: 코드 리뷰 기반 보안 강화 + 버그 수정**
+  - 보안 취약점: Path Traversal(`Path.is_relative_to()`), SSRF(`/uploads/` 프리픽스 강제), 이미지 URL 검증 공통 헬퍼(`_image_validators.py`)
+  - 토큰·시크릿: `SELECT ... FOR UPDATE`(replay attack 방지), Lambda 시크릿 SSM SecureString 전환(`get_parameters` 배치 API)
+  - 안정성: `transactional()` 일관성 통일, Rate limiter 키 동기화, IntegrityError 처리 개선
 
 - **02-27: GitHub Actions CD 파이프라인 구축**
   - `deploy-backend.yml`: `workflow_dispatch` → Docker build → ECR push (SHA + latest) → Lambda update

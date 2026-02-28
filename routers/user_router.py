@@ -23,6 +23,7 @@ from schemas.user_schemas import (
     ChangePasswordRequest,
     WithdrawRequest,
 )
+from schemas.recovery_schemas import FindEmailRequest, FindPasswordRequest
 
 
 user_router = APIRouter(prefix="/v1/users", tags=["users"])
@@ -72,6 +73,36 @@ async def create_user(
             },
         )
     return await user_controller.create_user(user_data, profile_image, request)
+
+
+@user_router.post("/find-email", status_code=status.HTTP_200_OK)
+async def find_email(body: FindEmailRequest, request: Request) -> dict:
+    """닉네임으로 이메일을 찾습니다. 인증 불필요.
+
+    Args:
+        body: 닉네임이 담긴 요청 본문.
+        request: FastAPI Request 객체.
+
+    Returns:
+        마스킹된 이메일 주소가 포함된 응답.
+    """
+    return await user_controller.find_email(body, request)
+
+
+@user_router.post("/reset-password", status_code=status.HTTP_200_OK)
+async def reset_password(body: FindPasswordRequest, request: Request) -> dict:
+    """이메일로 임시 비밀번호를 발송합니다. 인증 불필요.
+
+    보안: 이메일 존재 여부에 관계없이 항상 200을 반환합니다.
+
+    Args:
+        body: 이메일이 담긴 요청 본문.
+        request: FastAPI Request 객체.
+
+    Returns:
+        임시 비밀번호 발송 성공 응답.
+    """
+    return await user_controller.reset_password(body, request)
 
 
 @user_router.get("/me", status_code=status.HTTP_200_OK)

@@ -141,6 +141,9 @@ RATE_LIMIT_CONFIG = {
     "/v1/users/me": {"max_requests": 2, "window_seconds": 60},  # DELETE (회원 탈퇴)
     # 게시글 작성 - 스팸 방지
     "/v1/posts": {"max_requests": 10, "window_seconds": 60},  # POST만 적용
+    # 계정 찾기 - 브루트포스 방지 (5분 윈도우로 강화)
+    "/v1/users/find-email": {"max_requests": 5, "window_seconds": 300},
+    "/v1/users/reset-password": {"max_requests": 3, "window_seconds": 300},
 }
 
 # 기본 Rate Limit (설정되지 않은 엔드포인트)

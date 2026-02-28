@@ -98,6 +98,15 @@ class Settings(BaseSettings):
     RATE_LIMIT_MAX_IPS: int = 10000  # 메모리 보호를 위한 최대 추적 IP 수
     TRUSTED_PROXIES: set[str] = set()  # 프로덕션에서 nginx 등의 프록시 IP 설정 필요
 
+    # 이메일 발송 설정
+    EMAIL_BACKEND: str = "smtp"  # "ses" (프로덕션) | "smtp" (로컬)
+    EMAIL_FROM: str = "noreply@my-community.shop"
+    SMTP_HOST: str = "localhost"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SES_REGION: str = "ap-northeast-2"
+
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )

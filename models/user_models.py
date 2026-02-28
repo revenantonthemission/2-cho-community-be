@@ -170,6 +170,31 @@ async def get_user_by_nickname(nickname: str) -> User | None:
             return _row_to_user(row) if row else None
 
 
+async def get_user_email_by_nickname(nickname: str) -> str | None:
+    """닉네임으로 사용자 이메일을 조회합니다 (이메일 찾기용).
+
+    전체 User 객체 대신 email 컬럼만 조회하여 불필요한 데이터 로드를 최소화합니다.
+
+    Args:
+        nickname: 조회할 닉네임.
+
+    Returns:
+        사용자 이메일 주소, 없으면 None.
+    """
+    async with get_connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                """
+                SELECT email
+                FROM user
+                WHERE nickname = %s AND deleted_at IS NULL
+                """,
+                (nickname,),
+            )
+            row = await cur.fetchone()
+            return row[0] if row else None
+
+
 async def get_deleted_user_by_nickname(nickname: str) -> User | None:
     """닉네임으로 탈퇴한 사용자를 조회합니다.
 

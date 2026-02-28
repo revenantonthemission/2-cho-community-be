@@ -11,6 +11,7 @@ from schemas.user_schemas import (
     ChangePasswordRequest,
     WithdrawRequest,
 )
+from schemas.recovery_schemas import FindEmailRequest, FindPasswordRequest
 from schemas.common import create_response, serialize_user
 from dependencies.request_context import get_request_timestamp
 from utils.upload import save_file
@@ -203,5 +204,55 @@ async def upload_profile_image(
         "IMAGE_UPLOADED",
         "프로필 이미지가 업로드되었습니다.",
         data={"url": url},
+        timestamp=timestamp,
+    )
+
+
+async def find_email(body: FindEmailRequest, request: Request) -> dict:
+    """닉네임으로 가입한 이메일을 마스킹하여 반환합니다.
+
+    Args:
+        body: 닉네임이 담긴 요청 본문.
+        request: FastAPI Request 객체.
+
+    Returns:
+        마스킹된 이메일이 포함된 응답 딕셔너리.
+    """
+    timestamp = get_request_timestamp(request)
+    masked_email = await UserService.find_email_by_nickname(body.nickname, timestamp)
+    return create_response(
+        "FIND_EMAIL_SUCCESS",
+        "이메일 조회가 완료되었습니다.",
+        data={"masked_email": masked_email},
+        timestamp=timestamp,
+    )
+
+
+async def reset_password(body: FindPasswordRequest, request: Request) -> dict:
+    """임시 비밀번호를 생성하여 이메일로 발송합니다.
+
+    보안: 이메일 존재 여부에 관계없이 항상 동일한 성공 응답을 반환합니다.
+    이메일 발송 실패 시에도 존재 여부를 숨기기 위해 성공 응답을 반환하되,
+    실패 사실을 로그에 기록합니다.
+
+    Args:
+        body: 이메일이 담긴 요청 본문.
+        request: FastAPI Request 객체.
+
+    Returns:
+        임시 비밀번호 발송 성공 응답 딕셔너리.
+    """
+    import logging
+
+    timestamp = get_request_timestamp(request)
+    try:
+        await UserService.reset_password(body.email, timestamp)
+    except RuntimeError:
+        # 이메일 발송 실패 시에도 보안상 성공 응답 반환 (이메일 존재 여부 노출 방지)
+        # 비밀번호는 변경되지 않았으므로 사용자 계정에 영향 없음
+        logging.getLogger(__name__).exception("비밀번호 재설정 이메일 발송 실패")
+    return create_response(
+        "RESET_PASSWORD_SUCCESS",
+        "이메일을 확인해주세요. 임시 비밀번호가 발송되었습니다.",
         timestamp=timestamp,
     )
