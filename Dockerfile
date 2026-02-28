@@ -30,5 +30,8 @@ RUN uv export --format requirements-txt > requirements.txt && \
 # Copy application code
 COPY . ${LAMBDA_TASK_ROOT}/
 
+# git이 빈 디렉토리를 추적하지 않으므로 assets 하위 디렉토리 보장
+RUN mkdir -p ${LAMBDA_TASK_ROOT}/assets/posts ${LAMBDA_TASK_ROOT}/assets/profiles
+
 # Start application using a Lambda handler
 CMD ["main.handler"]

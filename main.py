@@ -93,10 +93,11 @@ app.include_router(post_router)
 app.include_router(terms_router)
 
 # Lambda 환경에서는 /var/task가 읽기 전용
-# Docker 이미지에 assets/ 디렉토리(default_profile.jpg)가 이미 포함됨
+# Docker 이미지에 assets/profiles/default_profile.jpg가 포함됨
 if os.environ.get("AWS_LAMBDA_EXEC") != "true":
     os.makedirs("assets", exist_ok=True)
-app.mount("/assets", StaticFiles(directory="assets"), name="assets")
+if os.path.isdir("assets"):
+    app.mount("/assets", StaticFiles(directory="assets"), name="assets")
 
 # 업로드 파일 서빙 (Lambda: EFS /mnt/uploads, Docker: UPLOAD_DIR 환경변수)
 _upload_dir = os.environ.get("UPLOAD_DIR")
