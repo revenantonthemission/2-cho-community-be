@@ -147,3 +147,24 @@ def test_delete_file_invalid_path(temp_upload_dir):
     result = delete_file("/etc/passwd")
 
     assert result is False
+
+
+def test_delete_file_path_traversal(temp_upload_dir):
+    """Path Traversal 공격 방어: ../를 사용한 경로 탈출 시도."""
+    assert delete_file("/uploads/../../../etc/passwd") is False
+
+
+def test_delete_file_path_traversal_nested(temp_upload_dir):
+    """Path Traversal 공격 방어: 중첩된 ../를 사용한 경로 탈출 시도."""
+    assert delete_file("/uploads/images/../../etc/passwd") is False
+
+
+def test_delete_file_path_traversal_with_existing_parent(temp_upload_dir):
+    """Path Traversal 공격 방어: 실제 존재하는 상위 디렉토리를 경유한 탈출 시도."""
+    # uploads 디렉토리 밖에 파일 생성
+    outside_file = temp_upload_dir.parent / "secret.txt"
+    outside_file.write_text("secret")
+
+    assert delete_file("/uploads/../secret.txt") is False
+    # 파일이 삭제되지 않았는지 확인
+    assert outside_file.exists()

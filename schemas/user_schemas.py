@@ -3,8 +3,11 @@
 사용자 등록, 수정, 비밀번호 변경, 탈퇴 요청 스키마를 정의합니다.
 """
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
 import re
+
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
+from schemas._image_validators import validate_profile_image_url
 
 _PASSWORD_PATTERN = re.compile(
     r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,20}$"
@@ -68,23 +71,11 @@ class CreateUserRequest(BaseModel):
     @field_validator("profileImageUrl")
     @classmethod
     def validate_profile_image(cls, v: str | None) -> str:
-        """프로필 이미지 URL 형식을 검증합니다.
-
-        Args:
-            v: 입력된 프로필 이미지 URL.
-
-        Returns:
-            검증된 프로필 이미지 URL.
-
-        Raises:
-            ValueError: 이미지 형식이 올바르지 않은 경우.
-        """
+        """프로필 이미지 URL 형식을 검증합니다."""
         if v is None:
             return "/assets/profiles/default_profile.jpg"
-        allowed_extensions = {".jpg", ".jpeg", ".png"}
-        if not any(v.endswith(ext) for ext in allowed_extensions):
-            raise ValueError("프로필 이미지는 .jpg, .jpeg, .png로 구성하여야 합니다.")
-        return v
+        result = validate_profile_image_url(v)
+        return result if result is not None else "/assets/profiles/default_profile.jpg"
 
 
 class UpdateUserRequest(BaseModel):
@@ -108,23 +99,11 @@ class UpdateUserRequest(BaseModel):
             raise ValueError(_NICKNAME_ERROR)
         return v
 
-    @field_validator("profileImageUrl")
+    @field_validator("profileImageUrl", mode="before")
     @classmethod
     def validate_profile_image_url(cls, v: str | dict | None) -> str | None:
-        """프로필 이미지 URL을 추출합니다.
-        객체 형태 {"url": "..."} 또는 문자열 모두 처리합니다.
-
-        Args:
-            v: 입력된 프로필 이미지 URL.
-
-        Returns:
-            추출된 URL 문자열 또는 None.
-        """
-        if v is None:
-            return None
-        if isinstance(v, dict):
-            return v.get("url")
-        return v
+        """프로필 이미지 URL을 추출하고 보안 검증합니다."""
+        return validate_profile_image_url(v)
 
 
 class ChangePasswordRequest(BaseModel):

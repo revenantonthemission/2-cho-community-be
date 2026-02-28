@@ -331,10 +331,15 @@ sequenceDiagram
 
 ### 2026-02 (Feb)
 
-- **02-28: 보안 취약점 5건 수정 (Critical)**
+- **02-28: 보안 취약점 수정 (Critical, 백엔드 3건)**
   - Path Traversal 방지: `delete_file()`에 `Path.resolve()` + 경계 검사 추가
   - SSRF 방지: `image_url` 필드에 `/uploads/` 프리픽스 강제 (외부 URL 차단)
   - Lambda 시크릿: 평문 환경변수 → SSM Parameter Store SecureString 조회 (`_resolve_ssm_secrets()`)
+
+- **02-28: 코드 리뷰 기반 보안 고도화**
+  - 이미지 URL 검증 공통 헬퍼 추출 (`_image_validators.py`), profileImageUrl SSRF 수정
+  - Path Traversal 방어: `startswith()` → `Path.is_relative_to()` (Python 3.9+)
+  - SSM 배치 API (`get_parameters`) + 환경변수 원자적 설정
 
 - **02-27: GitHub Actions CD 파이프라인 구축**
   - `deploy-backend.yml`: `workflow_dispatch` → Docker build → ECR push (SHA + latest) → Lambda update

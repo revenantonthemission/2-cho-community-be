@@ -5,6 +5,8 @@
 
 from pydantic import BaseModel, Field, field_validator
 
+from schemas._image_validators import validate_upload_image_url
+
 
 class CreatePostRequest(BaseModel):
     """게시글 생성 요청 모델.
@@ -60,28 +62,8 @@ class CreatePostRequest(BaseModel):
     @field_validator("image_url")
     @classmethod
     def validate_image_url(cls, v: str | None) -> str | None:
-        """이미지 URL 형식을 검증합니다.
-
-        Args:
-            v: 입력된 이미지 URL.
-
-        Returns:
-            검증된 이미지 URL 또는 None.
-
-        Raises:
-            ValueError: 허용되지 않은 이미지 형식인 경우.
-        """
-        if v is None:
-            return None
-        # 보안: 자체 업로드 경로만 허용 (외부 URL → SSRF/Content Injection 방지)
-        if not v.startswith("/uploads/"):
-            raise ValueError("이미지 URL은 업로드된 파일 경로만 허용됩니다.")
-        allowed_extensions = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
-        if not any(v.lower().endswith(ext) for ext in allowed_extensions):
-            raise ValueError(
-                "이미지는 .jpg, .jpeg, .png, .gif, .webp 형식만 허용됩니다."
-            )
-        return v
+        """이미지 URL 형식을 검증합니다."""
+        return validate_upload_image_url(v)
 
 
 class UpdatePostRequest(BaseModel):
@@ -99,17 +81,8 @@ class UpdatePostRequest(BaseModel):
     @field_validator("image_url")
     @classmethod
     def validate_image_url(cls, v: str | None) -> str | None:
-        """이미지 URL 형식을 검증합니다 (수정 시에도 동일한 보안 검증 적용)."""
-        if v is None:
-            return None
-        if not v.startswith("/uploads/"):
-            raise ValueError("이미지 URL은 업로드된 파일 경로만 허용됩니다.")
-        allowed_extensions = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
-        if not any(v.lower().endswith(ext) for ext in allowed_extensions):
-            raise ValueError(
-                "이미지는 .jpg, .jpeg, .png, .gif, .webp 형식만 허용됩니다."
-            )
-        return v
+        """이미지 URL 형식을 검증합니다."""
+        return validate_upload_image_url(v)
 
     @field_validator("title")
     @classmethod

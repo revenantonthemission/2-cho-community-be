@@ -27,13 +27,31 @@ def _resolve_ssm_secrets() -> None:
     import boto3  # Lambda 런타임에 기본 포함
 
     ssm = boto3.client("ssm")
-    for env_var, ssm_name in params_to_fetch.items():
-        try:
-            response = ssm.get_parameter(Name=ssm_name, WithDecryption=True)
-            os.environ[env_var] = response["Parameter"]["Value"]
-        except Exception:
-            logger.exception("SSM 파라미터 조회 실패: %s", ssm_name)
-            raise
+
+    # 배치 API로 한 번에 조회 (콜드스타트 지연 최소화)
+    try:
+        response = ssm.get_parameters(
+            Names=list(params_to_fetch.values()),
+            WithDecryption=True,
+        )
+    except Exception:
+        logger.exception("SSM 배치 파라미터 조회 실패")
+        raise
+
+    if response.get("InvalidParameters"):
+        raise RuntimeError(
+            f"SSM 파라미터 조회 실패: {response['InvalidParameters']}"
+        )
+
+    # 모든 파라미터 조회 성공 후 환경변수 일괄 설정 (원자성 보장)
+    name_to_env = {v: k for k, v in params_to_fetch.items()}
+    resolved = {}
+    for param in response["Parameters"]:
+        env_var = name_to_env[param["Name"]]
+        resolved[env_var] = param["Value"]
+
+    for env_var, value in resolved.items():
+        os.environ[env_var] = value
 
 
 # Settings 인스턴스 생성 전에 SSM에서 시크릿을 환경변수로 설정

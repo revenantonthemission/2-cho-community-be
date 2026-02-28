@@ -154,9 +154,9 @@ def delete_file(url_path: str) -> bool:
     relative_path = url_path.replace("/uploads/", "", 1)
     file_path = (UPLOAD_DIR / relative_path).resolve()
 
-    # Path Traversal 방지: 해석된 경로가 UPLOAD_DIR 내부인지 검증
+    # Path Traversal 방지: 해석된 경로가 UPLOAD_DIR 내부인지 검증 (Python 3.9+)
     upload_dir_resolved = UPLOAD_DIR.resolve()
-    if not str(file_path).startswith(str(upload_dir_resolved) + os.sep) and file_path != upload_dir_resolved:
+    if not file_path.is_relative_to(upload_dir_resolved):
         return False
 
     if file_path.exists():
