@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from database.connection import get_connection, transactional
-from pymysql.err import IntegrityError
 
 
 @dataclass
@@ -84,46 +83,34 @@ async def get_post_likes_count(post_id: int) -> int:
             return row[0] if row else 0
 
 
-async def add_like(post_id: int, user_id: int) -> Like | None:
+async def add_like(post_id: int, user_id: int) -> Like:
     """게시글에 좋아요를 추가합니다.
 
     트랜잭션을 사용하여 INSERT와 SELECT을 원자적으로 처리합니다.
     이를 통해 경쟁 상태(Race Condition)와 Phantom Read를 방지합니다.
-
-    개선사항:
-    - transactional() 컨텍스트 매니저 사용
-    - INSERT와 SELECT이 같은 트랜잭션 내에서 실행
-    - 중간에 다른 트랜잭션이 개입할 수 없음
-    - IntegrityError와 기타 예외를 분리 처리
 
     Args:
         post_id: 게시글 ID.
         user_id: 사용자 ID.
 
     Returns:
-        생성된 좋아요 객체, 이미 좋아요한 경우 None.
+        생성된 좋아요 객체.
 
     Raises:
+        IntegrityError: 이미 좋아요한 경우 (중복 Unique constraint).
         RuntimeError: 삽입 직후 조회 실패 시 (발생하지 않아야 함).
     """
     async with transactional() as cur:
-        # INSERT 단계: IntegrityError만 처리
-        try:
-            await cur.execute(
-                """
-                INSERT INTO post_like (user_id, post_id)
-                VALUES (%s, %s)
-                """,
-                (user_id, post_id),
-            )
-        except IntegrityError:
-            # 중복 좋아요 (Unique constraint violation)
-            # 트랜잭션은 자동으로 롤백됨
-            return None
+        await cur.execute(
+            """
+            INSERT INTO post_like (user_id, post_id)
+            VALUES (%s, %s)
+            """,
+            (user_id, post_id),
+        )
 
         like_id = cur.lastrowid
 
-        # SELECT 단계: 실패 시 예외 전파 (트랜잭션 롤백됨)
         await cur.execute(
             """
             SELECT id, user_id, post_id, created_at
@@ -134,7 +121,6 @@ async def add_like(post_id: int, user_id: int) -> Like | None:
         )
         row = await cur.fetchone()
 
-        # 삽입 직후 조회 실패는 발생하지 않아야 함
         if not row:
             raise RuntimeError(
                 f"좋아요 삽입 직후 조회 실패: like_id={like_id}, "

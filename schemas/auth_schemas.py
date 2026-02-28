@@ -1,6 +1,6 @@
 """auth_schemas: 인증 관련 Pydantic 모델 모듈.
 
-로그인, 로그아웃 요청/응답 스키마를 정의합니다.
+로그인 요청 스키마를 정의합니다.
 """
 
 from pydantic import BaseModel, EmailStr
@@ -16,15 +16,3 @@ class LoginRequest(BaseModel):
 
     email: EmailStr
     password: str
-
-
-class LogoutResponse(BaseModel):
-    """로그아웃 응답 모델.
-
-    Attributes:
-        code: 응답 코드.
-        message: 응답 메시지.
-    """
-
-    code: str = "LOGOUT_SUCCESS"
-    message: str = "로그아웃에 성공했습니다."

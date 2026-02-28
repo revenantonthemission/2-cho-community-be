@@ -29,7 +29,7 @@ async def get_user(user_id: int, request: Request) -> dict:
     """
     timestamp = get_request_timestamp(request)
 
-    if not user_id or user_id < 1:
+    if user_id < 1:
         # Service에서 처리할 수도 있으나, controller 레벨의 기본 유효성 검사로 남겨둠
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

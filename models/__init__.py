@@ -5,7 +5,6 @@
 
 from .user_models import (
     User,
-    get_users,
     get_user_by_id,
     get_user_by_email,
     get_user_by_nickname,
@@ -51,14 +50,12 @@ from .token_models import (
     get_refresh_token,
     delete_refresh_token,
     rotate_refresh_token,
-    delete_user_refresh_tokens,
     cleanup_expired_tokens,
 )
 
 __all__ = [
     # 사용자 모델
     "User",
-    "get_users",
     "get_user_by_id",
     "get_user_by_email",
     "get_user_by_nickname",
@@ -95,6 +92,5 @@ __all__ = [
     "get_refresh_token",
     "delete_refresh_token",
     "rotate_refresh_token",
-    "delete_user_refresh_tokens",
     "cleanup_expired_tokens",
 ]

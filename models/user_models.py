@@ -78,26 +78,6 @@ def _row_to_user(row: tuple) -> User:
     )
 
 
-async def get_users() -> list[User]:
-    """모든 활성 사용자 목록을 반환합니다.
-
-    Returns:
-        활성 사용자 목록.
-    """
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                f"""
-                SELECT {USER_SELECT_FIELDS}
-                FROM user
-                WHERE deleted_at IS NULL
-                ORDER BY id
-                """
-            )
-            rows = await cur.fetchall()
-            return [_row_to_user(row) for row in rows]
-
-
 async def get_user_by_id(user_id: int) -> User | None:
     """ID로 사용자를 조회합니다.
 
@@ -506,13 +486,23 @@ async def register_user(
             deleted_user_email = await get_deleted_user_by_email(email)
             if deleted_user_email:
                 await cleanup_deleted_user(deleted_user_email.id)
-                return await add_user(email, password, nickname, profile_image_url)
+                try:
+                    return await add_user(email, password, nickname, profile_image_url)
+                except IntegrityError:
+                    # cleanup과 add_user 사이에 동시 요청이 선점한 경우
+                    raise IntegrityError(1062, f"Duplicate entry for email='{email}'")
 
             # 2. 닉네임이 탈퇴한 사용자의 것인지 확인
             deleted_user_nick = await get_deleted_user_by_nickname(nickname)
             if deleted_user_nick:
                 await cleanup_deleted_user(deleted_user_nick.id)
-                return await add_user(email, password, nickname, profile_image_url)
+                try:
+                    return await add_user(email, password, nickname, profile_image_url)
+                except IntegrityError:
+                    # cleanup과 add_user 사이에 동시 요청이 선점한 경우
+                    raise IntegrityError(
+                        1062, f"Duplicate entry for nickname='{nickname}'"
+                    )
 
-        # 좀비 사용자가 아니거나 재시도 실패 시 예외 다시 발생
+        # 좀비 사용자가 아니거나 다른 IntegrityError
         raise e

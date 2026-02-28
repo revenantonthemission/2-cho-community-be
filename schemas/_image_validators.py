@@ -26,7 +26,7 @@ def validate_upload_image_url(v: str | None) -> str | None:
     return v
 
 
-def validate_profile_image_url(v: str | None) -> str | None:
+def validate_profile_image_url(v: str | dict | None) -> str | None:
     """프로필 이미지 URL을 검증합니다.
 
     /uploads/ 또는 /assets/profiles/ 프리픽스와 허용 확장자를 강제합니다.

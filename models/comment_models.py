@@ -220,17 +220,16 @@ async def delete_comment(comment_id: int) -> bool:
     Returns:
         삭제 성공 여부.
     """
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
-                UPDATE comment
-                SET deleted_at = NOW()
-                WHERE id = %s AND deleted_at IS NULL
-                """,
-                (comment_id,),
-            )
-            return cur.rowcount > 0
+    async with transactional() as cur:
+        await cur.execute(
+            """
+            UPDATE comment
+            SET deleted_at = NOW()
+            WHERE id = %s AND deleted_at IS NULL
+            """,
+            (comment_id,),
+        )
+        return cur.rowcount > 0
 
 
 async def get_comments_with_author(post_id: int) -> list[dict]:

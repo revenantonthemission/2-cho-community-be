@@ -291,7 +291,7 @@ sequenceDiagram
 - **정적 메서드**: 모든 클래스가 static 메서드만 사용
 - **IntersectionObserver**: 무한 스크롤 구현
 - **Custom Event**: `auth:session-expired` 이벤트로 401 처리 (silent refresh 실패 시 발생)
-- **XSS 방지**: `escapeHtml()` 유틸리티로 사용자 입력 이스케이프
+- **XSS 방지**: `createElement()` / `textContent` 기반 DOM 생성 (innerHTML 금지)
 
 ### 6. 보안 고려사항
 
@@ -301,7 +301,7 @@ sequenceDiagram
 | JWT 인증 | Access Token(30분, in-memory) + Refresh Token(7일, HttpOnly Cookie, SHA-256 해시 DB 저장) |
 | CORS | 허용 출처 명시적 설정 (localhost:8080) |
 | SQL Injection | Parameterized queries (aiomysql) |
-| XSS | 프론트엔드에서 escapeHtml() 적용 |
+| XSS | 프론트엔드에서 `createElement()` / `textContent` 사용 (innerHTML 금지) |
 | Timing Attack | 로그인 시 존재하지 않는 사용자도 bcrypt 검증 수행 |
 
 ### 7. 비밀번호 정책
@@ -330,6 +330,12 @@ sequenceDiagram
 ## Changelog
 
 ### 2026-02 (Feb)
+
+- **02-28: 전체 코드 리뷰 기반 버그 수정 + 보안 강화**
+  - Rate limiter 키 수정: 실제 라우트 경로와 동기화 (로그인 브루트포스 제한 활성화)
+  - 토큰 보안: `get_refresh_token()`에 `SELECT ... FOR UPDATE` 추가 (replay attack 방지)
+  - `transactional()` 일관성: 모든 쓰기 작업(delete_post, delete_comment 포함) 통일
+  - IntegrityError 처리: `add_like()`에서 transactional() 밖으로 전파, controller에서 409 처리
 
 - **02-28: 보안 취약점 수정 (Critical, 백엔드 3건)**
   - Path Traversal 방지: `delete_file()`에 `Path.resolve()` + 경계 검사 추가

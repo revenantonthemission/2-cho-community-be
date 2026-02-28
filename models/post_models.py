@@ -220,17 +220,16 @@ async def delete_post(post_id: int) -> bool:
     Returns:
         삭제 성공 여부.
     """
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
-                UPDATE post
-                SET deleted_at = NOW()
-                WHERE id = %s AND deleted_at IS NULL
-                """,
-                (post_id,),
-            )
-            return cur.rowcount > 0
+    async with transactional() as cur:
+        await cur.execute(
+            """
+            UPDATE post
+            SET deleted_at = NOW()
+            WHERE id = %s AND deleted_at IS NULL
+            """,
+            (post_id,),
+        )
+        return cur.rowcount > 0
 
 
 async def increment_view_count(post_id: int, user_id: int) -> bool:

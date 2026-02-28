@@ -46,11 +46,13 @@ async def get_refresh_token(raw_token: str) -> dict | None:
     """
     token_hash = hash_refresh_token(raw_token)
     async with transactional() as cur:
+        # FOR UPDATE: 동일 토큰에 대한 동시 요청의 토큰 재사용(replay) 방지
         await cur.execute(
             """
             SELECT user_id, expires_at
             FROM refresh_token
             WHERE token_hash = %s
+            FOR UPDATE
             """,
             (token_hash,),
         )
