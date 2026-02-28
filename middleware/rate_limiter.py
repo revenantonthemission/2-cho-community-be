@@ -227,8 +227,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if os.environ.get("TESTING") == "true":
             return await call_next(request)
 
-        # GET 요청은 Rate Limit 적용 안 함 (읽기 작업)
-        if request.method == "GET":
+        # GET, OPTIONS 요청은 Rate Limit 적용 안 함
+        # OPTIONS: CORS preflight 요청은 브라우저가 자동 생성하므로 제한 불필요
+        if request.method in ("GET", "OPTIONS"):
             return await call_next(request)
 
         # 정적 파일은 제외
