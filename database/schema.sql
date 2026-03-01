@@ -40,11 +40,13 @@ CREATE TABLE comment (
     content TEXT NOT NULL,
     author_id INT UNSIGNED NULL,
     post_id INT UNSIGNED NOT NULL,
+    parent_id INT UNSIGNED NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP NULL,
     FOREIGN KEY (author_id) REFERENCES user (id) ON DELETE SET NULL,
-    FOREIGN KEY (post_id) REFERENCES post (id) ON DELETE CASCADE
+    FOREIGN KEY (post_id) REFERENCES post (id) ON DELETE CASCADE,
+    FOREIGN KEY (parent_id) REFERENCES comment (id) ON DELETE SET NULL
 );
 
 -- 좋아요 테이블
@@ -97,4 +99,10 @@ CREATE TABLE post_view_log (
     
     -- 5. 좋아요 카운트 조회
     CREATE INDEX idx_post_like_post_id ON post_like (post_id);
+
+    -- 6. 대댓글 조회 최적화
+    CREATE INDEX idx_comment_parent_id ON comment (parent_id);
+
+    -- 7. 게시글 제목+내용 전문 검색 (한국어 ngram)
+    ALTER TABLE post ADD FULLTEXT INDEX ft_post_search (title, content) WITH PARSER ngram;
     

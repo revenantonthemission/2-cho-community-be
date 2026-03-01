@@ -80,7 +80,7 @@ async def create_comment(
 
     Args:
         post_id: 댓글을 작성할 게시글 ID.
-        comment_data: 댓글 생성 정보 (내용).
+        comment_data: 댓글 생성 정보 (내용, 부모 댓글 ID).
         current_user: 현재 인증된 사용자 객체.
         request: FastAPI Request 객체.
 
@@ -88,7 +88,7 @@ async def create_comment(
         생성된 댓글 정보가 포함된 응답 딕셔너리.
 
     Raises:
-        HTTPException: 게시글 없으면 404.
+        HTTPException: 게시글 없으면 404, 대댓글 검증 실패 시 400.
     """
     timestamp = get_request_timestamp(request)
 
@@ -102,10 +102,49 @@ async def create_comment(
             },
         )
 
+    # 대댓글 검증
+    parent_id = comment_data.parent_id
+    if parent_id is not None:
+        parent_comment = await comment_models.get_comment_by_id(parent_id)
+
+        # 부모 댓글 존재 확인 (get_comment_by_id는 deleted_at IS NULL 필터링하므로 삭제된 댓글은 None 반환)
+        if not parent_comment:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error": "parent_comment_not_found",
+                    "message": "삭제된 댓글에 답글을 달 수 없습니다.",
+                    "timestamp": timestamp,
+                },
+            )
+
+        # 같은 게시글 소속 확인
+        if parent_comment.post_id != post_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error": "parent_comment_not_in_post",
+                    "message": "해당 게시글의 댓글이 아닙니다.",
+                    "timestamp": timestamp,
+                },
+            )
+
+        # 1단계 제한: 부모가 이미 대댓글이면 거부
+        if parent_comment.parent_id is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error": "nested_reply_not_allowed",
+                    "message": "1단계 대댓글만 가능합니다.",
+                    "timestamp": timestamp,
+                },
+            )
+
     comment = await comment_models.create_comment(
         post_id=post_id,
         author_id=current_user.id,
         content=comment_data.content,
+        parent_id=parent_id,
     )
 
     return create_response(
@@ -114,6 +153,7 @@ async def create_comment(
         data={
             "comment_id": comment.id,
             "content": comment.content,
+            "parent_id": comment.parent_id,
             "created_at": format_datetime(comment.created_at),
         },
         timestamp=timestamp,

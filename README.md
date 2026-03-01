@@ -15,7 +15,8 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
 
 - 회원가입, 로그인, 로그아웃, 회원 탈퇴 기능을 제공한다.
 - 게시글 작성, 조회, 수정, 삭제(CRUD) 기능을 제공한다.
-- 댓글 작성, 수정, 삭제 기능을 제공한다.
+- 댓글 작성, 수정, 삭제 기능을 제공한다. (1단계 대댓글 지원)
+- 게시글 검색(제목+내용 FULLTEXT) 및 정렬(최신순/좋아요순/조회수순/댓글순) 기능을 제공한다.
 - 게시글 좋아요/좋아요 취소 기능을 제공한다.
 - 프로필 이미지 및 닉네임 수정 기능을 제공한다.
 - 무한 스크롤 기반의 게시글 목록을 제공한다.
@@ -24,8 +25,6 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
 ## 목표가 아닌 것 (Non-Goals)
 
 - 실시간 알림 기능 (WebSocket)
-- 게시글 검색 기능
-- 대댓글(nested comments) 기능
 - 소셜 로그인 (OAuth)
 - 관리자 대시보드
 - 게시글 카테고리 또는 태그 기능
@@ -69,6 +68,7 @@ erDiagram
     user ||--o{ image : "uploads"
     user ||--o{ post_view_log : "views"
     post ||--o{ comment : "has"
+    comment ||--o{ comment : "replies (1-level)"
     post ||--o{ post_like : "receives"
     post ||--o{ post_view_log : "tracks"
 
@@ -105,6 +105,7 @@ erDiagram
         int id PK
         int post_id FK
         int author_id FK
+        int parent_id FK "self-ref (1단계 대댓글)"
         text content
         datetime deleted_at
         datetime created_at
@@ -142,6 +143,7 @@ erDiagram
   - `idx_refresh_token_hash`: Refresh Token 해시 조회
   - `idx_post_created_deleted`: 최신순 게시글 목록 조회
   - `idx_comment_post_deleted`: 게시글별 댓글 목록 조회
+  - `ft_post_title_content`: FULLTEXT INDEX (ngram parser) — 제목+내용 한국어 검색
 
 ### 3. API 설계
 
@@ -171,14 +173,14 @@ erDiagram
 
 | Method | Endpoint | 설명 | 인증 |
 | ------ | -------- | ---- | ---- |
-| GET | `/v1/posts` | 게시글 목록 (페이지네이션) | X |
+| GET | `/v1/posts` | 게시글 목록 (페이지네이션, `?search=`, `?sort=latest\|likes\|views\|comments`) | X |
 | POST | `/v1/posts` | 게시글 작성 | O |
 | GET | `/v1/posts/{post_id}` | 게시글 상세 조회 | X |
 | PATCH | `/v1/posts/{post_id}` | 게시글 수정 | O (작성자) |
 | DELETE | `/v1/posts/{post_id}` | 게시글 삭제 | O (작성자) |
 | POST | `/v1/posts/{post_id}/likes` | 좋아요 | O |
 | DELETE | `/v1/posts/{post_id}/likes` | 좋아요 취소 | O |
-| POST | `/v1/posts/{post_id}/comments` | 댓글 작성 | O |
+| POST | `/v1/posts/{post_id}/comments` | 댓글 작성 (대댓글: `parent_id` 지원) | O |
 | PUT | `/v1/posts/{post_id}/comments/{comment_id}` | 댓글 수정 | O (작성자) |
 | DELETE | `/v1/posts/{post_id}/comments/{comment_id}` | 댓글 삭제 | O (작성자) |
 | POST | `/v1/posts/image` | 게시글 이미지 업로드 | O |
@@ -332,6 +334,12 @@ sequenceDiagram
 ## Changelog
 
 ### 2026-03 (Mar)
+
+- **03-02: 검색, 정렬, 대댓글 기능**
+  - 게시글 검색: FULLTEXT INDEX(ngram parser)로 제목+내용 한국어 검색, 특수문자 이스케이프, BOOLEAN MODE
+  - 게시글 정렬: 최신순/좋아요순/조회수순/댓글순 4종, `ALLOWED_SORT_OPTIONS` 화이트리스트로 SQL 주입 방지
+  - 대댓글(1단계): `comment.parent_id` 자기참조 FK, 앱 레벨 O(n) 트리 구성, 삭제된 부모 플레이스홀더 표시
+  - 프론트엔드: 검색바+정렬 버튼 UI, 대댓글 인디케이터+들여쓰기, 세대 카운터로 비동기 응답 경쟁 방지
 
 - **03-01: Locust 부하 테스트 구축**
   - 3종 사용자 시나리오: ReaderUser(60%), WriterUser(20%), ActiveUser(20%)

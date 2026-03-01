@@ -23,20 +23,25 @@ async def get_posts(
     request: Request,
     offset: int = Query(0, ge=0, description="시작 위치 (0부터 시작)"),
     limit: int = Query(10, ge=1, le=100, description="조회할 게시글 수"),
+    search: str | None = Query(None, max_length=100, description="검색어 (제목+내용)"),
+    sort: str = Query("latest", description="정렬: latest, likes, views, comments"),
 ) -> dict:
     """게시글 목록을 조회합니다.
 
-    최신순으로 정렬된 게시글을 페이지네이션하여 반환합니다.
+    정렬 옵션에 따라 게시글을 페이지네이션하여 반환합니다.
+    검색어가 있으면 제목+내용을 FULLTEXT 검색합니다.
 
     Args:
         request: FastAPI Request 객체.
         offset: 시작 위치 (0부터 시작).
         limit: 조회할 게시글 수 (1~100, 기본 10).
+        search: 검색어 (제목+내용, 최대 100자).
+        sort: 정렬 옵션 (latest, likes, views, comments).
 
     Returns:
         게시글 목록과 페이지네이션 정보가 포함된 응답.
     """
-    return await post_controller.get_posts(offset, limit, request)
+    return await post_controller.get_posts(offset, limit, request, search, sort)
 
 
 @post_router.get("/{post_id}", status_code=status.HTTP_200_OK)

@@ -29,9 +29,11 @@ class CreateCommentRequest(BaseModel):
 
     Attributes:
         content: 댓글 내용 (1~1000자).
+        parent_id: 답글 대상 댓글 ID (1단계만 허용, 선택).
     """
 
     content: str = Field(..., min_length=1, max_length=1000)
+    parent_id: int | None = Field(None, description="답글 대상 댓글 ID (1단계만 허용)")
 
     @field_validator("content")
     @classmethod

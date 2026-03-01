@@ -3,6 +3,7 @@
 게시글, 댓글, 좋아요 데이터 클래스와 MySQL 데이터베이스를 관리하는 함수들을 제공합니다.
 """
 
+import re
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -13,6 +14,23 @@ from schemas.common import build_author_dict
 
 # SQL Injection 방지: 허용된 컬럼명 whitelist
 ALLOWED_POST_COLUMNS = {'title', 'content', 'image_url'}
+
+# FULLTEXT BOOLEAN MODE 특수문자 이스케이프 패턴
+_FULLTEXT_SPECIAL_CHARS = re.compile(r'([+\-><()~*"@])')
+
+
+def _escape_fulltext_query(query: str) -> str:
+    """FULLTEXT BOOLEAN MODE 특수문자를 이스케이프합니다."""
+    return _FULLTEXT_SPECIAL_CHARS.sub(r'\\\1', query.strip())
+
+
+# SQL Injection 방지: 허용된 정렬 옵션 whitelist
+ALLOWED_SORT_OPTIONS = {
+    "latest": "p.created_at DESC, p.id DESC",
+    "likes": "likes_count DESC, p.created_at DESC",
+    "views": "p.views DESC, p.created_at DESC",
+    "comments": "comments_count DESC, p.created_at DESC",
+}
 
 
 @dataclass
@@ -65,18 +83,28 @@ def _row_to_post(row: tuple) -> Post:
 # ============ 게시글 관련 함수 ============
 
 
-async def get_total_posts_count() -> int:
+async def get_total_posts_count(search: str | None = None) -> int:
     """삭제되지 않은 게시글의 총 개수를 반환합니다.
+
+    Args:
+        search: 검색어 (제목+내용 FULLTEXT 검색). None이면 전체 조회.
 
     Returns:
         게시글 총 개수.
     """
     async with get_connection() as conn:
         async with conn.cursor() as cur:
+            where = "deleted_at IS NULL"
+            params: list = []
+
+            if search:
+                escaped = _escape_fulltext_query(search)
+                where += " AND MATCH(title, content) AGAINST(%s IN BOOLEAN MODE)"
+                params.append(escaped)
+
             await cur.execute(
-                """
-                SELECT COUNT(*) FROM post WHERE deleted_at IS NULL
-                """
+                f"SELECT COUNT(*) FROM post WHERE {where}",
+                params,
             )
             row = await cur.fetchone()
             return row[0] if row else 0
@@ -268,7 +296,12 @@ async def increment_view_count(post_id: int, user_id: int) -> bool:
         return False
 
 
-async def get_posts_with_details(offset: int = 0, limit: int = 10) -> list[dict]:
+async def get_posts_with_details(
+    offset: int = 0,
+    limit: int = 10,
+    search: str | None = None,
+    sort: str = "latest",
+) -> list[dict]:
     """게시글 목록을 작성자 정보, 좋아요 수, 댓글 수와 함께 조회합니다.
 
     N+1 문제를 해결하기 위해 서브쿼리를 사용합니다.
@@ -277,14 +310,29 @@ async def get_posts_with_details(offset: int = 0, limit: int = 10) -> list[dict]
     Args:
         offset: 시작 위치.
         limit: 조회할 개수.
+        search: 검색어 (제목+내용 FULLTEXT 검색). None이면 전체 조회.
+        sort: 정렬 옵션 (latest, likes, views, comments).
 
     Returns:
         게시글 상세 정보 딕셔너리 목록.
     """
+    # SQL Injection 방지: whitelist 검증 후 fallback
+    order_by = ALLOWED_SORT_OPTIONS.get(sort, ALLOWED_SORT_OPTIONS["latest"])
+
+    where = "p.deleted_at IS NULL"
+    params: list = []
+
+    if search:
+        escaped = _escape_fulltext_query(search)
+        where += " AND MATCH(p.title, p.content) AGAINST(%s IN BOOLEAN MODE)"
+        params.append(escaped)
+
+    params.extend([limit, offset])
+
     async with get_connection() as conn:
         async with conn.cursor() as cur:
             await cur.execute(
-                """
+                f"""
                 SELECT
                     p.id, p.title, p.content, p.image_url, p.views,
                     p.created_at, p.updated_at,
@@ -304,11 +352,11 @@ async def get_posts_with_details(offset: int = 0, limit: int = 10) -> list[dict]
                     WHERE deleted_at IS NULL
                     GROUP BY post_id
                 ) comments ON p.id = comments.post_id
-                WHERE p.deleted_at IS NULL
-                ORDER BY p.created_at DESC, p.id DESC
+                WHERE {where}
+                ORDER BY {order_by}
                 LIMIT %s OFFSET %s
                 """,
-                (limit, offset),
+                params,
             )
             rows = await cur.fetchall()
 

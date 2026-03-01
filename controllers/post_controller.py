@@ -1,4 +1,5 @@
 from fastapi import HTTPException, Request, UploadFile, status
+from models.post_models import ALLOWED_SORT_OPTIONS
 from models.user_models import User
 from schemas.post_schemas import CreatePostRequest, UpdatePostRequest
 from schemas.common import create_response
@@ -18,6 +19,8 @@ async def get_posts(
     offset: int,
     limit: int,
     request: Request,
+    search: str | None = None,
+    sort: str = "latest",
 ) -> dict:
     """
     게시글 목록을 조회합니다.
@@ -26,6 +29,8 @@ async def get_posts(
         offset (int): 조회 시작 위치 (0 이상)
         limit (int): 조회할 게시글 수 (1~100)
         request (Request): FastAPI Request 객체
+        search (str | None): 검색어 (제목+내용). None이면 전체 조회.
+        sort (str): 정렬 옵션 (latest, likes, views, comments).
 
     Returns:
         dict: 게시글 목록과 페이지네이션 정보를 포함한 응답 딕셔너리
@@ -55,8 +60,18 @@ async def get_posts(
             },
         )
 
+    # 공백만 있는 검색어는 None으로 정규화
+    if search is not None:
+        search = search.strip() or None
+
+    # 유효하지 않은 정렬 옵션은 기본값으로 대체
+    if sort not in ALLOWED_SORT_OPTIONS:
+        sort = "latest"
+
     # Service Layer 호출
-    posts_data, total_count, has_more = await PostService.get_posts(offset, limit)
+    posts_data, total_count, has_more = await PostService.get_posts(
+        offset, limit, search=search, sort=sort
+    )
 
     return create_response(
         "POSTS_RETRIEVED",

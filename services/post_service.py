@@ -12,11 +12,18 @@ class PostService:
     """게시글 관리 서비스."""
 
     @staticmethod
-    async def get_posts(offset: int, limit: int) -> Tuple[List[Dict], int, bool]:
+    async def get_posts(
+        offset: int,
+        limit: int,
+        search: Optional[str] = None,
+        sort: str = "latest",
+    ) -> Tuple[List[Dict], int, bool]:
         """게시글 목록 조회 및 가공."""
         # 1. DB 조회
-        posts_data = await post_models.get_posts_with_details(offset, limit)
-        total_count = await post_models.get_total_posts_count()
+        posts_data = await post_models.get_posts_with_details(
+            offset, limit, search=search, sort=sort
+        )
+        total_count = await post_models.get_total_posts_count(search=search)
         has_more = offset + limit < total_count
 
         # 2. 데이터 가공 (날짜 포맷, 내용 요약)
@@ -55,6 +62,9 @@ class PostService:
         for comment in comments_data:
             comment["created_at"] = format_datetime(comment["created_at"])
             comment["updated_at"] = format_datetime(comment.get("updated_at"))
+            for reply in comment.get("replies", []):
+                reply["created_at"] = format_datetime(reply["created_at"])
+                reply["updated_at"] = format_datetime(reply.get("updated_at"))
 
         return {"post": post_data, "comments": comments_data}
 
