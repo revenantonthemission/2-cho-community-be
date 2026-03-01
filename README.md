@@ -331,6 +331,15 @@ sequenceDiagram
 
 ## Changelog
 
+### 2026-03 (Mar)
+
+- **03-01: Locust 부하 테스트 구축**
+  - 3종 사용자 시나리오: ReaderUser(60%), WriterUser(20%), ActiveUser(20%)
+  - 계정 풀(`queue.Queue` 싱글턴)로 동시 사용자 간 계정 1:1 바인딩, Refresh Token 충돌 방지
+  - Rate Limit 준수 설계: 로그인 1회/세션, WriterUser 대기 8-20초, 429 시 `gevent.sleep(65s)` 재시도
+  - AWS 배포 환경 대상 (API Gateway → Lambda → RDS), 동시 50-200명 규모
+  - `seed_accounts.py`: API/DB 이중 모드 계정 시딩 (회원가입 API 또는 직접 DB 접속)
+
 ### 2026-02 (Feb)
 
 - **02-28: 계정 찾기 기능 (이메일 찾기 + 비밀번호 재설정)**
