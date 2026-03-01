@@ -61,7 +61,7 @@ def seed_via_api(host: str) -> None:
     skipped = 0
     rate_limited_waits = 0
 
-    print(f"=== API 모드: 부하 테스트 계정 시딩 ===")
+    print("=== API 모드: 부하 테스트 계정 시딩 ===")
     print(f"대상: {base_url}")
     print(f"계정: {total}개 "
           f"({ACCOUNT_EMAIL_PATTERN.format(ACCOUNT_START_INDEX)} ~ "
@@ -175,7 +175,7 @@ async def seed_via_db(
     import aiomysql
     import bcrypt
 
-    print(f"=== DB 모드: 부하 테스트 계정 시딩 ===")
+    print("=== DB 모드: 부하 테스트 계정 시딩 ===")
     print(f"대상: {db_user}@{db_host}:{db_port}/{db_name}")
 
     end = ACCOUNT_START_INDEX + ACCOUNT_COUNT
@@ -193,7 +193,7 @@ async def seed_via_db(
     print()
 
     # DB 연결
-    print(f"DB 연결 중...")
+    print("DB 연결 중...")
     try:
         conn = await aiomysql.connect(
             host=db_host,
@@ -247,7 +247,7 @@ async def seed_via_db(
             total_in_db = row[0] if row else 0
 
         print()
-        print(f"=== 시딩 완료 ===")
+        print("=== 시딩 완료 ===")
         print(f"  새로 생성: {inserted}개")
         print(f"  건너뜀 (이미 존재): {len(accounts) - inserted}개")
         print(f"  DB 내 테스트 계정 총: {total_in_db}개")
