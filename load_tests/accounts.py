@@ -38,6 +38,7 @@ class AccountPool:
 
     _instance: "AccountPool | None" = None
     _lock = threading.Lock()
+    _initialized: bool = False
 
     def __new__(cls) -> "AccountPool":
         with cls._lock:
@@ -108,6 +109,7 @@ class SharedPostStore:
 
     _instance: "SharedPostStore | None" = None
     _lock = threading.Lock()
+    _initialized: bool = False
 
     def __new__(cls) -> "SharedPostStore":
         with cls._lock:

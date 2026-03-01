@@ -60,3 +60,9 @@ ignore_errors = true
 [[tool.mypy.overrides]]
 module = "tests.*"
 ignore_errors = true
+
+# load_tests: locust/requests 등 타입 스텁 미제공 라이브러리 사용
+[[tool.mypy.overrides]]
+module = "load_tests.*"
+ignore_missing_imports = true
+ignore_errors = true
