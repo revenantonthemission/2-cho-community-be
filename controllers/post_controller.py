@@ -5,11 +5,7 @@ from schemas.post_schemas import CreatePostRequest, UpdatePostRequest
 from schemas.common import create_response
 from dependencies.request_context import get_request_timestamp
 from utils.upload import save_file
-from core.config import settings
 from services.post_service import PostService
-
-# 이미지 저장 경로 (설정에서 로드)
-IMAGE_UPLOAD_DIR = settings.IMAGE_UPLOAD_DIR
 
 
 # ============ 게시글 관련 핸들러 ============

@@ -140,13 +140,12 @@ async def remove_like(post_id: int, user_id: int) -> bool:
     Returns:
         취소 성공 여부.
     """
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
-                DELETE FROM post_like
-                WHERE post_id = %s AND user_id = %s
-                """,
-                (post_id, user_id),
-            )
-            return cur.rowcount > 0
+    async with transactional() as cur:
+        await cur.execute(
+            """
+            DELETE FROM post_like
+            WHERE post_id = %s AND user_id = %s
+            """,
+            (post_id, user_id),
+        )
+        return cur.rowcount > 0

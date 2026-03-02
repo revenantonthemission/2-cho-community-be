@@ -138,7 +138,8 @@ RATE_LIMIT_CONFIG = {
     "/v1/users/": {"max_requests": 3, "window_seconds": 60},  # 1분에 3회 (회원가입)
     # 사용자 정보 변경 - 중간 제한
     "/v1/users/me/password": {"max_requests": 3, "window_seconds": 60},
-    "/v1/users/me": {"max_requests": 2, "window_seconds": 60},  # DELETE (회원 탈퇴)
+    "DELETE:/v1/users/me": {"max_requests": 2, "window_seconds": 60},  # 회원 탈퇴
+    "PATCH:/v1/users/me": {"max_requests": 10, "window_seconds": 60},  # 프로필 수정
     # 게시글 작성 - 스팸 방지
     "/v1/posts": {"max_requests": 10, "window_seconds": 60},  # POST만 적용
     # 계정 찾기 - 브루트포스 방지 (5분 윈도우로 강화)
@@ -249,8 +250,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         client_ip = get_client_ip(request)
         path = request.url.path
 
-        # 엔드포인트별 설정 확인
-        config = RATE_LIMIT_CONFIG.get(path, DEFAULT_RATE_LIMIT)
+        # 엔드포인트별 설정 확인 (METHOD:path 키 우선, path만 있는 키 fallback)
+        method_key = f"{request.method}:{path}"
+        config = RATE_LIMIT_CONFIG.get(
+            method_key, RATE_LIMIT_CONFIG.get(path, DEFAULT_RATE_LIMIT)
+        )
 
         is_limited, remaining = await _rate_limiter.is_rate_limited(
             ip=client_ip,

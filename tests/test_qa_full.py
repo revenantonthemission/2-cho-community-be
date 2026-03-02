@@ -193,9 +193,10 @@ async def test_user_management(client: AsyncClient, authorized_user):
     nick = data.get("user", {}).get("nickname") or data.get("nickname")
     assert nick == new_nick
     
-    # [수정] 비밀번호 변경 스키마 맞춤 (ChangePasswordRequest: new_password, new_password_confirm)
+    # 비밀번호 변경 (현재 비밀번호 검증 포함)
     new_pw = "NewPass123!"
     pw_res = await cli.put("/v1/users/me/password", json={
+        "current_password": user_payload["password"],
         "new_password": new_pw,
         "new_password_confirm": new_pw
     })

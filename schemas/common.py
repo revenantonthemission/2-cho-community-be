@@ -3,7 +3,7 @@
 API 응답 생성 및 공통 데이터 변환 함수를 정의합니다.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 
@@ -29,7 +29,7 @@ def create_response(
         "message": message,
         "data": data if data is not None else {},
         "errors": [],
-        "timestamp": timestamp or datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "timestamp": timestamp or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
 
 

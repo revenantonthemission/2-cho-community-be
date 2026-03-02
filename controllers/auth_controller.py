@@ -4,6 +4,7 @@ JWT 기반 로그인, 로그아웃, 토큰 갱신, 사용자 인증 상태 확�
 이메일 인증 등의 기능을 제공합니다.
 """
 
+import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 
@@ -78,7 +79,8 @@ async def login(
 
     user = await user_models.get_user_by_email(credentials.email)
 
-    password_valid = verify_password(
+    password_valid = await asyncio.to_thread(
+        verify_password,
         credentials.password,
         user.password if user else _TIMING_ATTACK_DUMMY_HASH,
     )

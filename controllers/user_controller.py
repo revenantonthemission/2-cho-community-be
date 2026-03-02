@@ -15,11 +15,7 @@ from schemas.recovery_schemas import FindEmailRequest, FindPasswordRequest
 from schemas.common import create_response, serialize_user
 from dependencies.request_context import get_request_timestamp
 from utils.upload import save_file
-from core.config import settings
 from services.user_service import UserService
-
-# 프로필 이미지 저장 경로 (설정에서 로드)
-PROFILE_IMAGE_UPLOAD_DIR = settings.PROFILE_IMAGE_UPLOAD_DIR
 
 
 def _serialize_public_user(user) -> dict:
@@ -161,6 +157,7 @@ async def change_password(
     # Service Layer 호출
     await UserService.change_password(
         user_id=current_user.id,
+        current_password=password_data.current_password,
         new_password=password_data.new_password,
         new_password_confirm=password_data.new_password_confirm,
         stored_password_hash=current_user.password,

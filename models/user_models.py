@@ -424,11 +424,12 @@ async def _disconnect_and_anonymize_user(
             (anonymized_email, anonymized_nickname, user_id),
         )
     else:
+        # 좀비 사용자 정리: deleted_at IS NOT NULL 조건으로 활성 사용자 익명화 방지
         await cur.execute(
             """
             UPDATE user
             SET email = %s, nickname = %s
-            WHERE id = %s
+            WHERE id = %s AND deleted_at IS NOT NULL
             """,
             (anonymized_email, anonymized_nickname, user_id),
         )

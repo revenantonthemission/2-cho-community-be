@@ -45,7 +45,7 @@ class UserService:
             raise conflict_error("nickname_already_exists", timestamp)
 
         # 3. 비밀번호 해싱
-        hashed_password = hash_password(user_data.password)
+        hashed_password = await asyncio.to_thread(hash_password, user_data.password)
 
         try:
             # 4. 사용자 생성 시도 (좀비 사용자 처리 로직 포함)
@@ -126,22 +126,29 @@ class UserService:
     @staticmethod
     async def change_password(
         user_id: int,
+        current_password: str,
         new_password: str,
         new_password_confirm: str,
         stored_password_hash: str,
         timestamp: str,
     ) -> None:
         """비밀번호 변경."""
-        # 1. 새 비밀번호 확인
+        # 1. 현재 비밀번호 확인
+        if not await asyncio.to_thread(
+            verify_password, current_password, stored_password_hash
+        ):
+            raise bad_request_error("invalid_password", timestamp)
+
+        # 2. 새 비밀번호 확인
         if new_password != new_password_confirm:
             raise bad_request_error("password_mismatch", timestamp)
 
-        # 2. 새 비밀번호가 현재 비밀번호와 같은지 확인 (재사용 방지)
-        if verify_password(new_password, stored_password_hash):
+        # 3. 새 비밀번호가 현재 비밀번호와 같은지 확인 (재사용 방지)
+        if await asyncio.to_thread(verify_password, new_password, stored_password_hash):
             raise bad_request_error("same_password", timestamp)
 
-        # 3. 해싱 및 업데이트
-        hashed_new_password = hash_password(new_password)
+        # 4. 해싱 및 업데이트
+        hashed_new_password = await asyncio.to_thread(hash_password, new_password)
         await user_models.update_password(user_id, hashed_new_password)
 
     @staticmethod
@@ -157,7 +164,7 @@ class UserService:
             raise bad_request_error("inactive_user", timestamp)
 
         # 2. 비밀번호 확인
-        if not verify_password(password, current_user.password):
+        if not await asyncio.to_thread(verify_password, password, current_user.password):
             raise bad_request_error("invalid_password", timestamp)
 
         # 3. 탈퇴 처리 (익명화 등은 모델의 withdraw_user 위임)

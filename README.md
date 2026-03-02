@@ -1,9 +1,9 @@
 # 2-cho-community-be
-AWS AI School 2기 3주차 과제: 커뮤니티 백엔드 서버
+AWS AI School 2기 과제: 커뮤니티 백엔드 서버
 
 ## 요약 (Summary)
 
-커뮤니티 포럼 "아무 말 대잔치"를 구축합니다. FastAPI를 기반으로 하는 비동기 백엔드와 Vanilla JavaScript 프론트엔드로 구성된 모노레포 구조이며, JWT 기반 인증(Access Token + Refresh Token)과 MySQL 데이터베이스를 사용합니다. 게시글 CRUD, 댓글, 좋아요, 회원 관리 기능을 제공합니다.
+커뮤니티 포럼 "아무 말 대잔치"를 구축합니다. FastAPI를 기반으로 하는 비동기 백엔드와 Vanilla JavaScript 프론트엔드로 구성된 모노레포 구조이며, JWT 기반 인증(Access Token + Refresh Token)과 MySQL 데이터베이스를 사용합니다. 게시글 CRUD, 댓글(대댓글 포함), 좋아요, 검색/정렬, 이메일 인증, 알림, 내 활동 조회, 사용자 프로필 기능을 제공합니다.
 
 ## 배경 (Background)
 
@@ -21,10 +21,14 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
 - 프로필 이미지 및 닉네임 수정 기능을 제공한다.
 - 무한 스크롤 기반의 게시글 목록을 제공한다.
 - 모바일/데스크탑 반응형 UI를 제공한다.
+- 이메일 인증 기능을 제공한다. (회원가입 후 인증 메일 발송, 인증 완료 전 글쓰기 제한)
+- 알림 시스템을 제공한다. (좋아요/댓글 시 알림 생성, 읽음 처리, 폴링 기반)
+- 내 활동 조회 기능을 제공한다. (내가 쓴 글/댓글, 좋아요한 글)
+- 타 사용자 프로필 조회 기능을 제공한다. (공개 프로필, 닉네임 클릭으로 이동)
 
 ## 목표가 아닌 것 (Non-Goals)
 
-- 실시간 알림 기능 (WebSocket)
+- 실시간 알림 기능 (WebSocket) — 현재는 30초 폴링 방식 사용
 - 소셜 로그인 (OAuth)
 - 관리자 대시보드
 - 게시글 카테고리 또는 태그 기능
@@ -51,7 +55,7 @@ flowchart TD
     Backend -->|"Async Connection Pool"| DB
 
     subgraph DB["MySQL Database"]
-        Tables["user, refresh_token, post, comment,<br/>post_like, image, post_view_log"]
+        Tables["user, refresh_token, post, comment,<br/>post_like, image, post_view_log,<br/>email_verification, notification"]
     end
 ```
 
@@ -67,6 +71,8 @@ erDiagram
     user ||--o{ post_like : "likes"
     user ||--o{ image : "uploads"
     user ||--o{ post_view_log : "views"
+    user ||--o{ email_verification : "verifies"
+    user ||--o{ notification : "receives"
     post ||--o{ comment : "has"
     comment ||--o{ comment : "replies (1-level)"
     post ||--o{ post_like : "receives"
@@ -78,6 +84,7 @@ erDiagram
         varchar password_hash
         varchar nickname UK
         varchar profile_image
+        boolean email_verified "default FALSE"
         datetime deleted_at
         datetime created_at
     }
@@ -133,6 +140,25 @@ erDiagram
         date view_date
         datetime created_at
     }
+
+    email_verification {
+        int id PK
+        int user_id FK
+        varchar token UK
+        datetime expires_at
+        boolean used "default FALSE"
+        datetime created_at
+    }
+
+    notification {
+        int id PK
+        int user_id FK "수신자"
+        int actor_id FK "발신자"
+        int post_id FK
+        enum type "like, comment, reply"
+        boolean is_read "default FALSE"
+        datetime created_at
+    }
 ```
 
 #### 주요 설계 결정
@@ -144,6 +170,8 @@ erDiagram
   - `idx_post_created_deleted`: 최신순 게시글 목록 조회
   - `idx_comment_post_deleted`: 게시글별 댓글 목록 조회
   - `ft_post_title_content`: FULLTEXT INDEX (ngram parser) — 제목+내용 한국어 검색
+  - `idx_notification_user_read`: 사용자별 읽지 않은 알림 조회
+  - `idx_email_verification_token`: 이메일 인증 토큰 조회
 
 ### 3. API 설계
 
@@ -155,6 +183,8 @@ erDiagram
 | DELETE | `/v1/auth/session` | 로그아웃 (Refresh Token 무효화) | O |
 | POST | `/v1/auth/token/refresh` | 토큰 갱신 (Refresh Token → 새 Access Token) | X (쿠키) |
 | GET | `/v1/auth/me` | 현재 사용자 정보 | O |
+| POST | `/v1/auth/verify-email` | 이메일 인증 토큰 검증 | X |
+| POST | `/v1/auth/resend-verification` | 인증 메일 재발송 | O |
 
 #### 사용자 API (`/v1/users`)
 
@@ -168,6 +198,19 @@ erDiagram
 | DELETE | `/v1/users/me` | 회원 탈퇴 (본인) | O |
 | PUT | `/v1/users/me/password` | 비밀번호 변경 | O |
 | POST | `/v1/users/profile/image` | 프로필 이미지 업로드 | O |
+| GET | `/v1/users/me/posts` | 내가 쓴 글 목록 | O |
+| GET | `/v1/users/me/comments` | 내가 쓴 댓글 목록 | O |
+| GET | `/v1/users/me/likes` | 좋아요한 글 목록 | O |
+
+#### 알림 API (`/v1/notifications`)
+
+| Method | Endpoint | 설명 | 인증 |
+| ------ | -------- | ---- | ---- |
+| GET | `/v1/notifications` | 알림 목록 조회 (페이지네이션) | O |
+| GET | `/v1/notifications/unread-count` | 읽지 않은 알림 수 | O |
+| PATCH | `/v1/notifications/{id}/read` | 개별 알림 읽음 처리 | O |
+| PATCH | `/v1/notifications/read-all` | 전체 알림 읽음 처리 | O |
+| DELETE | `/v1/notifications/{id}` | 알림 삭제 | O |
 
 #### 게시글 API (`/v1/posts`)
 
@@ -193,7 +236,7 @@ erDiagram
   "message": "성공",
   "data": { },
   "errors": null,
-  "timestamp": "2024-01-01T00:00:00Z"
+  "timestamp": "2026-01-01T00:00:00Z"
 }
 ```
 
@@ -255,15 +298,20 @@ sequenceDiagram
 
 ```text
 2-cho-community-fe/
-├── html/                    # 8개 정적 HTML 페이지
+├── html/                    # 13개 정적 HTML 페이지
 │   ├── post_list.html       # 메인 피드
 │   ├── post_detail.html     # 게시글 상세
 │   ├── post_write.html      # 게시글 작성
 │   ├── post_edit.html       # 게시글 수정
 │   ├── user_login.html      # 로그인
 │   ├── user_signup.html     # 회원가입
+│   ├── user_find_account.html # 계정 찾기 (이메일/비밀번호)
 │   ├── user_password.html   # 비밀번호 변경
-│   └── user_edit.html       # 프로필 수정
+│   ├── user_edit.html       # 프로필 수정
+│   ├── verify-email.html    # 이메일 인증
+│   ├── notifications.html   # 알림
+│   ├── my-activity.html     # 내 활동
+│   └── user-profile.html    # 타 사용자 프로필
 │
 ├── js/
 │   ├── app/                 # 페이지별 진입점
@@ -285,9 +333,9 @@ sequenceDiagram
 
 #### MVC 패턴
 
-- **Model**: API 호출 담당. `AuthModel`, `PostModel`, `UserModel`, `CommentModel`
+- **Model**: API 호출 담당. `AuthModel`, `PostModel`, `UserModel`, `CommentModel`, `NotificationModel`, `ActivityModel`
 - **View**: DOM 렌더링. 정적 메서드로 HTML 생성 및 이벤트 바인딩
-- **Controller**: 비즈니스 로직. Model과 View 조정, 상태 관리
+- **Controller**: 비즈니스 로직. Model과 View 조정, 상태 관리 (`MainController`, `NotificationController`, `MyActivityController`, `UserProfileController` 등)
 
 #### 주요 패턴
 
@@ -334,6 +382,12 @@ sequenceDiagram
 ## Changelog
 
 ### 2026-03 (Mar)
+
+- **03-02: 이메일 인증, 알림, 내 활동, 사용자 프로필**
+  - 이메일 인증: `email_verification` 테이블, 토큰 기반 인증 흐름, `require_verified_email` 가드 (게시글/댓글 쓰기)
+  - 알림 시스템: `notification` 테이블, 좋아요/댓글 트리거, CRUD API, 읽음 처리
+  - 내 활동: 내가 쓴 글/댓글/좋아요한 글 조회 API (`/v1/users/me/posts|comments|likes`)
+  - 사용자 프로필: 공개 프로필 조회 (이메일 제외), `author_id` 필터로 게시글 목록 조회
 
 - **03-02: 검색, 정렬, 대댓글 기능**
   - 게시글 검색: FULLTEXT INDEX(ngram parser)로 제목+내용 한국어 검색, 특수문자 이스케이프, BOOLEAN MODE
