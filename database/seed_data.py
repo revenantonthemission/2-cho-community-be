@@ -130,7 +130,8 @@ async def seed_posts():
         views = random.randint(0, 1000)
         created_at = datetime.now() - timedelta(days=random.randint(1, 180))
 
-        posts_data.append((title, content, None, author_id, views, created_at))
+        category_id = random.randint(1, 4)
+        posts_data.append((title, content, None, author_id, category_id, views, created_at))
 
         if len(posts_data) >= batch_size:
             await _insert_posts_batch(posts_data)
@@ -148,8 +149,8 @@ async def _insert_posts_batch(posts_data: list):
     async with transactional() as cur:
         await cur.executemany(
             """
-            INSERT INTO post (title, content, image_url, author_id, views, created_at)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO post (title, content, image_url, author_id, category_id, views, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             """,
             posts_data,
         )

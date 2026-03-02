@@ -1,5 +1,7 @@
 """report_router: 신고 관련 라우터 모듈."""
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends, Query, Request, status
 from controllers import report_controller
 from dependencies.auth import require_verified_email, require_admin
@@ -31,7 +33,7 @@ async def get_reports(
     current_user: User = Depends(require_admin),
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
-    report_status: str | None = Query(None, alias="status", description="필터: pending, resolved, dismissed"),
+    report_status: Literal["pending", "resolved", "dismissed"] | None = Query(None, alias="status", description="필터: pending, resolved, dismissed"),
 ) -> dict:
     """신고 목록을 조회합니다 (관리자 전용)."""
     return await report_controller.get_reports(offset, limit, request, report_status)

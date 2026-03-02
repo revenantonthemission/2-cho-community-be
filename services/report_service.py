@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Tuple
 
 from models import report_models, post_models, comment_models
 from utils.formatters import format_datetime
-from utils.exceptions import not_found_error, bad_request_error, conflict_error
+from utils.exceptions import not_found_error, bad_request_error
 
 
 class ReportService:
@@ -110,6 +110,8 @@ class ReportService:
             raise not_found_error("report", timestamp)
 
         # 3. resolved인 경우 대상 콘텐츠 soft delete
+        # NOTE: resolve_report와 soft delete는 별도 트랜잭션으로 실행됨.
+        # resolve 후 delete 실패 시 관리자가 수동으로 삭제해야 함.
         if new_status == "resolved":
             if report.target_type == "post":
                 await post_models.delete_post(report.target_id)
