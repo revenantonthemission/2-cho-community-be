@@ -450,7 +450,7 @@ async def test_create_notification_on_comment(authorized_user, client, user_payl
     # 게시글 작성 (소유자)
     post_res = await auth_client.post(
         "/v1/posts/",
-        json={"title": "알림 테스트 게시글", "content": "알림 테스트용 게시글입니다."},
+        json={"title": "알림 테스트 게시글", "content": "알림 테스트용 게시글입니다.", "category_id": 1},
     )
     assert post_res.status_code == 201
     post_id = post_res.json()["data"]["post_id"]
@@ -488,7 +488,7 @@ async def test_no_self_notification(authorized_user):
     # 게시글 작성
     post_res = await auth_client.post(
         "/v1/posts/",
-        json={"title": "셀프 알림 테스트", "content": "본인 게시글입니다."},
+        json={"title": "셀프 알림 테스트", "content": "본인 게시글입니다.", "category_id": 1},
     )
     assert post_res.status_code == 201
     post_id = post_res.json()["data"]["post_id"]

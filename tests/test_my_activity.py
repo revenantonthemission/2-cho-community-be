@@ -8,8 +8,8 @@ async def test_my_posts(authorized_user):
     """내가 쓴 글 목록을 조회합니다."""
     client, _, _ = authorized_user
 
-    await client.post("/v1/posts/", json={"title": "내 글 1", "content": "내용"})
-    await client.post("/v1/posts/", json={"title": "내 글 2", "content": "내용"})
+    await client.post("/v1/posts/", json={"title": "내 글 1", "content": "내용", "category_id": 1})
+    await client.post("/v1/posts/", json={"title": "내 글 2", "content": "내용", "category_id": 1})
 
     res = await client.get("/v1/users/me/posts")
     assert res.status_code == 200
@@ -25,7 +25,7 @@ async def test_my_comments(authorized_user):
     client, _, _ = authorized_user
 
     post_res = await client.post(
-        "/v1/posts/", json={"title": "게시글", "content": "내용"}
+        "/v1/posts/", json={"title": "게시글", "content": "내용", "category_id": 1}
     )
     post_id = post_res.json()["data"]["post_id"]
 
@@ -47,7 +47,7 @@ async def test_my_likes(authorized_user):
     client, _, _ = authorized_user
 
     post_res = await client.post(
-        "/v1/posts/", json={"title": "게시글", "content": "내용"}
+        "/v1/posts/", json={"title": "게시글", "content": "내용", "category_id": 1}
     )
     post_id = post_res.json()["data"]["post_id"]
 

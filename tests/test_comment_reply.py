@@ -8,7 +8,7 @@ async def test_create_reply(authorized_user):
     """루트 댓글에 대댓글을 작성할 수 있다."""
     client, user_info, _ = authorized_user
 
-    post_res = await client.post("/v1/posts/", json={"title": "테스트 게시글", "content": "내용"})
+    post_res = await client.post("/v1/posts/", json={"title": "테스트 게시글", "content": "내용", "category_id": 1})
     post_id = post_res.json()["data"]["post_id"]
 
     comment_res = await client.post(f"/v1/posts/{post_id}/comments", json={"content": "원댓글"})
@@ -29,7 +29,7 @@ async def test_cannot_reply_to_reply(authorized_user):
     """대댓글에 다시 대댓글을 달 수 없다 (1단계 제한)."""
     client, user_info, _ = authorized_user
 
-    post_res = await client.post("/v1/posts/", json={"title": "테스트 게시글", "content": "내용"})
+    post_res = await client.post("/v1/posts/", json={"title": "테스트 게시글", "content": "내용", "category_id": 1})
     post_id = post_res.json()["data"]["post_id"]
 
     comment_res = await client.post(f"/v1/posts/{post_id}/comments", json={"content": "원댓글"})
@@ -53,10 +53,10 @@ async def test_cannot_reply_to_different_post_comment(authorized_user):
     """다른 게시글의 댓글에 대댓글을 달 수 없다."""
     client, user_info, _ = authorized_user
 
-    post1_res = await client.post("/v1/posts/", json={"title": "게시글 1", "content": "내용"})
+    post1_res = await client.post("/v1/posts/", json={"title": "게시글 1", "content": "내용", "category_id": 1})
     post1_id = post1_res.json()["data"]["post_id"]
 
-    post2_res = await client.post("/v1/posts/", json={"title": "게시글 2", "content": "내용"})
+    post2_res = await client.post("/v1/posts/", json={"title": "게시글 2", "content": "내용", "category_id": 1})
     post2_id = post2_res.json()["data"]["post_id"]
 
     comment_res = await client.post(f"/v1/posts/{post1_id}/comments", json={"content": "게시글1 댓글"})
@@ -74,7 +74,7 @@ async def test_cannot_reply_to_deleted_comment(authorized_user):
     """삭제된 댓글에 대댓글을 달 수 없다."""
     client, user_info, _ = authorized_user
 
-    post_res = await client.post("/v1/posts/", json={"title": "테스트 게시글", "content": "내용"})
+    post_res = await client.post("/v1/posts/", json={"title": "테스트 게시글", "content": "내용", "category_id": 1})
     post_id = post_res.json()["data"]["post_id"]
 
     comment_res = await client.post(f"/v1/posts/{post_id}/comments", json={"content": "삭제될 댓글"})
@@ -94,7 +94,7 @@ async def test_comment_tree_structure(authorized_user):
     """게시글 상세 조회 시 댓글이 트리 구조로 반환된다."""
     client, user_info, _ = authorized_user
 
-    post_res = await client.post("/v1/posts/", json={"title": "테스트 게시글", "content": "내용"})
+    post_res = await client.post("/v1/posts/", json={"title": "테스트 게시글", "content": "내용", "category_id": 1})
     post_id = post_res.json()["data"]["post_id"]
 
     c1_res = await client.post(f"/v1/posts/{post_id}/comments", json={"content": "루트 댓글 1"})
@@ -122,7 +122,7 @@ async def test_deleted_parent_shows_placeholder(authorized_user):
     """삭제된 부모 댓글은 '삭제된 댓글입니다' 플레이스홀더로 표시된다."""
     client, user_info, _ = authorized_user
 
-    post_res = await client.post("/v1/posts/", json={"title": "테스트 게시글", "content": "내용"})
+    post_res = await client.post("/v1/posts/", json={"title": "테스트 게시글", "content": "내용", "category_id": 1})
     post_id = post_res.json()["data"]["post_id"]
 
     c_res = await client.post(f"/v1/posts/{post_id}/comments", json={"content": "삭제될 댓글"})
@@ -151,7 +151,7 @@ async def test_deleted_comment_without_replies_hidden(authorized_user):
     """대댓글이 없는 삭제된 댓글은 목록에서 제외된다."""
     client, user_info, _ = authorized_user
 
-    post_res = await client.post("/v1/posts/", json={"title": "테스트 게시글", "content": "내용"})
+    post_res = await client.post("/v1/posts/", json={"title": "테스트 게시글", "content": "내용", "category_id": 1})
     post_id = post_res.json()["data"]["post_id"]
 
     c1_res = await client.post(f"/v1/posts/{post_id}/comments", json={"content": "삭제될 댓글"})

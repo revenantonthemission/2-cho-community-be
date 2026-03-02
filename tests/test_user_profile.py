@@ -25,7 +25,7 @@ async def test_filter_posts_by_author(authorized_user):
     client, user_info, _ = authorized_user
     user_id = user_info["user_id"]
 
-    await client.post("/v1/posts/", json={"title": "내 글", "content": "내용"})
+    await client.post("/v1/posts/", json={"title": "내 글", "content": "내용", "category_id": 1})
 
     res = await client.get(f"/v1/posts/?author_id={user_id}")
     assert res.status_code == 200

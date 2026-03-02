@@ -67,7 +67,7 @@ def _auth(token: str) -> dict:
 async def test_admin_delete_others_post(client: AsyncClient, authorized_user, fake):
     """ADMIN-01: 관리자가 타인의 게시글을 삭제할 수 있다."""
     admin_cli, admin_info, _ = authorized_user
-    await _make_admin(admin_info["id"])
+    await _make_admin(admin_info["user_id"])
 
     # 일반 사용자 생성 + 게시글 작성
     user_token, _ = await _create_verified_user(client, fake)
@@ -91,7 +91,7 @@ async def test_admin_delete_others_post(client: AsyncClient, authorized_user, fa
 async def test_admin_delete_others_comment(client: AsyncClient, authorized_user, fake):
     """ADMIN-02: 관리자가 타인의 댓글을 삭제할 수 있다."""
     admin_cli, admin_info, _ = authorized_user
-    await _make_admin(admin_info["id"])
+    await _make_admin(admin_info["user_id"])
 
     # 일반 사용자 생성 + 게시글 + 댓글 작성
     user_token, _ = await _create_verified_user(client, fake)
@@ -118,7 +118,7 @@ async def test_admin_delete_others_comment(client: AsyncClient, authorized_user,
 async def test_admin_pin_unpin_post(client: AsyncClient, authorized_user):
     """ADMIN-03: 관리자가 게시글을 고정/해제할 수 있다."""
     admin_cli, admin_info, _ = authorized_user
-    await _make_admin(admin_info["id"])
+    await _make_admin(admin_info["user_id"])
 
     # 게시글 작성
     create_res = await admin_cli.post(
@@ -249,7 +249,7 @@ async def test_admin_reports_list_with_filter(
 ):
     """REPORT-04: 관리자 신고 목록 조회 (status 필터)."""
     admin_cli, admin_info, _ = authorized_user
-    await _make_admin(admin_info["id"])
+    await _make_admin(admin_info["user_id"])
 
     # 다른 사용자의 게시글 + 신고 생성
     other_token, _ = await _create_verified_user(client, fake)
@@ -288,7 +288,7 @@ async def test_admin_resolve_report_deletes_target(
 ):
     """REPORT-05: 관리자가 신고를 처리(resolved)하면 대상이 삭제된다."""
     admin_cli, admin_info, _ = authorized_user
-    await _make_admin(admin_info["id"])
+    await _make_admin(admin_info["user_id"])
 
     # 다른 사용자 + 게시글
     other_token, _ = await _create_verified_user(client, fake)
@@ -326,7 +326,7 @@ async def test_admin_dismiss_report_preserves_target(
 ):
     """REPORT-06: 관리자가 신고를 기각(dismissed)하면 대상이 유지된다."""
     admin_cli, admin_info, _ = authorized_user
-    await _make_admin(admin_info["id"])
+    await _make_admin(admin_info["user_id"])
 
     # 다른 사용자 + 게시글
     other_token, _ = await _create_verified_user(client, fake)
@@ -416,7 +416,7 @@ async def test_category_filtered_posts(client: AsyncClient, authorized_user):
 async def test_pinned_post_appears_first(client: AsyncClient, authorized_user):
     """PIN-01: 고정 게시글이 목록 상단에 표시된다."""
     admin_cli, admin_info, _ = authorized_user
-    await _make_admin(admin_info["id"])
+    await _make_admin(admin_info["user_id"])
 
     # 여러 게시글 작성 (첫 번째 → 두 번째 → 세 번째 순서)
     first_res = await admin_cli.post(
