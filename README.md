@@ -73,10 +73,12 @@ erDiagram
     user ||--o{ post_view_log : "views"
     user ||--o{ email_verification : "verifies"
     user ||--o{ notification : "receives"
+    user ||--o{ report : "reports"
     post ||--o{ comment : "has"
     comment ||--o{ comment : "replies (1-level)"
     post ||--o{ post_like : "receives"
     post ||--o{ post_view_log : "tracks"
+    category ||--o{ post : "classifies"
 
     user {
         int id PK
@@ -84,6 +86,7 @@ erDiagram
         varchar password_hash
         varchar nickname UK
         varchar profile_image
+        enum role "user, admin"
         boolean email_verified "default FALSE"
         datetime deleted_at
         datetime created_at
@@ -100,11 +103,35 @@ erDiagram
     post {
         int id PK
         int author_id FK
+        int category_id FK
         varchar title
         text content
         varchar image_url
+        boolean is_pinned "default FALSE"
         int view_count
         datetime deleted_at
+        datetime created_at
+    }
+
+    category {
+        int id PK
+        varchar name UK
+        varchar slug UK
+        varchar description
+        int sort_order
+        datetime created_at
+    }
+
+    report {
+        int id PK
+        int reporter_id FK
+        enum target_type "post, comment"
+        int target_id
+        enum reason "spam, abuse, inappropriate, other"
+        text description
+        enum status "pending, resolved, dismissed"
+        int resolved_by FK
+        datetime resolved_at
         datetime created_at
     }
 
@@ -172,6 +199,10 @@ erDiagram
   - `ft_post_title_content`: FULLTEXT INDEX (ngram parser) — 제목+내용 한국어 검색
   - `idx_notification_user_read`: 사용자별 읽지 않은 알림 조회
   - `idx_email_verification_token`: 이메일 인증 토큰 조회
+  - `idx_post_category`: 카테고리별 게시글 목록 조회
+  - `idx_post_pinned`: 고정 게시글 우선 정렬
+  - `idx_report_status`: 신고 상태별 목록 조회
+  - `idx_report_target`: 대상별 신고 조회
 
 ### 3. API 설계
 
@@ -216,17 +247,33 @@ erDiagram
 
 | Method | Endpoint | 설명 | 인증 |
 | ------ | -------- | ---- | ---- |
-| GET | `/v1/posts` | 게시글 목록 (페이지네이션, `?search=`, `?sort=latest\|likes\|views\|comments`) | X |
-| POST | `/v1/posts` | 게시글 작성 | O |
+| GET | `/v1/posts` | 게시글 목록 (페이지네이션, `?search=`, `?sort=`, `?category_id=`) | X |
+| POST | `/v1/posts` | 게시글 작성 (`category_id` 필수) | O (이메일 인증) |
 | GET | `/v1/posts/{post_id}` | 게시글 상세 조회 | X |
 | PATCH | `/v1/posts/{post_id}` | 게시글 수정 | O (작성자) |
-| DELETE | `/v1/posts/{post_id}` | 게시글 삭제 | O (작성자) |
+| DELETE | `/v1/posts/{post_id}` | 게시글 삭제 | O (작성자/관리자) |
+| PATCH | `/v1/posts/{post_id}/pin` | 게시글 고정 | O (관리자) |
+| DELETE | `/v1/posts/{post_id}/pin` | 게시글 고정 해제 | O (관리자) |
 | POST | `/v1/posts/{post_id}/likes` | 좋아요 | O |
 | DELETE | `/v1/posts/{post_id}/likes` | 좋아요 취소 | O |
 | POST | `/v1/posts/{post_id}/comments` | 댓글 작성 (대댓글: `parent_id` 지원) | O |
 | PUT | `/v1/posts/{post_id}/comments/{comment_id}` | 댓글 수정 | O (작성자) |
-| DELETE | `/v1/posts/{post_id}/comments/{comment_id}` | 댓글 삭제 | O (작성자) |
+| DELETE | `/v1/posts/{post_id}/comments/{comment_id}` | 댓글 삭제 | O (작성자/관리자) |
 | POST | `/v1/posts/image` | 게시글 이미지 업로드 | O |
+
+#### 카테고리 API (`/v1/categories`)
+
+| Method | Endpoint | 설명 | 인증 |
+| ------ | -------- | ---- | ---- |
+| GET | `/v1/categories` | 카테고리 목록 조회 | X |
+
+#### 신고 API (`/v1/reports`, `/v1/admin/reports`)
+
+| Method | Endpoint | 설명 | 인증 |
+| ------ | -------- | ---- | ---- |
+| POST | `/v1/reports` | 신고 생성 | O (이메일 인증) |
+| GET | `/v1/admin/reports` | 신고 목록 조회 (`?status=pending\|resolved\|dismissed`) | O (관리자) |
+| PATCH | `/v1/admin/reports/{report_id}` | 신고 처리 (resolved/dismissed) | O (관리자) |
 
 #### 응답 형식
 
@@ -382,6 +429,12 @@ sequenceDiagram
 ## Changelog
 
 ### 2026-03 (Mar)
+
+- **03-02: 관리자 역할, 신고 시스템, 카테고리, 게시글 고정**
+  - 관리자 역할: `user.role` ENUM 컬럼, `require_admin` 의존성, 관리자 게시글/댓글 삭제 권한
+  - 카테고리: `category` 테이블 (4종 시드), `post.category_id` FK, 카테고리별 게시글 필터링
+  - 신고: `report` 테이블 (UNIQUE 중복 방지), 자기 콘텐츠 신고 방지, 관리자 처리(resolved→삭제/dismissed→유지)
+  - 게시글 고정: `post.is_pinned` 플래그, 관리자 전용 PIN/UNPIN API, 목록 상단 표시
 
 - **03-02: 이메일 인증, 알림, 내 활동, 사용자 프로필**
   - 이메일 인증: `email_verification` 테이블, 토큰 기반 인증 흐름, `require_verified_email` 가드 (게시글/댓글 쓰기)

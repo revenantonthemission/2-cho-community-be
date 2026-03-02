@@ -44,12 +44,15 @@ async def clear_existing_data():
     print("Clearing existing data...")
     async with transactional() as cur:
         await cur.execute("SET FOREIGN_KEY_CHECKS = 0")
+        await cur.execute("TRUNCATE TABLE report")
+        await cur.execute("TRUNCATE TABLE notification")
         await cur.execute("TRUNCATE TABLE post_view_log")
         await cur.execute("TRUNCATE TABLE post_like")
         await cur.execute("TRUNCATE TABLE comment")
         await cur.execute("TRUNCATE TABLE post")
         await cur.execute("TRUNCATE TABLE refresh_token")
         await cur.execute("TRUNCATE TABLE image")
+        await cur.execute("TRUNCATE TABLE category")
         await cur.execute("TRUNCATE TABLE user")
         await cur.execute("SET FOREIGN_KEY_CHECKS = 1")
     print("Existing data cleared.")
@@ -66,8 +69,10 @@ async def seed_users():
         email = f"user{i}@example.com"
         nickname = f"user_{i:05d}"  # user_00001 형식
         created_at = datetime.now() - timedelta(days=random.randint(1, 365))
+        # 첫 번째 사용자를 admin으로 설정
+        role = "admin" if i == 1 else "user"
 
-        users_data.append((email, nickname, HASHED_PASSWORD, None, created_at))
+        users_data.append((email, nickname, HASHED_PASSWORD, None, role, created_at))
 
         if len(users_data) >= batch_size:
             await _insert_users_batch(users_data)
@@ -85,8 +90,8 @@ async def _insert_users_batch(users_data: list):
     async with transactional() as cur:
         await cur.executemany(
             """
-            INSERT INTO user (email, nickname, password, profile_img, created_at)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO user (email, nickname, password, profile_img, role, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s)
             """,
             users_data,
         )

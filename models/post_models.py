@@ -13,7 +13,7 @@ from schemas.common import build_author_dict
 
 
 # SQL Injection 방지: 허용된 컬럼명 whitelist
-ALLOWED_POST_COLUMNS = {'title', 'content', 'image_url'}
+ALLOWED_POST_COLUMNS = {'title', 'content', 'image_url', 'category_id'}
 
 # FULLTEXT BOOLEAN MODE 특수문자 이스케이프 패턴
 _FULLTEXT_SPECIAL_CHARS = re.compile(r'([+\-><()~*"@])')
@@ -58,6 +58,8 @@ class Post:
     updated_at: datetime | None
     deleted_at: datetime | None
     image_url: str | None = None
+    category_id: int | None = None
+    is_pinned: bool = False
 
     @property
     def is_deleted(self) -> bool:
@@ -73,10 +75,12 @@ def _row_to_post(row: tuple) -> Post:
         content=row[2],
         image_url=row[3],
         author_id=row[4],
-        views=row[5],
-        created_at=row[6],
-        updated_at=row[7],
-        deleted_at=row[8],
+        category_id=row[5],
+        is_pinned=bool(row[6]),
+        views=row[7],
+        created_at=row[8],
+        updated_at=row[9],
+        deleted_at=row[10],
     )
 
 
@@ -86,12 +90,14 @@ def _row_to_post(row: tuple) -> Post:
 async def get_total_posts_count(
     search: str | None = None,
     author_id: int | None = None,
+    category_id: int | None = None,
 ) -> int:
     """삭제되지 않은 게시글의 총 개수를 반환합니다.
 
     Args:
         search: 검색어 (제목+내용 FULLTEXT 검색). None이면 전체 조회.
         author_id: 작성자 ID로 필터링. None이면 전체 조회.
+        category_id: 카테고리 ID로 필터링. None이면 전체 조회.
 
     Returns:
         게시글 총 개수.
@@ -109,6 +115,10 @@ async def get_total_posts_count(
             if author_id is not None:
                 where += " AND author_id = %s"
                 params.append(author_id)
+
+            if category_id is not None:
+                where += " AND category_id = %s"
+                params.append(category_id)
 
             await cur.execute(
                 f"SELECT COUNT(*) FROM post WHERE {where}",
@@ -131,8 +141,8 @@ async def get_post_by_id(post_id: int) -> Post | None:
         async with conn.cursor() as cur:
             await cur.execute(
                 """
-                SELECT id, title, content, image_url, author_id, views,
-                       created_at, updated_at, deleted_at
+                SELECT id, title, content, image_url, author_id, category_id,
+                       is_pinned, views, created_at, updated_at, deleted_at
                 FROM post
                 WHERE id = %s AND deleted_at IS NULL
                 """,
@@ -143,7 +153,11 @@ async def get_post_by_id(post_id: int) -> Post | None:
 
 
 async def create_post(
-    author_id: int, title: str, content: str, image_url: str | None = None
+    author_id: int,
+    title: str,
+    content: str,
+    image_url: str | None = None,
+    category_id: int | None = None,
 ) -> Post:
     """새 게시글을 생성합니다.
 
@@ -152,6 +166,7 @@ async def create_post(
         title: 제목.
         content: 내용.
         image_url: 첨부 이미지 URL (선택, 최대 1개).
+        category_id: 카테고리 ID (선택).
 
     Returns:
         생성된 게시글 객체.
@@ -159,17 +174,17 @@ async def create_post(
     async with transactional() as cur:
         await cur.execute(
             """
-            INSERT INTO post (title, content, image_url, author_id)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO post (title, content, image_url, author_id, category_id)
+            VALUES (%s, %s, %s, %s, %s)
             """,
-            (title, content, image_url, author_id),
+            (title, content, image_url, author_id, category_id),
         )
         post_id = cur.lastrowid
 
         await cur.execute(
             """
-            SELECT id, title, content, image_url, author_id, views,
-                   created_at, updated_at, deleted_at
+            SELECT id, title, content, image_url, author_id, category_id,
+                   is_pinned, views, created_at, updated_at, deleted_at
             FROM post
             WHERE id = %s
             """,
@@ -184,6 +199,7 @@ async def update_post(
     title: str | None = None,
     content: str | None = None,
     image_url: str | None = None,
+    category_id: int | None = None,
 ) -> Post | None:
     """게시글을 수정합니다.
 
@@ -192,6 +208,7 @@ async def update_post(
         title: 새 제목 (선택).
         content: 새 내용 (선택).
         image_url: 새 이미지 URL (선택).
+        category_id: 새 카테고리 ID (선택).
 
     Returns:
         수정된 게시글 객체, 없거나 삭제된 경우 None.
@@ -208,6 +225,9 @@ async def update_post(
     if image_url is not None:
         updates.append("image_url = %s")
         params.append(image_url)
+    if category_id is not None:
+        updates.append("category_id = %s")
+        params.append(category_id)
 
     if not updates:
         return await get_post_by_id(post_id)
@@ -234,8 +254,8 @@ async def update_post(
         # 같은 트랜잭션 내에서 수정된 게시글 조회
         await cur.execute(
             """
-            SELECT id, title, content, image_url, author_id, views,
-                   created_at, updated_at, deleted_at
+            SELECT id, title, content, image_url, author_id, category_id,
+                   is_pinned, views, created_at, updated_at, deleted_at
             FROM post
             WHERE id = %s
             """,
@@ -310,11 +330,13 @@ async def get_posts_with_details(
     search: str | None = None,
     sort: str = "latest",
     author_id: int | None = None,
+    category_id: int | None = None,
 ) -> list[dict]:
     """게시글 목록을 작성자 정보, 좋아요 수, 댓글 수와 함께 조회합니다.
 
     N+1 문제를 해결하기 위해 서브쿼리를 사용합니다.
     Cartesian Product를 방지하여 대량의 데이터에서도 빠른 성능을 보장합니다.
+    고정 게시글은 항상 상단에 표시됩니다.
 
     Args:
         offset: 시작 위치.
@@ -322,6 +344,7 @@ async def get_posts_with_details(
         search: 검색어 (제목+내용 FULLTEXT 검색). None이면 전체 조회.
         sort: 정렬 옵션 (latest, likes, views, comments).
         author_id: 작성자 ID로 필터링. None이면 전체 조회.
+        category_id: 카테고리 ID로 필터링. None이면 전체 조회.
 
     Returns:
         게시글 상세 정보 딕셔너리 목록.
@@ -341,6 +364,10 @@ async def get_posts_with_details(
         where += " AND p.author_id = %s"
         params.append(author_id)
 
+    if category_id is not None:
+        where += " AND p.category_id = %s"
+        params.append(category_id)
+
     params.extend([limit, offset])
 
     async with get_connection() as conn:
@@ -352,9 +379,11 @@ async def get_posts_with_details(
                     p.created_at, p.updated_at,
                     u.id, u.nickname, u.profile_img,
                     COALESCE(likes.count, 0) as likes_count,
-                    COALESCE(comments.count, 0) as comments_count
+                    COALESCE(comments.count, 0) as comments_count,
+                    p.is_pinned, p.category_id, cat.name AS category_name
                 FROM post p
                 LEFT JOIN user u ON p.author_id = u.id
+                LEFT JOIN category cat ON p.category_id = cat.id
                 LEFT JOIN (
                     SELECT post_id, COUNT(*) as count
                     FROM post_like
@@ -367,7 +396,7 @@ async def get_posts_with_details(
                     GROUP BY post_id
                 ) comments ON p.id = comments.post_id
                 WHERE {where}
-                ORDER BY {order_by}
+                ORDER BY p.is_pinned DESC, {order_by}
                 LIMIT %s OFFSET %s
                 """,
                 params,
@@ -386,6 +415,9 @@ async def get_posts_with_details(
                     "author": build_author_dict(row[7], row[8], row[9]),
                     "likes_count": row[10],
                     "comments_count": row[11],
+                    "is_pinned": bool(row[12]),
+                    "category_id": row[13],
+                    "category_name": row[14],
                 }
                 for row in rows
             ]
@@ -406,9 +438,11 @@ async def get_post_with_details(post_id: int) -> dict | None:
                 """
                 SELECT p.id, p.title, p.content, p.image_url, p.views, p.created_at, p.updated_at,
                        u.id, u.nickname, u.profile_img,
-                       (SELECT COUNT(*) FROM post_like WHERE post_id = p.id) as likes_count
+                       (SELECT COUNT(*) FROM post_like WHERE post_id = p.id) as likes_count,
+                       p.is_pinned, p.category_id, cat.name AS category_name
                 FROM post p
                 LEFT JOIN user u ON p.author_id = u.id
+                LEFT JOIN category cat ON p.category_id = cat.id
                 WHERE p.id = %s AND p.deleted_at IS NULL
                 """,
                 (post_id,),
@@ -428,7 +462,49 @@ async def get_post_with_details(post_id: int) -> dict | None:
                 "updated_at": row[6],
                 "author": build_author_dict(row[7], row[8], row[9]),
                 "likes_count": row[10],
+                "is_pinned": bool(row[11]),
+                "category_id": row[12],
+                "category_name": row[13],
             }
+
+
+async def pin_post(post_id: int) -> bool:
+    """게시글을 고정합니다."""
+    async with transactional() as cur:
+        await cur.execute(
+            """
+            UPDATE post SET is_pinned = 1
+            WHERE id = %s AND deleted_at IS NULL
+            """,
+            (post_id,),
+        )
+        return cur.rowcount > 0
+
+
+async def unpin_post(post_id: int) -> bool:
+    """게시글 고정을 해제합니다."""
+    async with transactional() as cur:
+        await cur.execute(
+            """
+            UPDATE post SET is_pinned = 0
+            WHERE id = %s AND deleted_at IS NULL
+            """,
+            (post_id,),
+        )
+        return cur.rowcount > 0
+
+
+async def update_post_category(post_id: int, category_id: int | None) -> bool:
+    """게시글 카테고리를 변경합니다."""
+    async with transactional() as cur:
+        await cur.execute(
+            """
+            UPDATE post SET category_id = %s
+            WHERE id = %s AND deleted_at IS NULL
+            """,
+            (category_id, post_id),
+        )
+        return cur.rowcount > 0
 
 
 # get_comments_with_author는 comment_models.py에서 정의됨 (상단 import 참조)

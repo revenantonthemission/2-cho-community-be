@@ -103,6 +103,34 @@ async def get_optional_user(request: Request) -> User | None:
         return None
 
 
+async def require_admin(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """관리자 권한을 요구합니다.
+
+    Args:
+        request: FastAPI Request 객체.
+        current_user: 현재 인증된 사용자 (get_current_user 의존성).
+
+    Returns:
+        관리자 사용자 객체.
+
+    Raises:
+        HTTPException: 관리자가 아닌 경우 403.
+    """
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": "admin_required",
+                "message": "관리자 권한이 필요합니다.",
+                "timestamp": get_request_timestamp(request),
+            },
+        )
+    return current_user
+
+
 async def require_verified_email(
     request: Request,
     current_user: User = Depends(get_current_user),

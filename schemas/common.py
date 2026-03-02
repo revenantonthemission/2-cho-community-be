@@ -71,4 +71,5 @@ def serialize_user(user) -> dict[str, Any]:
         "email_verified": user.email_verified,
         "nickname": user.nickname,
         "profileImageUrl": user.profileImageUrl,
+        "role": user.role,
     }

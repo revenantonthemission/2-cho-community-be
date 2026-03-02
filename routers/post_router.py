@@ -5,7 +5,7 @@
 
 from fastapi import APIRouter, Depends, Query, Request, UploadFile, File, status
 from controllers import post_controller, like_controller, comment_controller
-from dependencies.auth import get_optional_user, require_verified_email
+from dependencies.auth import get_optional_user, require_verified_email, require_admin
 from models.user_models import User
 from schemas.post_schemas import CreatePostRequest, UpdatePostRequest
 from schemas.comment_schemas import CreateCommentRequest, UpdateCommentRequest
@@ -26,12 +26,14 @@ async def get_posts(
     search: str | None = Query(None, max_length=100, description="검색어 (제목+내용)"),
     sort: str = Query("latest", description="정렬: latest, likes, views, comments"),
     author_id: int | None = Query(None, ge=1, description="작성자 ID로 필터링"),
+    category_id: int | None = Query(None, ge=1, description="카테고리 ID로 필터링"),
 ) -> dict:
     """게시글 목록을 조회합니다.
 
     정렬 옵션에 따라 게시글을 페이지네이션하여 반환합니다.
     검색어가 있으면 제목+내용을 FULLTEXT 검색합니다.
     author_id가 있으면 해당 작성자의 글만 필터링합니다.
+    category_id가 있으면 해당 카테고리의 글만 필터링합니다.
 
     Args:
         request: FastAPI Request 객체.
@@ -40,12 +42,14 @@ async def get_posts(
         search: 검색어 (제목+내용, 최대 100자).
         sort: 정렬 옵션 (latest, likes, views, comments).
         author_id: 작성자 ID로 필터링 (선택).
+        category_id: 카테고리 ID로 필터링 (선택).
 
     Returns:
         게시글 목록과 페이지네이션 정보가 포함된 응답.
     """
     return await post_controller.get_posts(
-        offset, limit, request, search, sort, author_id=author_id
+        offset, limit, request, search, sort,
+        author_id=author_id, category_id=category_id,
     )
 
 
@@ -147,6 +151,29 @@ async def upload_image(
         업로드된 이미지 URL이 포함된 응답.
     """
     return await post_controller.upload_image(file, current_user, request)
+
+
+# ============ 고정 라우터 (관리자 전용) ============
+
+
+@post_router.patch("/{post_id}/pin", status_code=status.HTTP_200_OK)
+async def pin_post(
+    post_id: int,
+    request: Request,
+    current_user: User = Depends(require_admin),
+) -> dict:
+    """게시글을 고정합니다 (관리자 전용)."""
+    return await post_controller.pin_post(post_id, current_user, request)
+
+
+@post_router.delete("/{post_id}/pin", status_code=status.HTTP_200_OK)
+async def unpin_post(
+    post_id: int,
+    request: Request,
+    current_user: User = Depends(require_admin),
+) -> dict:
+    """게시글 고정을 해제합니다 (관리자 전용)."""
+    return await post_controller.unpin_post(post_id, current_user, request)
 
 
 # ============ 좋아요 라우터 ============
@@ -260,5 +287,6 @@ async def delete_comment(
         삭제 성공 응답.
     """
     return await comment_controller.delete_comment(
-        post_id, comment_id, current_user, request
+        post_id, comment_id, current_user, request,
+        is_admin=current_user.is_admin,
     )

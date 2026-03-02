@@ -15,11 +15,13 @@ class CreatePostRequest(BaseModel):
         title: 게시글 제목 (3~100자).
         content: 게시글 내용 (1~10000자).
         image_url: 첨부 이미지 URL (선택, 최대 1개).
+        category_id: 카테고리 ID (필수).
     """
 
     title: str = Field(..., min_length=3, max_length=100)
     content: str = Field(..., min_length=1, max_length=10000)
     image_url: str | None = None
+    category_id: int = Field(..., ge=1)
 
     @field_validator("title")
     @classmethod
@@ -77,6 +79,7 @@ class UpdatePostRequest(BaseModel):
     title: str | None = Field(None, min_length=3, max_length=100)
     content: str | None = Field(None, min_length=1, max_length=10000)
     image_url: str | None = None
+    category_id: int | None = Field(None, ge=1)
 
     @field_validator("image_url")
     @classmethod

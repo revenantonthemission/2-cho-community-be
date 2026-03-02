@@ -75,6 +75,21 @@ from .activity_models import (
     get_my_likes,
 )
 
+from .category_models import (
+    Category,
+    get_all_categories,
+    get_category_by_id,
+)
+
+from .report_models import (
+    Report,
+    create_report,
+    get_reports,
+    get_reports_count,
+    get_report_by_id,
+    resolve_report,
+)
+
 __all__ = [
     # 사용자 모델
     "User",
@@ -131,4 +146,15 @@ __all__ = [
     "get_my_posts",
     "get_my_comments",
     "get_my_likes",
+    # 카테고리 모델
+    "Category",
+    "get_all_categories",
+    "get_category_by_id",
+    # 신고 모델
+    "Report",
+    "create_report",
+    "get_reports",
+    "get_reports_count",
+    "get_report_by_id",
+    "resolve_report",
 ]

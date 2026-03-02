@@ -17,6 +17,7 @@ async def clear_all_data() -> None:
     async with get_connection() as conn:
         async with conn.cursor() as cur:
             await cur.execute("SET FOREIGN_KEY_CHECKS = 0")
+            await cur.execute("TRUNCATE TABLE report")
             await cur.execute("TRUNCATE TABLE notification")
             await cur.execute("TRUNCATE TABLE email_verification")
             await cur.execute("TRUNCATE TABLE post_view_log")
@@ -24,8 +25,17 @@ async def clear_all_data() -> None:
             await cur.execute("TRUNCATE TABLE comment")
             await cur.execute("TRUNCATE TABLE post")
             await cur.execute("TRUNCATE TABLE refresh_token")
+            await cur.execute("TRUNCATE TABLE category")
             await cur.execute("TRUNCATE TABLE user")
             await cur.execute("SET FOREIGN_KEY_CHECKS = 1")
+            # 카테고리 시드 데이터 삽입
+            await cur.execute("""
+                INSERT INTO category (name, slug, description, sort_order) VALUES
+                    ('자유게시판', 'free', '자유롭게 이야기하는 공간입니다.', 1),
+                    ('질문답변', 'qna', '궁금한 것을 질문하고 답변합니다.', 2),
+                    ('정보공유', 'info', '유용한 정보를 공유합니다.', 3),
+                    ('공지사항', 'notice', '관리자 공지사항입니다.', 4)
+            """)
 
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

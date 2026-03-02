@@ -18,14 +18,16 @@ class PostService:
         search: Optional[str] = None,
         sort: str = "latest",
         author_id: Optional[int] = None,
+        category_id: Optional[int] = None,
     ) -> Tuple[List[Dict], int, bool]:
         """게시글 목록 조회 및 가공."""
         # 1. DB 조회
         posts_data = await post_models.get_posts_with_details(
-            offset, limit, search=search, sort=sort, author_id=author_id
+            offset, limit, search=search, sort=sort,
+            author_id=author_id, category_id=category_id,
         )
         total_count = await post_models.get_total_posts_count(
-            search=search, author_id=author_id
+            search=search, author_id=author_id, category_id=category_id,
         )
         has_more = offset + limit < total_count
 
@@ -72,13 +74,27 @@ class PostService:
         return {"post": post_data, "comments": comments_data}
 
     @staticmethod
-    async def create_post(user_id: int, post_data: CreatePostRequest) -> int:
-        """게시글 생성."""
+    async def create_post(
+        user_id: int,
+        post_data: CreatePostRequest,
+        is_admin: bool = False,
+    ) -> int:
+        """게시글 생성.
+
+        공지사항 카테고리(id=4)는 관리자만 작성 가능합니다.
+        """
+        # 공지사항 카테고리는 관리자만 사용 가능
+        if post_data.category_id == 4 and not is_admin:
+            raise forbidden_error(
+                "create", "", "공지사항은 관리자만 작성할 수 있습니다."
+            )
+
         post = await post_models.create_post(
             author_id=user_id,
             title=post_data.title,
             content=post_data.content,
             image_url=post_data.image_url,
+            category_id=post_data.category_id,
         )
         return post.id
 
@@ -90,6 +106,7 @@ class PostService:
         content: Optional[str],
         image_url: Optional[str],
         timestamp: str,
+        category_id: Optional[int] = None,
     ) -> Dict:
         """게시글 수정."""
         # 1. 존재 확인
@@ -111,6 +128,8 @@ class PostService:
             updates["content"] = content
         if image_url is not None:
             updates["image_url"] = image_url
+        if category_id is not None:
+            updates["category_id"] = category_id
 
         if not updates:
             raise bad_request_error("no_changes_provided", timestamp)
@@ -121,6 +140,7 @@ class PostService:
             title=updates.get("title"),
             content=updates.get("content"),
             image_url=updates.get("image_url"),
+            category_id=updates.get("category_id"),
         )
         assert updated_post is not None  # 게시글 존재는 위에서 검증됨
 
@@ -131,15 +151,20 @@ class PostService:
         }
 
     @staticmethod
-    async def delete_post(post_id: int, user_id: int, timestamp: str) -> None:
-        """게시글 삭제."""
+    async def delete_post(
+        post_id: int,
+        user_id: int,
+        timestamp: str,
+        is_admin: bool = False,
+    ) -> None:
+        """게시글 삭제. 관리자는 작성자 검증을 건너뜁니다."""
         # 1. 존재 확인
         post = await post_models.get_post_by_id(post_id)
         if not post:
             raise not_found_error("post", timestamp)
 
-        # 2. 권한 확인
-        if post.author_id != user_id:
+        # 2. 권한 확인 (관리자는 모든 게시글 삭제 가능)
+        if not is_admin and post.author_id != user_id:
             raise forbidden_error(
                 "delete", timestamp, "게시글 작성자만 삭제할 수 있습니다."
             )

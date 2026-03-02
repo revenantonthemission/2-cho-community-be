@@ -37,6 +37,7 @@ class User:
     nickname: str
     email_verified: bool = False
     profile_image_url: str | None = None
+    role: str = "user"
     created_at: datetime | None = None
     updated_at: datetime | None = None
     deleted_at: datetime | None = None
@@ -47,6 +48,11 @@ class User:
         return self.deleted_at is None
 
     @property
+    def is_admin(self) -> bool:
+        """사용자가 관리자인지 확인합니다."""
+        return self.role == "admin"
+
+    @property
     def profileImageUrl(self) -> str:
         """프로필 이미지 URL을 반환합니다 (하위 호환성)."""
         # 실제 파일이 assets/profiles/default_profile.jpg 에 위치함
@@ -55,7 +61,7 @@ class User:
 
 # 공통으로 사용되는 SELECT 필드
 USER_SELECT_FIELDS = (
-    "id, email, email_verified, nickname, password, profile_img, created_at, updated_at, deleted_at"
+    "id, email, email_verified, nickname, password, profile_img, role, created_at, updated_at, deleted_at"
 )
 
 
@@ -75,9 +81,10 @@ def _row_to_user(row: tuple) -> User:
         nickname=row[3],
         password=row[4],
         profile_image_url=row[5],
-        created_at=row[6],
-        updated_at=row[7],
-        deleted_at=row[8],
+        role=row[6],
+        created_at=row[7],
+        updated_at=row[8],
+        deleted_at=row[9],
     )
 
 

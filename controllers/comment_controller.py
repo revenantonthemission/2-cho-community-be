@@ -239,6 +239,7 @@ async def delete_comment(
     comment_id: int,
     current_user: User,
     request: Request,
+    is_admin: bool = False,
 ) -> dict:
     """댓글을 삭제합니다.
 
@@ -247,6 +248,7 @@ async def delete_comment(
         comment_id: 삭제할 댓글 ID.
         current_user: 현재 인증된 사용자 객체.
         request: FastAPI Request 객체.
+        is_admin: 관리자 여부 (True면 작성자 검증 스킵).
 
     Returns:
         삭제 성공 응답 딕셔너리.
@@ -256,8 +258,11 @@ async def delete_comment(
     """
     timestamp = get_request_timestamp(request)
 
-    # 공통 검증 로직
-    await _validate_comment_access(post_id, comment_id, current_user, timestamp)
+    # 관리자는 작성자 검증 스킵
+    await _validate_comment_access(
+        post_id, comment_id, current_user, timestamp,
+        require_author=not is_admin,
+    )
 
     await comment_models.delete_comment(comment_id)
 

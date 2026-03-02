@@ -148,6 +148,9 @@ RATE_LIMIT_CONFIG = {
     # 이메일 인증 - 브루트포스 방지
     "/v1/auth/verify-email": {"max_requests": 10, "window_seconds": 60},
     "/v1/auth/resend-verification": {"max_requests": 3, "window_seconds": 300},
+    # 신고 - 스팸 방지
+    "/v1/reports": {"max_requests": 10, "window_seconds": 60},
+    "/v1/admin/reports": {"max_requests": 30, "window_seconds": 60},
 }
 
 # 기본 Rate Limit (설정되지 않은 엔드포인트)
