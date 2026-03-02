@@ -23,7 +23,7 @@ async def test_get_user_unauthenticated(client: AsyncClient, authorized_user):
     res = await unauth_client.get(f"/v1/users/{user_id}")
     assert res.status_code == 200
     data = res.json()
-    assert data["code"] == "AUTH_SUCCESS"
+    assert data["code"] == "QUERY_SUCCESS"
     assert "user" in data["data"]
 
 
@@ -71,7 +71,9 @@ async def test_get_user_authenticated_other(client: AsyncClient, authorized_user
     res_get = await cli.get(f"/v1/users/{other_id}")
     assert res_get.status_code == 200
     assert res_get.json()["code"] == "QUERY_SUCCESS"
-    assert res_get.json()["data"]["user"]["email"] == user2_email
+    # 타 사용자 프로필에서는 이메일 비공개
+    assert "email" not in res_get.json()["data"]["user"]
+    assert "nickname" in res_get.json()["data"]["user"]
 
 
 @pytest.mark.asyncio
@@ -308,4 +310,6 @@ async def test_get_other_user_info(client: AsyncClient, authorized_user, fake):
     # Now use `cli` (authenticated as User 1) to view User 2
     res_get = await cli.get(f"/v1/users/{other_id}")
     assert res_get.status_code == 200
-    assert res_get.json()["data"]["user"]["email"] == user2_email
+    # 타 사용자 프로필에서는 이메일 비공개
+    assert "email" not in res_get.json()["data"]["user"]
+    assert "nickname" in res_get.json()["data"]["user"]

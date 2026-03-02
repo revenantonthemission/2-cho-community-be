@@ -69,6 +69,12 @@ from .notification_models import (
     delete_notification,
 )
 
+from .activity_models import (
+    get_my_posts,
+    get_my_comments,
+    get_my_likes,
+)
+
 __all__ = [
     # 사용자 모델
     "User",
@@ -121,4 +127,8 @@ __all__ = [
     "mark_as_read",
     "mark_all_as_read",
     "delete_notification",
+    # 내 활동 모델
+    "get_my_posts",
+    "get_my_comments",
+    "get_my_likes",
 ]

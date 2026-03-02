@@ -6,6 +6,7 @@
 from fastapi import (
     APIRouter,
     Depends,
+    Query,
     Request,
     status,
     UploadFile,
@@ -14,7 +15,7 @@ from fastapi import (
     HTTPException,
 )
 from pydantic import ValidationError
-from controllers import user_controller
+from controllers import user_controller, activity_controller
 from dependencies.auth import get_current_user, get_optional_user
 from models.user_models import User
 from schemas.user_schemas import (
@@ -119,6 +120,71 @@ async def get_my_info(
         사용자 정보가 포함된 응답.
     """
     return await user_controller.get_my_info(current_user, request)
+
+
+@user_router.get("/me/posts", status_code=status.HTTP_200_OK)
+async def get_my_posts(
+    request: Request,
+    offset: int = Query(0, ge=0, description="시작 위치"),
+    limit: int = Query(10, ge=1, le=100, description="조회 수"),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """내가 쓴 글 목록을 조회합니다.
+
+    Args:
+        request: FastAPI Request 객체.
+        offset: 시작 위치 (0부터 시작).
+        limit: 조회할 게시글 수.
+        current_user: 현재 인증된 사용자.
+
+    Returns:
+        내가 쓴 글 목록과 페이지네이션 정보가 포함된 응답.
+    """
+    return await activity_controller.get_my_posts(current_user, request, offset, limit)
+
+
+@user_router.get("/me/comments", status_code=status.HTTP_200_OK)
+async def get_my_comments(
+    request: Request,
+    offset: int = Query(0, ge=0, description="시작 위치"),
+    limit: int = Query(10, ge=1, le=100, description="조회 수"),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """내가 쓴 댓글 목록을 조회합니다.
+
+    Args:
+        request: FastAPI Request 객체.
+        offset: 시작 위치 (0부터 시작).
+        limit: 조회할 댓글 수.
+        current_user: 현재 인증된 사용자.
+
+    Returns:
+        내가 쓴 댓글 목록과 페이지네이션 정보가 포함된 응답.
+    """
+    return await activity_controller.get_my_comments(
+        current_user, request, offset, limit
+    )
+
+
+@user_router.get("/me/likes", status_code=status.HTTP_200_OK)
+async def get_my_likes(
+    request: Request,
+    offset: int = Query(0, ge=0, description="시작 위치"),
+    limit: int = Query(10, ge=1, le=100, description="조회 수"),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """좋아요한 글 목록을 조회합니다.
+
+    Args:
+        request: FastAPI Request 객체.
+        offset: 시작 위치 (0부터 시작).
+        limit: 조회할 게시글 수.
+        current_user: 현재 인증된 사용자.
+
+    Returns:
+        좋아요한 글 목록과 페이지네이션 정보가 포함된 응답.
+    """
+    return await activity_controller.get_my_likes(current_user, request, offset, limit)
 
 
 @user_router.get("/{user_id}", status_code=status.HTTP_200_OK)

@@ -8,6 +8,7 @@ from . import user_controller
 from . import post_controller
 from . import terms_controller
 from . import notification_controller
+from . import activity_controller
 
 __all__ = [
     "auth_controller",
@@ -15,4 +16,5 @@ __all__ = [
     "post_controller",
     "terms_controller",
     "notification_controller",
+    "activity_controller",
 ]

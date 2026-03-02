@@ -22,6 +22,15 @@ from services.user_service import UserService
 PROFILE_IMAGE_UPLOAD_DIR = settings.PROFILE_IMAGE_UPLOAD_DIR
 
 
+def _serialize_public_user(user) -> dict:
+    """타 사용자 프로필용 직렬화 (이메일 제외)."""
+    return {
+        "user_id": user.id,
+        "nickname": user.nickname,
+        "profileImageUrl": user.profileImageUrl,
+    }
+
+
 async def get_user(user_id: int, request: Request) -> dict:
     """사용자 ID를 사용하여 사용자를 조회합니다.
 
@@ -49,9 +58,9 @@ async def get_user(user_id: int, request: Request) -> dict:
     # 단, get_user는 Service에서 user_models.get_user_by_id 호출 후 None이면 not_found_error raise함.
 
     return create_response(
-        "AUTH_SUCCESS",
-        "사용자 조회에 성공했습니다.",
-        data={"user": serialize_user(user)},
+        "QUERY_SUCCESS",
+        "유저 조회에 성공했습니다.",
+        data={"user": _serialize_public_user(user)},
         timestamp=timestamp,
     )
 
@@ -113,7 +122,7 @@ async def get_user_info(user_id: int, current_user: User, request: Request) -> d
     return create_response(
         "QUERY_SUCCESS",
         "유저 조회에 성공했습니다.",
-        data={"user": serialize_user(user)},
+        data={"user": _serialize_public_user(user)},
         timestamp=timestamp,
     )
 

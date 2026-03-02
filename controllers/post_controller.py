@@ -21,6 +21,7 @@ async def get_posts(
     request: Request,
     search: str | None = None,
     sort: str = "latest",
+    author_id: int | None = None,
 ) -> dict:
     """
     게시글 목록을 조회합니다.
@@ -31,6 +32,7 @@ async def get_posts(
         request (Request): FastAPI Request 객체
         search (str | None): 검색어 (제목+내용). None이면 전체 조회.
         sort (str): 정렬 옵션 (latest, likes, views, comments).
+        author_id (int | None): 작성자 ID로 필터링. None이면 전체 조회.
 
     Returns:
         dict: 게시글 목록과 페이지네이션 정보를 포함한 응답 딕셔너리
@@ -70,7 +72,7 @@ async def get_posts(
 
     # Service Layer 호출
     posts_data, total_count, has_more = await PostService.get_posts(
-        offset, limit, search=search, sort=sort
+        offset, limit, search=search, sort=sort, author_id=author_id
     )
 
     return create_response(

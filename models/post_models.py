@@ -83,11 +83,15 @@ def _row_to_post(row: tuple) -> Post:
 # ============ 게시글 관련 함수 ============
 
 
-async def get_total_posts_count(search: str | None = None) -> int:
+async def get_total_posts_count(
+    search: str | None = None,
+    author_id: int | None = None,
+) -> int:
     """삭제되지 않은 게시글의 총 개수를 반환합니다.
 
     Args:
         search: 검색어 (제목+내용 FULLTEXT 검색). None이면 전체 조회.
+        author_id: 작성자 ID로 필터링. None이면 전체 조회.
 
     Returns:
         게시글 총 개수.
@@ -101,6 +105,10 @@ async def get_total_posts_count(search: str | None = None) -> int:
                 escaped = _escape_fulltext_query(search)
                 where += " AND MATCH(title, content) AGAINST(%s IN BOOLEAN MODE)"
                 params.append(escaped)
+
+            if author_id is not None:
+                where += " AND author_id = %s"
+                params.append(author_id)
 
             await cur.execute(
                 f"SELECT COUNT(*) FROM post WHERE {where}",
@@ -301,6 +309,7 @@ async def get_posts_with_details(
     limit: int = 10,
     search: str | None = None,
     sort: str = "latest",
+    author_id: int | None = None,
 ) -> list[dict]:
     """게시글 목록을 작성자 정보, 좋아요 수, 댓글 수와 함께 조회합니다.
 
@@ -312,6 +321,7 @@ async def get_posts_with_details(
         limit: 조회할 개수.
         search: 검색어 (제목+내용 FULLTEXT 검색). None이면 전체 조회.
         sort: 정렬 옵션 (latest, likes, views, comments).
+        author_id: 작성자 ID로 필터링. None이면 전체 조회.
 
     Returns:
         게시글 상세 정보 딕셔너리 목록.
@@ -326,6 +336,10 @@ async def get_posts_with_details(
         escaped = _escape_fulltext_query(search)
         where += " AND MATCH(p.title, p.content) AGAINST(%s IN BOOLEAN MODE)"
         params.append(escaped)
+
+    if author_id is not None:
+        where += " AND p.author_id = %s"
+        params.append(author_id)
 
     params.extend([limit, offset])
 

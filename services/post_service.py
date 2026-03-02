@@ -17,13 +17,16 @@ class PostService:
         limit: int,
         search: Optional[str] = None,
         sort: str = "latest",
+        author_id: Optional[int] = None,
     ) -> Tuple[List[Dict], int, bool]:
         """게시글 목록 조회 및 가공."""
         # 1. DB 조회
         posts_data = await post_models.get_posts_with_details(
-            offset, limit, search=search, sort=sort
+            offset, limit, search=search, sort=sort, author_id=author_id
         )
-        total_count = await post_models.get_total_posts_count(search=search)
+        total_count = await post_models.get_total_posts_count(
+            search=search, author_id=author_id
+        )
         has_more = offset + limit < total_count
 
         # 2. 데이터 가공 (날짜 포맷, 내용 요약)
