@@ -149,3 +149,56 @@ async def get_my_likes(
         })
 
     return posts, total_count
+
+
+async def get_my_bookmarks(
+    user_id: int, offset: int = 0, limit: int = 10
+) -> tuple[list[dict], int]:
+    """북마크한 글 목록을 반환합니다."""
+    async with get_connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                """
+                SELECT COUNT(*) FROM post_bookmark pb
+                JOIN post p ON pb.post_id = p.id
+                WHERE pb.user_id = %s AND p.deleted_at IS NULL
+                """,
+                (user_id,),
+            )
+            total_count = (await cur.fetchone())[0]
+
+            await cur.execute(
+                """
+                SELECT p.id, p.title, p.content, p.image_url, p.views,
+                       p.created_at, p.updated_at,
+                       u.id, u.nickname, u.profile_img,
+                       (SELECT COUNT(*) FROM post_like WHERE post_id = p.id) AS likes_count,
+                       (SELECT COUNT(*) FROM comment
+                        WHERE post_id = p.id AND deleted_at IS NULL) AS comments_count
+                FROM post_bookmark pb
+                JOIN post p ON pb.post_id = p.id
+                LEFT JOIN user u ON p.author_id = u.id
+                WHERE pb.user_id = %s AND p.deleted_at IS NULL
+                ORDER BY pb.created_at DESC
+                LIMIT %s OFFSET %s
+                """,
+                (user_id, limit, offset),
+            )
+            rows = await cur.fetchall()
+
+    posts = []
+    for row in rows:
+        posts.append({
+            "post_id": row[0],
+            "title": row[1],
+            "content": (row[2] or "")[:200],
+            "image_url": row[3],
+            "views_count": row[4],
+            "created_at": format_datetime(row[5]),
+            "updated_at": format_datetime(row[6]),
+            "author": build_author_dict(row[7], row[8], row[9]),
+            "likes_count": row[10],
+            "comments_count": row[11],
+        })
+
+    return posts, total_count

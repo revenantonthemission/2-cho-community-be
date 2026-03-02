@@ -3,6 +3,9 @@
 from typing import List, Dict, Tuple, Optional
 from models import post_models
 from models.user_models import User
+from models.like_models import get_like
+from models.bookmark_models import get_bookmark
+from models.block_models import get_blocked_user_ids
 from schemas.post_schemas import CreatePostRequest
 from utils.formatters import format_datetime
 from utils.exceptions import not_found_error, forbidden_error, bad_request_error
@@ -19,15 +22,25 @@ class PostService:
         sort: str = "latest",
         author_id: Optional[int] = None,
         category_id: Optional[int] = None,
+        current_user: Optional[User] = None,
     ) -> Tuple[List[Dict], int, bool]:
         """게시글 목록 조회 및 가공."""
+        # 차단된 사용자 목록 조회
+        blocked_ids: set[int] | None = None
+        if current_user:
+            blocked_ids = await get_blocked_user_ids(current_user.id)
+            if not blocked_ids:
+                blocked_ids = None
+
         # 1. DB 조회
         posts_data = await post_models.get_posts_with_details(
             offset, limit, search=search, sort=sort,
             author_id=author_id, category_id=category_id,
+            blocked_user_ids=blocked_ids,
         )
         total_count = await post_models.get_total_posts_count(
             search=search, author_id=author_id, category_id=category_id,
+            blocked_user_ids=blocked_ids,
         )
         has_more = offset + limit < total_count
 
@@ -57,10 +70,47 @@ class PostService:
             if await post_models.increment_view_count(post_id, current_user.id):
                 post_data["views_count"] += 1
 
-        # 3. 댓글 목록 조회
-        comments_data = await post_models.get_comments_with_author(post_id)
+        # 3. 로그인 사용자 상태 플래그 + 차단 목록
+        blocked_ids: set[int] | None = None
+        if current_user:
+            like = await get_like(post_id, current_user.id)
+            post_data["is_liked"] = like is not None
 
-        # 4. 데이터 가공
+            bookmark = await get_bookmark(post_id, current_user.id)
+            post_data["is_bookmarked"] = bookmark is not None
+
+            blocked_ids = await get_blocked_user_ids(current_user.id)
+
+            # 게시글 작성자 차단 여부
+            author_id = post_data.get("author", {}).get("user_id")
+            post_data["is_blocked"] = (
+                bool(blocked_ids) and author_id in blocked_ids
+            )
+
+            if not blocked_ids:
+                blocked_ids = None
+        else:
+            post_data["is_liked"] = False
+            post_data["is_bookmarked"] = False
+            post_data["is_blocked"] = False
+
+        # 4. 다중 이미지 조회 (post_image 우선, 없으면 image_url 폴백)
+        images = await post_models.get_post_images(post_id)
+        if images:
+            post_data["image_urls"] = [img["image_url"] for img in images]
+        elif post_data.get("image_url"):
+            post_data["image_urls"] = [post_data["image_url"]]
+        else:
+            post_data["image_urls"] = []
+
+        # 5. 댓글 목록 조회
+        comments_data = await post_models.get_comments_with_author(
+            post_id,
+            current_user_id=current_user.id if current_user else None,
+            blocked_user_ids=blocked_ids,
+        )
+
+        # 6. 데이터 가공
         post_data["created_at"] = format_datetime(post_data["created_at"])
         post_data["updated_at"] = format_datetime(post_data.get("updated_at"))
 
@@ -89,13 +139,26 @@ class PostService:
                 "create", "", "공지사항은 관리자만 작성할 수 있습니다."
             )
 
+        # image_urls 우선, 없으면 image_url 단일 필드 사용 (하위 호환)
+        primary_image_url = post_data.image_url
+        if post_data.image_urls:
+            primary_image_url = post_data.image_urls[0]
+
         post = await post_models.create_post(
             author_id=user_id,
             title=post_data.title,
             content=post_data.content,
-            image_url=post_data.image_url,
+            image_url=primary_image_url,
             category_id=post_data.category_id,
         )
+
+        # 다중 이미지 저장
+        image_list = post_data.image_urls or (
+            [post_data.image_url] if post_data.image_url else []
+        )
+        if image_list:
+            await post_models.save_post_images(post.id, image_list)
+
         return post.id
 
     @staticmethod
@@ -107,6 +170,7 @@ class PostService:
         image_url: Optional[str],
         timestamp: str,
         category_id: Optional[int] = None,
+        image_urls: Optional[list[str]] = None,
     ) -> Dict:
         """게시글 수정."""
         # 1. 존재 확인
@@ -121,15 +185,21 @@ class PostService:
             )
 
         # 3. 변경사항 확인
-        if all(v is None for v in (title, content, image_url, category_id)):
+        if all(v is None for v in (title, content, image_url, category_id, image_urls)):
             raise bad_request_error("no_changes_provided", timestamp)
 
-        # 4. DB 업데이트
+        # 4. 다중 이미지 처리
+        effective_image_url = image_url
+        if image_urls is not None:
+            effective_image_url = image_urls[0] if image_urls else image_url
+            await post_models.save_post_images(post_id, image_urls)
+
+        # 5. DB 업데이트
         updated_post = await post_models.update_post(
             post_id,
             title=title,
             content=content,
-            image_url=image_url,
+            image_url=effective_image_url,
             category_id=category_id,
         )
         assert updated_post is not None  # 게시글 존재는 위에서 검증됨

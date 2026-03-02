@@ -4,7 +4,7 @@
 """
 
 from fastapi import APIRouter, Depends, Query, Request, UploadFile, File, status
-from controllers import post_controller, like_controller, comment_controller
+from controllers import post_controller, like_controller, comment_controller, bookmark_controller, comment_like_controller
 from dependencies.auth import get_optional_user, require_verified_email, require_admin
 from models.user_models import User
 from schemas.post_schemas import CreatePostRequest, UpdatePostRequest
@@ -24,9 +24,10 @@ async def get_posts(
     offset: int = Query(0, ge=0, description="시작 위치 (0부터 시작)"),
     limit: int = Query(10, ge=1, le=100, description="조회할 게시글 수"),
     search: str | None = Query(None, max_length=100, description="검색어 (제목+내용)"),
-    sort: str = Query("latest", description="정렬: latest, likes, views, comments"),
+    sort: str = Query("latest", description="정렬: latest, likes, views, comments, hot"),
     author_id: int | None = Query(None, ge=1, description="작성자 ID로 필터링"),
     category_id: int | None = Query(None, ge=1, description="카테고리 ID로 필터링"),
+    current_user: User | None = Depends(get_optional_user),
 ) -> dict:
     """게시글 목록을 조회합니다.
 
@@ -50,6 +51,7 @@ async def get_posts(
     return await post_controller.get_posts(
         offset, limit, request, search, sort,
         author_id=author_id, category_id=category_id,
+        current_user=current_user,
     )
 
 
@@ -289,4 +291,60 @@ async def delete_comment(
     return await comment_controller.delete_comment(
         post_id, comment_id, current_user, request,
         is_admin=current_user.is_admin,
+    )
+
+
+# ============ 북마크 라우터 ============
+
+
+@post_router.post("/{post_id}/bookmark", status_code=status.HTTP_201_CREATED)
+async def bookmark_post(
+    post_id: int,
+    request: Request,
+    current_user: User = Depends(require_verified_email),
+) -> dict:
+    """게시글을 북마크에 추가합니다."""
+    return await bookmark_controller.bookmark_post(post_id, current_user, request)
+
+
+@post_router.delete("/{post_id}/bookmark", status_code=status.HTTP_200_OK)
+async def unbookmark_post(
+    post_id: int,
+    request: Request,
+    current_user: User = Depends(require_verified_email),
+) -> dict:
+    """북마크를 해제합니다."""
+    return await bookmark_controller.unbookmark_post(post_id, current_user, request)
+
+
+# ============ 댓글 좋아요 라우터 ============
+
+
+@post_router.post(
+    "/{post_id}/comments/{comment_id}/like", status_code=status.HTTP_201_CREATED
+)
+async def like_comment(
+    post_id: int,
+    comment_id: int,
+    request: Request,
+    current_user: User = Depends(require_verified_email),
+) -> dict:
+    """댓글에 좋아요를 추가합니다."""
+    return await comment_like_controller.like_comment(
+        post_id, comment_id, current_user, request
+    )
+
+
+@post_router.delete(
+    "/{post_id}/comments/{comment_id}/like", status_code=status.HTTP_200_OK
+)
+async def unlike_comment(
+    post_id: int,
+    comment_id: int,
+    request: Request,
+    current_user: User = Depends(require_verified_email),
+) -> dict:
+    """댓글 좋아요를 취소합니다."""
+    return await comment_like_controller.unlike_comment(
+        post_id, comment_id, current_user, request
     )

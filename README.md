@@ -3,7 +3,7 @@ AWS AI School 2기 과제: 커뮤니티 백엔드 서버
 
 ## 요약 (Summary)
 
-커뮤니티 포럼 "아무 말 대잔치"를 구축합니다. FastAPI를 기반으로 하는 비동기 백엔드와 Vanilla JavaScript 프론트엔드로 구성된 모노레포 구조이며, JWT 기반 인증(Access Token + Refresh Token)과 MySQL 데이터베이스를 사용합니다. 게시글 CRUD, 댓글(대댓글 포함), 좋아요, 검색/정렬, 이메일 인증, 알림, 내 활동 조회, 사용자 프로필 기능을 제공합니다.
+커뮤니티 포럼 "아무 말 대잔치"를 구축합니다. FastAPI를 기반으로 하는 비동기 백엔드와 Vanilla JavaScript 프론트엔드로 구성된 모노레포 구조이며, JWT 기반 인증(Access Token + Refresh Token)과 MySQL 데이터베이스를 사용합니다. 게시글 CRUD, 댓글(대댓글 포함), 좋아요, 북마크, 댓글 좋아요, 검색/정렬(인기순 포함), 다중 이미지, 사용자 차단, 공유, 이메일 인증, 알림, 내 활동 조회, 사용자 프로필 기능을 제공합니다.
 
 ## 배경 (Background)
 
@@ -18,13 +18,19 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
 - 댓글 작성, 수정, 삭제 기능을 제공한다. (1단계 대댓글 지원)
 - 게시글 검색(제목+내용 FULLTEXT) 및 정렬(최신순/좋아요순/조회수순/댓글순) 기능을 제공한다.
 - 게시글 좋아요/좋아요 취소 기능을 제공한다.
+- 게시글 북마크 기능을 제공한다. (북마크 추가/해제, 내 북마크 목록 조회)
+- 댓글 좋아요 기능을 제공한다. (댓글별 좋아요 수 표시, is_liked 상태)
+- 게시글 공유 기능을 제공한다. (Web Share API 또는 클립보드 복사)
+- 사용자 차단 기능을 제공한다. (차단된 사용자의 게시글/댓글 숨김)
+- 다중 이미지 업로드 기능을 제공한다. (게시글당 최대 5개, 기존 단일 이미지 하위 호환)
+- 인기 게시글(Hot) 정렬을 제공한다. (좋아요/댓글/조회수 가중치 + 시간 감쇠)
 - 프로필 이미지 및 닉네임 수정 기능을 제공한다.
 - 무한 스크롤 기반의 게시글 목록을 제공한다.
 - 모바일/데스크탑 반응형 UI를 제공한다.
 - 이메일 인증 기능을 제공한다. (회원가입 후 인증 메일 발송, 인증 완료 전 글쓰기 제한)
 - 알림 시스템을 제공한다. (좋아요/댓글 시 알림 생성, 읽음 처리, 폴링 기반)
-- 내 활동 조회 기능을 제공한다. (내가 쓴 글/댓글, 좋아요한 글)
-- 타 사용자 프로필 조회 기능을 제공한다. (공개 프로필, 닉네임 클릭으로 이동)
+- 내 활동 조회 기능을 제공한다. (내가 쓴 글/댓글, 좋아요한 글, 북마크한 글)
+- 타 사용자 프로필 조회 기능을 제공한다. (공개 프로필, 닉네임 클릭으로 이동, 차단 기능)
 
 ## 목표가 아닌 것 (Non-Goals)
 
@@ -72,10 +78,16 @@ erDiagram
     user ||--o{ email_verification : "verifies"
     user ||--o{ notification : "receives"
     user ||--o{ report : "reports"
+    user ||--o{ post_bookmark : "bookmarks"
+    user ||--o{ comment_like : "likes comments"
+    user ||--o{ user_block : "blocks"
     post ||--o{ comment : "has"
     comment ||--o{ comment : "replies (1-level)"
     post ||--o{ post_like : "receives"
+    post ||--o{ post_bookmark : "bookmarked"
+    post ||--o{ post_image : "has images"
     post ||--o{ post_view_log : "tracks"
+    comment ||--o{ comment_like : "receives likes"
     category ||--o{ post : "classifies"
 
     user {
@@ -184,6 +196,35 @@ erDiagram
         boolean is_read "default FALSE"
         datetime created_at
     }
+
+    post_bookmark {
+        int id PK
+        int user_id FK
+        int post_id FK
+        datetime created_at
+    }
+
+    comment_like {
+        int id PK
+        int user_id FK
+        int comment_id FK
+        datetime created_at
+    }
+
+    user_block {
+        int id PK
+        int blocker_id FK
+        int blocked_id FK
+        datetime created_at
+    }
+
+    post_image {
+        int id PK
+        int post_id FK
+        varchar image_url
+        tinyint sort_order
+        datetime created_at
+    }
 ```
 
 #### 주요 설계 결정
@@ -201,6 +242,10 @@ erDiagram
   - `idx_post_pinned`: 고정 게시글 우선 정렬
   - `idx_report_status`: 신고 상태별 목록 조회
   - `idx_report_target`: 대상별 신고 조회
+  - `idx_post_bookmark_post_id`, `idx_post_bookmark_user`: 북마크 조회
+  - `idx_comment_like_comment_id`, `idx_comment_like_user`: 댓글 좋아요 조회
+  - `idx_user_block_blocker`, `idx_user_block_blocked`: 차단 조회
+  - `idx_post_image_post`: 게시글 이미지 정렬 조회
 
 ### 3. API 설계
 
@@ -230,6 +275,10 @@ erDiagram
 | GET | `/v1/users/me/posts` | 내가 쓴 글 목록 | O |
 | GET | `/v1/users/me/comments` | 내가 쓴 댓글 목록 | O |
 | GET | `/v1/users/me/likes` | 좋아요한 글 목록 | O |
+| GET | `/v1/users/me/bookmarks` | 북마크한 글 목록 | O |
+| GET | `/v1/users/me/blocks` | 차단한 사용자 목록 | O |
+| POST | `/v1/users/{user_id}/block` | 사용자 차단 | O (이메일 인증) |
+| DELETE | `/v1/users/{user_id}/block` | 사용자 차단 해제 | O (이메일 인증) |
 
 #### 알림 API (`/v1/notifications`)
 
@@ -245,7 +294,7 @@ erDiagram
 
 | Method | Endpoint | 설명 | 인증 |
 | ------ | -------- | ---- | ---- |
-| GET | `/v1/posts` | 게시글 목록 (페이지네이션, `?search=`, `?sort=`, `?category_id=`) | X |
+| GET | `/v1/posts` | 게시글 목록 (페이지네이션, `?search=`, `?sort=latest\|likes\|views\|comments\|hot`, `?category_id=`) | X |
 | POST | `/v1/posts` | 게시글 작성 (`category_id` 필수) | O (이메일 인증) |
 | GET | `/v1/posts/{post_id}` | 게시글 상세 조회 | X |
 | PATCH | `/v1/posts/{post_id}` | 게시글 수정 | O (작성자) |
@@ -254,6 +303,10 @@ erDiagram
 | DELETE | `/v1/posts/{post_id}/pin` | 게시글 고정 해제 | O (관리자) |
 | POST | `/v1/posts/{post_id}/likes` | 좋아요 | O |
 | DELETE | `/v1/posts/{post_id}/likes` | 좋아요 취소 | O |
+| POST | `/v1/posts/{post_id}/bookmark` | 북마크 추가 | O (이메일 인증) |
+| DELETE | `/v1/posts/{post_id}/bookmark` | 북마크 해제 | O (이메일 인증) |
+| POST | `/v1/posts/{post_id}/comments/{comment_id}/like` | 댓글 좋아요 | O (이메일 인증) |
+| DELETE | `/v1/posts/{post_id}/comments/{comment_id}/like` | 댓글 좋아요 취소 | O (이메일 인증) |
 | POST | `/v1/posts/{post_id}/comments` | 댓글 작성 (대댓글: `parent_id` 지원) | O |
 | PUT | `/v1/posts/{post_id}/comments/{comment_id}` | 댓글 수정 | O (작성자) |
 | DELETE | `/v1/posts/{post_id}/comments/{comment_id}` | 댓글 삭제 | O (작성자/관리자) |
@@ -427,6 +480,15 @@ sequenceDiagram
 ## Changelog
 
 ### 2026-03 (Mar)
+
+- **03-02: 북마크, 댓글 좋아요, 공유, 다중 이미지, 사용자 차단, 인기 게시글**
+  - 북마크: `post_bookmark` 테이블, 게시글 북마크 추가/해제 API, 내 북마크 목록, 상세 `bookmarks_count`+`is_bookmarked`
+  - 댓글 좋아요: `comment_like` 테이블, 댓글별 좋아요/취소 API, 트리에 `likes_count`+`is_liked`, 벌크 조회로 N+1 방지
+  - 사용자 차단: `user_block` 테이블, 차단/해제 API, 게시글 SQL 필터(`NOT IN`), 댓글 Python 후처리 필터
+  - 다중 이미지: `post_image` 테이블(`sort_order`), 최대 5개, `image_urls`↔`image_url` 하위 호환, 마이그레이션 스크립트
+  - 인기 게시글: `hot` 정렬 옵션, `(likes*3+comments*2+views*0.5)/POW(hours+2,1.5)` 가중치 수식
+  - 공유: Web Share API(모바일) / 클립보드 복사(데스크톱) 프론트엔드 전용
+  - 프론트엔드: 낙관적 UI(북마크/좋아요), 이미지 갤러리, 댓글 좋아요 버튼, 차단 버튼, 내 활동 북마크 탭
 
 - **03-02: 관리자 역할, 신고 시스템, 카테고리, 게시글 고정**
   - 관리자 역할: `user.role` ENUM 컬럼, `require_admin` 의존성, 관리자 게시글/댓글 삭제 권한

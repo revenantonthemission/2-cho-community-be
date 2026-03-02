@@ -238,7 +238,11 @@ async def delete_comment(comment_id: int) -> bool:
         return cur.rowcount > 0
 
 
-async def get_comments_with_author(post_id: int) -> list[dict]:
+async def get_comments_with_author(
+    post_id: int,
+    current_user_id: int | None = None,
+    blocked_user_ids: set[int] | None = None,
+) -> list[dict]:
     """게시글의 댓글 목록을 트리 구조로 반환합니다.
 
     삭제된 댓글 처리:
@@ -247,20 +251,36 @@ async def get_comments_with_author(post_id: int) -> list[dict]:
 
     Args:
         post_id: 게시글 ID.
+        current_user_id: 현재 사용자 ID (is_liked 상태 조회용).
+        blocked_user_ids: 차단된 사용자 ID 집합 (댓글 필터링용).
 
     Returns:
         루트 댓글 목록 (각 댓글에 replies 리스트 포함).
     """
+    # 로그인 사용자의 좋아요 상태 벌크 조회 (N+1 방지)
+    liked_comment_ids: set[int] = set()
+    if current_user_id:
+        from models.comment_like_models import get_liked_comment_ids
+        liked_comment_ids = await get_liked_comment_ids(current_user_id, post_id)
+
     async with get_connection() as conn:
         async with conn.cursor() as cur:
             # 삭제된 댓글도 포함하여 조회 (대댓글이 있는 경우 표시 필요)
+            # comment_like 카운트를 서브쿼리로 조회
             await cur.execute(
                 """
                 SELECT c.id, c.content, c.created_at, c.updated_at,
                        u.id, u.nickname, u.profile_img,
-                       c.parent_id, c.deleted_at
+                       c.parent_id, c.deleted_at,
+                       COALESCE(cl.count, 0) as likes_count,
+                       c.author_id
                 FROM comment c
                 LEFT JOIN user u ON c.author_id = u.id
+                LEFT JOIN (
+                    SELECT comment_id, COUNT(*) as count
+                    FROM comment_like
+                    GROUP BY comment_id
+                ) cl ON c.id = cl.comment_id
                 WHERE c.post_id = %s
                 ORDER BY c.created_at ASC
                 """,
@@ -273,6 +293,7 @@ async def get_comments_with_author(post_id: int) -> list[dict]:
             for row in rows:
                 comment_id = row[0]
                 is_deleted = row[8] is not None
+                author_id = row[10]
                 all_comments[comment_id] = {
                     "comment_id": comment_id,
                     "content": None if is_deleted else row[1],
@@ -281,6 +302,9 @@ async def get_comments_with_author(post_id: int) -> list[dict]:
                     "author": None if is_deleted else build_author_dict(row[4], row[5], row[6]),
                     "parent_id": row[7],
                     "is_deleted": is_deleted,
+                    "likes_count": row[9],
+                    "is_liked": comment_id in liked_comment_ids,
+                    "author_id": author_id,
                     "replies": [],
                 }
 
@@ -291,7 +315,6 @@ async def get_comments_with_author(post_id: int) -> list[dict]:
                 if parent_id is not None and parent_id in all_comments:
                     all_comments[parent_id]["replies"].append(comment)
                 else:
-                    # parent_id가 None이거나 부모가 조회 결과에 없는 경우(고아 댓글) 루트로 처리
                     root_comments.append(comment)
 
             # 3. 대댓글이 없는 삭제된 루트 댓글 제거
@@ -300,8 +323,35 @@ async def get_comments_with_author(post_id: int) -> list[dict]:
                 if not c["is_deleted"] or len(c["replies"]) > 0
             ]
 
-            # 4. 삭제된 대댓글 제거 (1단계 제한으로 하위 댓글 불가)
+            # 4. 삭제된 대댓글 제거
             for c in root_comments:
                 c["replies"] = [r for r in c["replies"] if not r["is_deleted"]]
+
+            # 5. 차단된 사용자 댓글 필터링 (Python 후처리)
+            # 삭제된 부모 플레이스홀더는 보존
+            if blocked_user_ids:
+                filtered_root: list[dict] = []
+                for c in root_comments:
+                    if c["is_deleted"]:
+                        # 삭제된 댓글 플레이스홀더 → 대댓글만 필터링
+                        c["replies"] = [
+                            r for r in c["replies"]
+                            if r.get("author_id") not in blocked_user_ids
+                        ]
+                        if c["replies"]:
+                            filtered_root.append(c)
+                    elif c.get("author_id") not in blocked_user_ids:
+                        c["replies"] = [
+                            r for r in c["replies"]
+                            if r.get("author_id") not in blocked_user_ids
+                        ]
+                        filtered_root.append(c)
+                root_comments = filtered_root
+
+            # 6. author_id 키 제거 (API 응답에 불필요)
+            for c in root_comments:
+                c.pop("author_id", None)
+                for r in c.get("replies", []):
+                    r.pop("author_id", None)
 
             return root_comments

@@ -72,3 +72,25 @@ async def get_my_likes(
         },
         timestamp=timestamp,
     )
+
+
+async def get_my_bookmarks(
+    current_user: User, request: Request, offset: int = 0, limit: int = 10
+) -> dict:
+    """북마크한 글 목록을 조회합니다."""
+    timestamp = get_request_timestamp(request)
+
+    posts, total_count = await activity_models.get_my_bookmarks(
+        current_user.id, offset, limit
+    )
+    has_more = offset + limit < total_count
+
+    return create_response(
+        "MY_BOOKMARKS_LOADED",
+        "북마크한 글 목록을 조회했습니다.",
+        data={
+            "posts": posts,
+            "pagination": {"total_count": total_count, "has_more": has_more},
+        },
+        timestamp=timestamp,
+    )

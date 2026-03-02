@@ -15,8 +15,8 @@ from fastapi import (
     HTTPException,
 )
 from pydantic import ValidationError
-from controllers import user_controller, activity_controller
-from dependencies.auth import get_current_user, get_optional_user
+from controllers import user_controller, activity_controller, block_controller
+from dependencies.auth import get_current_user, get_optional_user, require_verified_email
 from models.user_models import User
 from schemas.user_schemas import (
     CreateUserRequest,
@@ -187,6 +187,32 @@ async def get_my_likes(
     return await activity_controller.get_my_likes(current_user, request, offset, limit)
 
 
+@user_router.get("/me/bookmarks", status_code=status.HTTP_200_OK)
+async def get_my_bookmarks(
+    request: Request,
+    offset: int = Query(0, ge=0, description="시작 위치"),
+    limit: int = Query(10, ge=1, le=100, description="조회 수"),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """북마크한 글 목록을 조회합니다."""
+    return await activity_controller.get_my_bookmarks(
+        current_user, request, offset, limit
+    )
+
+
+@user_router.get("/me/blocks", status_code=status.HTTP_200_OK)
+async def get_my_blocks(
+    request: Request,
+    offset: int = Query(0, ge=0, description="시작 위치"),
+    limit: int = Query(10, ge=1, le=100, description="조회 수"),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """차단 목록을 조회합니다."""
+    return await block_controller.get_my_blocks(
+        current_user, request, offset, limit
+    )
+
+
 @user_router.get("/{user_id}", status_code=status.HTTP_200_OK)
 async def get_user(
     user_id: int,
@@ -289,3 +315,26 @@ async def upload_profile_image(
         업로드된 이미지 URL이 포함된 응답.
     """
     return await user_controller.upload_profile_image(file, current_user, request)
+
+
+# ============ 사용자 차단 라우터 ============
+
+
+@user_router.post("/{user_id}/block", status_code=status.HTTP_201_CREATED)
+async def block_user(
+    user_id: int,
+    request: Request,
+    current_user: User = Depends(require_verified_email),
+) -> dict:
+    """사용자를 차단합니다."""
+    return await block_controller.block_user(user_id, current_user, request)
+
+
+@user_router.delete("/{user_id}/block", status_code=status.HTTP_200_OK)
+async def unblock_user(
+    user_id: int,
+    request: Request,
+    current_user: User = Depends(require_verified_email),
+) -> dict:
+    """사용자 차단을 해제합니다."""
+    return await block_controller.unblock_user(user_id, current_user, request)

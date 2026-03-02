@@ -146,6 +146,49 @@ CREATE TABLE report (
     FOREIGN KEY (resolved_by) REFERENCES user (id) ON DELETE SET NULL
 );
 
+-- 북마크 테이블
+CREATE TABLE post_bookmark (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL,
+    post_id INT UNSIGNED NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_bookmark (user_id, post_id),
+    FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE CASCADE,
+    FOREIGN KEY (post_id) REFERENCES post (id) ON DELETE CASCADE
+);
+
+-- 댓글 좋아요 테이블
+CREATE TABLE comment_like (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL,
+    comment_id INT UNSIGNED NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_comment_like (user_id, comment_id),
+    FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE CASCADE,
+    FOREIGN KEY (comment_id) REFERENCES comment (id) ON DELETE CASCADE
+);
+
+-- 사용자 차단 테이블
+CREATE TABLE user_block (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    blocker_id INT UNSIGNED NOT NULL,
+    blocked_id INT UNSIGNED NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_block (blocker_id, blocked_id),
+    FOREIGN KEY (blocker_id) REFERENCES user (id) ON DELETE CASCADE,
+    FOREIGN KEY (blocked_id) REFERENCES user (id) ON DELETE CASCADE
+);
+
+-- 게시글 이미지 테이블 (다중 이미지)
+CREATE TABLE post_image (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    post_id INT UNSIGNED NOT NULL,
+    image_url VARCHAR(2048) NOT NULL,
+    sort_order TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (post_id) REFERENCES post (id) ON DELETE CASCADE
+);
+
     -- 성능 최적화 인덱스
     -- 1. 인증/리프레시 토큰 (크리티컬)
     CREATE INDEX idx_refresh_token_hash ON refresh_token (token_hash);
@@ -194,4 +237,19 @@ CREATE TABLE report (
 
     -- 15. 신고 대상별 조회
     CREATE INDEX idx_report_target ON report (target_type, target_id, status);
+
+    -- 16. 북마크 인덱스
+    CREATE INDEX idx_post_bookmark_post_id ON post_bookmark (post_id);
+    CREATE INDEX idx_post_bookmark_user ON post_bookmark (user_id, created_at DESC);
+
+    -- 17. 댓글 좋아요 인덱스
+    CREATE INDEX idx_comment_like_comment_id ON comment_like (comment_id);
+    CREATE INDEX idx_comment_like_user ON comment_like (user_id, created_at DESC);
+
+    -- 18. 사용자 차단 인덱스
+    CREATE INDEX idx_user_block_blocker ON user_block (blocker_id);
+    CREATE INDEX idx_user_block_blocked ON user_block (blocked_id);
+
+    -- 19. 게시글 이미지 인덱스
+    CREATE INDEX idx_post_image_post ON post_image (post_id, sort_order);
 

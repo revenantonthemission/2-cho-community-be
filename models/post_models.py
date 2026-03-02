@@ -30,6 +30,7 @@ ALLOWED_SORT_OPTIONS = {
     "likes": "likes_count DESC, p.created_at DESC",
     "views": "p.views DESC, p.created_at DESC",
     "comments": "comments_count DESC, p.created_at DESC",
+    "hot": "hot_score DESC, p.created_at DESC",
 }
 
 
@@ -91,6 +92,7 @@ async def get_total_posts_count(
     search: str | None = None,
     author_id: int | None = None,
     category_id: int | None = None,
+    blocked_user_ids: set[int] | None = None,
 ) -> int:
     """삭제되지 않은 게시글의 총 개수를 반환합니다.
 
@@ -98,6 +100,7 @@ async def get_total_posts_count(
         search: 검색어 (제목+내용 FULLTEXT 검색). None이면 전체 조회.
         author_id: 작성자 ID로 필터링. None이면 전체 조회.
         category_id: 카테고리 ID로 필터링. None이면 전체 조회.
+        blocked_user_ids: 차단된 사용자 ID 집합. 해당 사용자의 게시글 제외.
 
     Returns:
         게시글 총 개수.
@@ -119,6 +122,11 @@ async def get_total_posts_count(
             if category_id is not None:
                 where += " AND category_id = %s"
                 params.append(category_id)
+
+            if blocked_user_ids:
+                placeholders = ", ".join(["%s"] * len(blocked_user_ids))
+                where += f" AND (author_id NOT IN ({placeholders}) OR author_id IS NULL)"
+                params.extend(blocked_user_ids)
 
             await cur.execute(
                 f"SELECT COUNT(*) FROM post WHERE {where}",
@@ -331,8 +339,9 @@ async def get_posts_with_details(
     sort: str = "latest",
     author_id: int | None = None,
     category_id: int | None = None,
+    blocked_user_ids: set[int] | None = None,
 ) -> list[dict]:
-    """게시글 목록을 작성자 정보, 좋아요 수, 댓글 수와 함께 조회합니다.
+    """게시글 목록을 작성자 정보, 좋아요 수, 댓글 수, 북마크 수와 함께 조회합니다.
 
     N+1 문제를 해결하기 위해 서브쿼리를 사용합니다.
     Cartesian Product를 방지하여 대량의 데이터에서도 빠른 성능을 보장합니다.
@@ -342,9 +351,10 @@ async def get_posts_with_details(
         offset: 시작 위치.
         limit: 조회할 개수.
         search: 검색어 (제목+내용 FULLTEXT 검색). None이면 전체 조회.
-        sort: 정렬 옵션 (latest, likes, views, comments).
+        sort: 정렬 옵션 (latest, likes, views, comments, hot).
         author_id: 작성자 ID로 필터링. None이면 전체 조회.
         category_id: 카테고리 ID로 필터링. None이면 전체 조회.
+        blocked_user_ids: 차단된 사용자 ID 집합. 해당 사용자의 게시글 제외.
 
     Returns:
         게시글 상세 정보 딕셔너리 목록.
@@ -368,6 +378,12 @@ async def get_posts_with_details(
         where += " AND p.category_id = %s"
         params.append(category_id)
 
+    # 차단된 사용자 게시글 필터링
+    if blocked_user_ids:
+        placeholders = ", ".join(["%s"] * len(blocked_user_ids))
+        where += f" AND (p.author_id NOT IN ({placeholders}) OR p.author_id IS NULL)"
+        params.extend(blocked_user_ids)
+
     params.extend([limit, offset])
 
     async with get_connection() as conn:
@@ -380,7 +396,13 @@ async def get_posts_with_details(
                     u.id, u.nickname, u.profile_img,
                     COALESCE(likes.count, 0) as likes_count,
                     COALESCE(comments.count, 0) as comments_count,
-                    p.is_pinned, p.category_id, cat.name AS category_name
+                    p.is_pinned, p.category_id, cat.name AS category_name,
+                    COALESCE(bk.count, 0) as bookmarks_count,
+                    (COALESCE(likes.count, 0) * 3
+                     + COALESCE(comments.count, 0) * 2
+                     + p.views * 0.5)
+                    / POW(TIMESTAMPDIFF(HOUR, p.created_at, NOW()) + 2, 1.5)
+                    AS hot_score
                 FROM post p
                 LEFT JOIN user u ON p.author_id = u.id
                 LEFT JOIN category cat ON p.category_id = cat.id
@@ -395,6 +417,11 @@ async def get_posts_with_details(
                     WHERE deleted_at IS NULL
                     GROUP BY post_id
                 ) comments ON p.id = comments.post_id
+                LEFT JOIN (
+                    SELECT post_id, COUNT(*) as count
+                    FROM post_bookmark
+                    GROUP BY post_id
+                ) bk ON p.id = bk.post_id
                 WHERE {where}
                 ORDER BY p.is_pinned DESC, {order_by}
                 LIMIT %s OFFSET %s
@@ -418,13 +445,14 @@ async def get_posts_with_details(
                     "is_pinned": bool(row[12]),
                     "category_id": row[13],
                     "category_name": row[14],
+                    "bookmarks_count": row[15],
                 }
                 for row in rows
             ]
 
 
 async def get_post_with_details(post_id: int) -> dict | None:
-    """특정 게시글을 작성자 정보, 좋아요 수와 함께 조회합니다.
+    """특정 게시글을 작성자 정보, 좋아요 수, 북마크 수와 함께 조회합니다.
 
     Args:
         post_id: 게시글 ID.
@@ -439,7 +467,8 @@ async def get_post_with_details(post_id: int) -> dict | None:
                 SELECT p.id, p.title, p.content, p.image_url, p.views, p.created_at, p.updated_at,
                        u.id, u.nickname, u.profile_img,
                        (SELECT COUNT(*) FROM post_like WHERE post_id = p.id) as likes_count,
-                       p.is_pinned, p.category_id, cat.name AS category_name
+                       p.is_pinned, p.category_id, cat.name AS category_name,
+                       (SELECT COUNT(*) FROM post_bookmark WHERE post_id = p.id) as bookmarks_count
                 FROM post p
                 LEFT JOIN user u ON p.author_id = u.id
                 LEFT JOIN category cat ON p.category_id = cat.id
@@ -465,6 +494,7 @@ async def get_post_with_details(post_id: int) -> dict | None:
                 "is_pinned": bool(row[11]),
                 "category_id": row[12],
                 "category_name": row[13],
+                "bookmarks_count": row[14],
             }
 
 
@@ -505,6 +535,50 @@ async def update_post_category(post_id: int, category_id: int | None) -> bool:
             (category_id, post_id),
         )
         return cur.rowcount > 0
+
+
+# ============ 게시글 이미지 관련 함수 ============
+
+
+async def save_post_images(post_id: int, image_urls: list[str]) -> None:
+    """게시글 이미지를 저장합니다.
+
+    기존 이미지를 모두 삭제하고 새 이미지를 순서대로 삽입합니다.
+    최대 5개까지 허용합니다.
+    """
+    async with transactional() as cur:
+        await cur.execute(
+            "DELETE FROM post_image WHERE post_id = %s",
+            (post_id,),
+        )
+        for idx, url in enumerate(image_urls[:5]):
+            await cur.execute(
+                """
+                INSERT INTO post_image (post_id, image_url, sort_order)
+                VALUES (%s, %s, %s)
+                """,
+                (post_id, url, idx),
+            )
+
+
+async def get_post_images(post_id: int) -> list[dict]:
+    """게시글의 이미지 목록을 순서대로 반환합니다."""
+    async with get_connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                """
+                SELECT id, image_url, sort_order
+                FROM post_image
+                WHERE post_id = %s
+                ORDER BY sort_order
+                """,
+                (post_id,),
+            )
+            rows = await cur.fetchall()
+            return [
+                {"id": row[0], "image_url": row[1], "sort_order": row[2]}
+                for row in rows
+            ]
 
 
 # get_comments_with_author는 comment_models.py에서 정의됨 (상단 import 참조)

@@ -21,6 +21,7 @@ async def get_posts(
     sort: str = "latest",
     author_id: int | None = None,
     category_id: int | None = None,
+    current_user: User | None = None,
 ) -> dict:
     """
     게시글 목록을 조회합니다.
@@ -73,6 +74,7 @@ async def get_posts(
     posts_data, total_count, has_more = await PostService.get_posts(
         offset, limit, search=search, sort=sort,
         author_id=author_id, category_id=category_id,
+        current_user=current_user,
     )
 
     return create_response(
@@ -193,6 +195,7 @@ async def update_post(
         post_data.image_url,
         timestamp,
         category_id=post_data.category_id,
+        image_urls=post_data.image_urls,
     )
 
     return create_response(

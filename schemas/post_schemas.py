@@ -5,7 +5,7 @@
 
 from pydantic import BaseModel, Field, field_validator
 
-from schemas._image_validators import validate_upload_image_url
+from schemas._image_validators import validate_upload_image_url, validate_upload_image_url_list
 
 
 class CreatePostRequest(BaseModel):
@@ -21,6 +21,7 @@ class CreatePostRequest(BaseModel):
     title: str = Field(..., min_length=3, max_length=100)
     content: str = Field(..., min_length=1, max_length=10000)
     image_url: str | None = None
+    image_urls: list[str] | None = None
     category_id: int = Field(..., ge=1)
 
     @field_validator("title")
@@ -67,6 +68,12 @@ class CreatePostRequest(BaseModel):
         """이미지 URL 형식을 검증합니다."""
         return validate_upload_image_url(v)
 
+    @field_validator("image_urls")
+    @classmethod
+    def validate_image_urls(cls, v: list[str] | None) -> list[str] | None:
+        """이미지 URL 리스트를 검증합니다."""
+        return validate_upload_image_url_list(v)
+
 
 class UpdatePostRequest(BaseModel):
     """게시글 수정 요청 모델.
@@ -79,6 +86,7 @@ class UpdatePostRequest(BaseModel):
     title: str | None = Field(None, min_length=3, max_length=100)
     content: str | None = Field(None, min_length=1, max_length=10000)
     image_url: str | None = None
+    image_urls: list[str] | None = None
     category_id: int | None = Field(None, ge=1)
 
     @field_validator("image_url")
@@ -86,6 +94,12 @@ class UpdatePostRequest(BaseModel):
     def validate_image_url(cls, v: str | None) -> str | None:
         """이미지 URL 형식을 검증합니다."""
         return validate_upload_image_url(v)
+
+    @field_validator("image_urls")
+    @classmethod
+    def validate_image_urls(cls, v: list[str] | None) -> list[str] | None:
+        """이미지 URL 리스트를 검증합니다."""
+        return validate_upload_image_url_list(v)
 
     @field_validator("title")
     @classmethod
