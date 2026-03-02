@@ -2,6 +2,7 @@
 CREATE TABLE user (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     email varchar(255) NOT NULL UNIQUE,
+    email_verified TINYINT(1) NOT NULL DEFAULT 0,
     nickname varchar(255) NOT NULL UNIQUE,
     password varchar(2048) NOT NULL,
     profile_img varchar(2048) NULL,
@@ -14,6 +15,16 @@ CREATE TABLE user (
 CREATE TABLE refresh_token (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id INT UNSIGNED NOT NULL,
+    token_hash VARCHAR(64) NOT NULL UNIQUE,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE CASCADE
+);
+
+-- 이메일 인증 테이블
+CREATE TABLE email_verification (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL UNIQUE,
     token_hash VARCHAR(64) NOT NULL UNIQUE,
     expires_at TIMESTAMP NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -82,6 +93,21 @@ CREATE TABLE post_view_log (
     FOREIGN KEY (post_id) REFERENCES post (id) ON DELETE CASCADE
 );
     
+-- 알림 테이블
+CREATE TABLE notification (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL,
+    type ENUM('comment', 'like') NOT NULL,
+    post_id INT UNSIGNED NOT NULL,
+    comment_id INT UNSIGNED NULL,
+    actor_id INT UNSIGNED NOT NULL,
+    is_read TINYINT(1) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE CASCADE,
+    FOREIGN KEY (post_id) REFERENCES post (id) ON DELETE CASCADE,
+    FOREIGN KEY (actor_id) REFERENCES user (id) ON DELETE CASCADE
+);
+
     -- 성능 최적화 인덱스
     -- 1. 인증/리프레시 토큰 (크리티컬)
     CREATE INDEX idx_refresh_token_hash ON refresh_token (token_hash);
@@ -105,4 +131,17 @@ CREATE TABLE post_view_log (
 
     -- 7. 게시글 제목+내용 전문 검색 (한국어 ngram)
     ALTER TABLE post ADD FULLTEXT INDEX ft_post_search (title, content) WITH PARSER ngram;
+
+    -- 8. 이메일 인증 토큰 조회
+    CREATE INDEX idx_email_verification_token ON email_verification (token_hash);
+    CREATE INDEX idx_email_verification_expires ON email_verification (expires_at);
+
+    -- 9. 알림 목록 조회 (사용자별 안읽은 알림)
+    CREATE INDEX idx_notification_user_unread ON notification (user_id, is_read, created_at DESC);
+
+    -- 10. 댓글 작성자별 조회
+    CREATE INDEX idx_comment_author ON comment (author_id, created_at DESC);
+
+    -- 11. 좋아요 사용자별 조회
+    CREATE INDEX idx_post_like_user ON post_like (user_id, created_at DESC);
     

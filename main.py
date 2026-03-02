@@ -13,6 +13,7 @@ from routers.auth_router import auth_router
 from routers.user_router import user_router
 from routers.post_router import post_router
 from routers.terms_router import terms_router
+from routers import notification_router
 from middleware import TimingMiddleware, LoggingMiddleware, RateLimitMiddleware
 from middleware.exception_handler import (
     global_exception_handler,
@@ -32,8 +33,12 @@ logger = logging.getLogger("api")
 
 
 async def _periodic_token_cleanup() -> None:
-    """만료된 Refresh Token을 주기적으로 정리하는 백그라운드 작업."""
+    """만료된 토큰을 주기적으로 정리하는 백그라운드 작업.
+
+    Refresh Token과 이메일 인증 토큰을 함께 정리합니다.
+    """
     from models.token_models import cleanup_expired_tokens
+    from models.verification_models import cleanup_expired_verification_tokens
 
     while True:
         await asyncio.sleep(_TOKEN_CLEANUP_INTERVAL_HOURS * 3600)
@@ -41,6 +46,10 @@ async def _periodic_token_cleanup() -> None:
             await cleanup_expired_tokens()
         except Exception:
             logger.exception("Refresh Token 정리 중 오류 발생")
+        try:
+            await cleanup_expired_verification_tokens()
+        except Exception:
+            logger.exception("이메일 인증 토큰 정리 중 오류 발생")
 
 
 @asynccontextmanager
@@ -91,6 +100,7 @@ app.include_router(auth_router)
 app.include_router(user_router)
 app.include_router(post_router)
 app.include_router(terms_router)
+app.include_router(notification_router.router)
 
 # Lambda 환경에서는 /var/task가 읽기 전용
 # Docker 이미지에 assets/profiles/default_profile.jpg가 포함됨

@@ -1,20 +1,26 @@
 """auth_controller: 인증 관련 컨트롤러 모듈.
 
-JWT 기반 로그인, 로그아웃, 토큰 갱신, 사용자 인증 상태 확인 등의 기능을 제공합니다.
+JWT 기반 로그인, 로그아웃, 토큰 갱신, 사용자 인증 상태 확인,
+이메일 인증 등의 기능을 제공합니다.
 """
 
+import logging
 from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, Request, Response, status
 
 from core.config import settings
 from dependencies.request_context import get_request_timestamp
-from models import token_models, user_models
+from models import token_models, user_models, verification_models
 from models.user_models import User
 from schemas.auth_schemas import LoginRequest
 from schemas.common import create_response, serialize_user
+from utils.email import send_email
+from utils.exceptions import bad_request_error
 from utils.jwt_utils import create_access_token, create_refresh_token
 from utils.password import verify_password
+
+logger = logging.getLogger(__name__)
 
 _REFRESH_COOKIE = "refresh_token"
 
@@ -210,5 +216,81 @@ async def get_my_info(current_user: User, request: Request) -> dict:
         "AUTH_SUCCESS",
         "현재 로그인 중인 상태입니다.",
         data={"user": serialize_user(current_user)},
+        timestamp=timestamp,
+    )
+
+
+async def verify_email(token: str, request: Request) -> dict:
+    """이메일 인증 토큰을 검증하고 이메일 인증을 완료합니다.
+
+    Args:
+        token: 이메일 인증 토큰.
+        request: FastAPI Request 객체.
+
+    Returns:
+        인증 성공 응답 딕셔너리.
+
+    Raises:
+        HTTPException 400: 토큰이 유효하지 않거나 만료된 경우.
+    """
+    timestamp = get_request_timestamp(request)
+
+    user_id = await verification_models.verify_token(token)
+    if not user_id:
+        raise bad_request_error("invalid_or_expired_token", timestamp)
+
+    return create_response(
+        "EMAIL_VERIFIED",
+        "이메일 인증이 완료되었습니다.",
+        timestamp=timestamp,
+    )
+
+
+async def resend_verification(current_user: User, request: Request) -> dict:
+    """이메일 인증 메일을 재발송합니다.
+
+    이미 인증이 완료된 사용자는 400 에러를 반환합니다.
+    이메일 발송 실패는 무시합니다.
+
+    Args:
+        current_user: 현재 인증된 사용자 객체.
+        request: FastAPI Request 객체.
+
+    Returns:
+        재발송 성공 응답 딕셔너리.
+
+    Raises:
+        HTTPException 400: 이미 이메일 인증이 완료된 경우.
+    """
+    timestamp = get_request_timestamp(request)
+
+    if current_user.email_verified:
+        raise bad_request_error("already_verified", timestamp)
+
+    raw_token = await verification_models.create_verification_token(current_user.id)
+
+    frontend_url = settings.FRONTEND_URL
+    verify_link = f"{frontend_url}/verify-email?token={raw_token}"
+
+    email_body = (
+        f"안녕하세요, {current_user.nickname}님.\n\n"
+        "아래 링크를 클릭하여 이메일 인증을 완료해주세요.\n\n"
+        f"{verify_link}\n\n"
+        "이 링크는 24시간 동안 유효합니다.\n"
+        "본인이 요청하지 않은 경우 이 이메일을 무시하세요."
+    )
+
+    try:
+        await send_email(
+            to=current_user.email,
+            subject="[아무 말 대잔치] 이메일 인증",
+            body=email_body,
+        )
+    except Exception:
+        logger.warning("이메일 인증 메일 재발송 실패: %s", current_user.email)
+
+    return create_response(
+        "VERIFICATION_EMAIL_SENT",
+        "인증 이메일이 발송되었습니다.",
         timestamp=timestamp,
     )

@@ -147,6 +147,36 @@ async def create_comment(
         parent_id=parent_id,
     )
 
+    # 알림 생성 (실패해도 댓글 생성에 영향 없음)
+    try:
+        from models import notification_models
+
+        if comment.parent_id:
+            # 대댓글 → 부모 댓글 작성자에게 알림
+            parent_comment = await comment_models.get_comment_by_id(comment.parent_id)
+            if parent_comment and parent_comment.author_id:
+                await notification_models.create_notification(
+                    user_id=parent_comment.author_id,
+                    notification_type="comment",
+                    post_id=post_id,
+                    actor_id=current_user.id,
+                    comment_id=comment.id,
+                )
+        else:
+            # 일반 댓글 → 게시글 작성자에게 알림
+            if post.author_id:
+                await notification_models.create_notification(
+                    user_id=post.author_id,
+                    notification_type="comment",
+                    post_id=post_id,
+                    actor_id=current_user.id,
+                    comment_id=comment.id,
+                )
+    except Exception:
+        import logging
+
+        logging.getLogger(__name__).warning("알림 생성 실패", exc_info=True)
+
     return create_response(
         "COMMENT_CREATED",
         "댓글이 생성되었습니다.",

@@ -17,6 +17,8 @@ async def clear_all_data() -> None:
     async with get_connection() as conn:
         async with conn.cursor() as cur:
             await cur.execute("SET FOREIGN_KEY_CHECKS = 0")
+            await cur.execute("TRUNCATE TABLE notification")
+            await cur.execute("TRUNCATE TABLE email_verification")
             await cur.execute("TRUNCATE TABLE post_view_log")
             await cur.execute("TRUNCATE TABLE post_like")
             await cur.execute("TRUNCATE TABLE comment")
@@ -78,7 +80,65 @@ async def authorized_user(client, user_payload):
 
     assert signup_res.status_code == 201
 
+    # 이메일 인증 완료 처리
+    async with get_connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "UPDATE user SET email_verified = 1 WHERE email = %s",
+                (user_payload["email"],),
+            )
+
     # 로그인 (JSON)
+    login_res = await client.post(
+        "/v1/auth/session",
+        json={"email": user_payload["email"], "password": user_payload["password"]},
+    )
+    assert login_res.status_code == 200
+
+    login_data = login_res.json()
+    access_token = login_data["data"]["access_token"]
+    user_info = login_data["data"]["user"]
+
+    # Bearer Token이 설정된 새 클라이언트 생성
+    transport = ASGITransport(app=app)
+    auth_client = AsyncClient(
+        transport=transport,
+        base_url="http://test",
+        headers={"Authorization": f"Bearer {access_token}"},
+        cookies=login_res.cookies,  # refresh_token 쿠키 전달
+    )
+
+    async with auth_client as ac:
+        yield ac, user_info, user_payload
+
+
+@pytest.fixture
+def second_user_payload(fake):
+    """두 번째 사용자용 페이로드 생성 (unverified_user 등에서 사용)."""
+    return {
+        "email": fake.email(),
+        "password": "Password123!",
+        "nickname": fake.lexify(text="?????") + str(fake.random_int(10, 99)),
+    }
+
+
+@pytest_asyncio.fixture
+async def unverified_user(client, second_user_payload):
+    """회원가입 및 로그인이 완료되었지만 이메일 미인증 상태인 클라이언트와 유저 정보 반환.
+
+    authorized_user와 별도의 user_payload를 사용하여 동시 사용 시 충돌을 방지합니다.
+    """
+    user_payload = second_user_payload
+
+    # 회원가입 (Form)
+    signup_res = await client.post("/v1/users/", data=user_payload)
+
+    if signup_res.status_code != 201:
+        print(f"Signup failed: {signup_res.status_code}, {signup_res.text}")
+
+    assert signup_res.status_code == 201
+
+    # 로그인 (JSON) — 이메일 미인증 상태
     login_res = await client.post(
         "/v1/auth/session",
         json={"email": user_payload["email"], "password": user_payload["password"]},

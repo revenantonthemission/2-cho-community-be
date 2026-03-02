@@ -5,7 +5,7 @@
 
 from fastapi import APIRouter, Depends, Query, Request, UploadFile, File, status
 from controllers import post_controller, like_controller, comment_controller
-from dependencies.auth import get_current_user, get_optional_user
+from dependencies.auth import get_optional_user, require_verified_email
 from models.user_models import User
 from schemas.post_schemas import CreatePostRequest, UpdatePostRequest
 from schemas.comment_schemas import CreateCommentRequest, UpdateCommentRequest
@@ -70,7 +70,7 @@ async def get_post(
 async def create_post(
     post_data: CreatePostRequest,
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_verified_email),
 ) -> dict:
     """새 게시글을 생성합니다.
 
@@ -90,7 +90,7 @@ async def update_post(
     post_id: int,
     post_data: UpdatePostRequest,
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_verified_email),
 ) -> dict:
     """게시글을 수정합니다.
 
@@ -110,7 +110,7 @@ async def update_post(
 async def delete_post(
     post_id: int,
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_verified_email),
 ) -> dict:
     """게시글을 삭제합니다.
 
@@ -129,7 +129,7 @@ async def delete_post(
 async def upload_image(
     request: Request,
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_verified_email),
 ) -> dict:
     """이미지를 업로드합니다.
 
@@ -151,7 +151,7 @@ async def upload_image(
 async def like_post(
     post_id: int,
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_verified_email),
 ) -> dict:
     """게시글에 좋아요를 추가합니다.
 
@@ -170,7 +170,7 @@ async def like_post(
 async def unlike_post(
     post_id: int,
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_verified_email),
 ) -> dict:
     """게시글 좋아요를 취소합니다.
 
@@ -193,7 +193,7 @@ async def create_comment(
     post_id: int,
     comment_data: CreateCommentRequest,
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_verified_email),
 ) -> dict:
     """새 댓글을 작성합니다.
 
@@ -217,7 +217,7 @@ async def update_comment(
     comment_id: int,
     comment_data: UpdateCommentRequest,
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_verified_email),
 ) -> dict:
     """댓글을 수정합니다.
 
@@ -241,7 +241,7 @@ async def delete_comment(
     post_id: int,
     comment_id: int,
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_verified_email),
 ) -> dict:
     """댓글을 삭제합니다.
 

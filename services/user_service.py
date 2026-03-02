@@ -3,7 +3,9 @@
 import asyncio
 import logging
 from typing import Optional
-from models import user_models
+
+from core.config import settings
+from models import user_models, verification_models
 from models.user_models import User
 from schemas.user_schemas import CreateUserRequest
 from utils.email import send_email
@@ -51,7 +53,7 @@ class UserService:
             # Service Layer 도입 시점에서는 모델의 로직을 그대로 활용하되,
             # 향후 순수 모델로 분리할 때 이 로직을 서비스로 가져오는 것이 좋음.
             # 현재는 리팩토링 단계이므로 모델의 register_user를 호출.
-            return await user_models.register_user(
+            new_user = await user_models.register_user(
                 email=user_data.email,
                 password=hashed_password,
                 nickname=user_data.nickname,
@@ -62,6 +64,32 @@ class UserService:
             # 여기서는 예외 로깅 후 re-raise
             logger.exception(f"Error creating user: {e}")
             raise e
+
+        # 5. 이메일 인증 토큰 생성 + 인증 메일 발송 (실패 시 무시)
+        try:
+            raw_token = await verification_models.create_verification_token(new_user.id)
+
+            frontend_url = settings.FRONTEND_URL
+            verify_link = f"{frontend_url}/verify-email?token={raw_token}"
+
+            email_body = (
+                f"안녕하세요, {new_user.nickname}님.\n\n"
+                "아래 링크를 클릭하여 이메일 인증을 완료해주세요.\n\n"
+                f"{verify_link}\n\n"
+                "이 링크는 24시간 동안 유효합니다.\n"
+                "본인이 요청하지 않은 경우 이 이메일을 무시하세요."
+            )
+
+            await send_email(
+                to=user_data.email,
+                subject="[아무 말 대잔치] 이메일 인증",
+                body=email_body,
+            )
+        except Exception:
+            # 이메일 발송 실패가 회원가입을 막아서는 안 됨
+            logger.warning("회원가입 인증 이메일 발송 실패: %s", user_data.email)
+
+        return new_user
 
     @staticmethod
     async def update_user(

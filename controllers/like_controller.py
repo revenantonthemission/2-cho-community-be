@@ -52,6 +52,22 @@ async def like_post(
             },
         )
 
+    # 알림 생성 (실패해도 좋아요에 영향 없음)
+    try:
+        from models import notification_models
+
+        if post.author_id:
+            await notification_models.create_notification(
+                user_id=post.author_id,
+                notification_type="like",
+                post_id=post_id,
+                actor_id=current_user.id,
+            )
+    except Exception:
+        import logging
+
+        logging.getLogger(__name__).warning("좋아요 알림 생성 실패", exc_info=True)
+
     return create_response(
         "LIKE_ADDED",
         "좋아요가 추가되었습니다.",

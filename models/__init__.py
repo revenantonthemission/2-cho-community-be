@@ -53,6 +53,22 @@ from .token_models import (
     cleanup_expired_tokens,
 )
 
+from .verification_models import (
+    create_verification_token,
+    verify_token,
+    is_user_verified,
+    cleanup_expired_verification_tokens,
+)
+
+from .notification_models import (
+    create_notification,
+    get_notifications,
+    get_unread_count,
+    mark_as_read,
+    mark_all_as_read,
+    delete_notification,
+)
+
 __all__ = [
     # 사용자 모델
     "User",
@@ -93,4 +109,16 @@ __all__ = [
     "delete_refresh_token",
     "rotate_refresh_token",
     "cleanup_expired_tokens",
+    # 이메일 인증 토큰 모델
+    "create_verification_token",
+    "verify_token",
+    "is_user_verified",
+    "cleanup_expired_verification_tokens",
+    # 알림 모델
+    "create_notification",
+    "get_notifications",
+    "get_unread_count",
+    "mark_as_read",
+    "mark_all_as_read",
+    "delete_notification",
 ]

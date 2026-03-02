@@ -144,6 +144,9 @@ RATE_LIMIT_CONFIG = {
     # 계정 찾기 - 브루트포스 방지 (5분 윈도우로 강화)
     "/v1/users/find-email": {"max_requests": 5, "window_seconds": 300},
     "/v1/users/reset-password": {"max_requests": 3, "window_seconds": 300},
+    # 이메일 인증 - 브루트포스 방지
+    "/v1/auth/verify-email": {"max_requests": 10, "window_seconds": 60},
+    "/v1/auth/resend-verification": {"max_requests": 3, "window_seconds": 300},
 }
 
 # 기본 Rate Limit (설정되지 않은 엔드포인트)

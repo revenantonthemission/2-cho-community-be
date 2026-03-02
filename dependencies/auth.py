@@ -5,8 +5,9 @@ JWT Bearer Token 기반 사용자 인증 및 권한 확인 기능을 제공합�
 
 from datetime import datetime, timezone
 
-from fastapi import HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, status
 
+from dependencies.request_context import get_request_timestamp
 from models import user_models
 from models.user_models import User
 from utils.jwt_utils import decode_access_token
@@ -100,3 +101,33 @@ async def get_optional_user(request: Request) -> User | None:
         return await _validate_token(request)
     except HTTPException:
         return None
+
+
+async def require_verified_email(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """이메일 인증이 완료된 사용자만 허용합니다.
+
+    미인증 시 403 Forbidden을 발생시킵니다.
+
+    Args:
+        request: FastAPI Request 객체.
+        current_user: 현재 인증된 사용자 (get_current_user 의존성).
+
+    Returns:
+        이메일 인증이 완료된 사용자 객체.
+
+    Raises:
+        HTTPException: 이메일 미인증 시 403.
+    """
+    if not current_user.email_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": "email_not_verified",
+                "message": "이메일 인증 후 이용 가능합니다.",
+                "timestamp": get_request_timestamp(request),
+            },
+        )
+    return current_user

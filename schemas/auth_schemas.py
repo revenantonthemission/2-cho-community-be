@@ -1,6 +1,6 @@
 """auth_schemas: 인증 관련 Pydantic 모델 모듈.
 
-로그인 요청 스키마를 정의합니다.
+로그인 및 이메일 인증 요청 스키마를 정의합니다.
 """
 
 from pydantic import BaseModel, EmailStr
@@ -16,3 +16,13 @@ class LoginRequest(BaseModel):
 
     email: EmailStr
     password: str
+
+
+class VerifyEmailRequest(BaseModel):
+    """이메일 인증 요청 모델.
+
+    Attributes:
+        token: 이메일 인증 토큰.
+    """
+
+    token: str

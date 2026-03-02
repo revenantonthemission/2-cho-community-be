@@ -107,6 +107,9 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     SES_REGION: str = "ap-northeast-2"
 
+    # 프론트엔드 URL (이메일 인증 링크 등에 사용)
+    FRONTEND_URL: str = "http://localhost:8080"
+
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )

@@ -1,13 +1,14 @@
 """auth_router: 인증 관련 라우터 모듈.
 
-로그인, 로그아웃, 토큰 갱신, 사용자 인증 상태 확인 엔드포인트를 제공합니다.
+로그인, 로그아웃, 토큰 갱신, 사용자 인증 상태 확인,
+이메일 인증 엔드포인트를 제공합니다.
 """
 
 from fastapi import APIRouter, Depends, Request, Response, status
 from controllers import auth_controller
 from dependencies.auth import get_current_user
 from models.user_models import User
-from schemas.auth_schemas import LoginRequest
+from schemas.auth_schemas import LoginRequest, VerifyEmailRequest
 
 
 auth_router = APIRouter(prefix="/v1/auth", tags=["auth"])
@@ -81,3 +82,33 @@ async def get_my_info(
         사용자 정보가 포함된 응답.
     """
     return await auth_controller.get_my_info(current_user, request)
+
+
+@auth_router.post("/verify-email", status_code=status.HTTP_200_OK)
+async def verify_email(body: VerifyEmailRequest, request: Request) -> dict:
+    """이메일 인증 토큰을 검증합니다.
+
+    Args:
+        body: 인증 토큰이 포함된 요청 본문.
+        request: FastAPI Request 객체.
+
+    Returns:
+        인증 성공 응답.
+    """
+    return await auth_controller.verify_email(body.token, request)
+
+
+@auth_router.post("/resend-verification", status_code=status.HTTP_200_OK)
+async def resend_verification(
+    request: Request, current_user: User = Depends(get_current_user)
+) -> dict:
+    """이메일 인증 메일을 재발송합니다.
+
+    Args:
+        request: FastAPI Request 객체.
+        current_user: 현재 인증된 사용자.
+
+    Returns:
+        재발송 성공 응답.
+    """
+    return await auth_controller.resend_verification(current_user, request)

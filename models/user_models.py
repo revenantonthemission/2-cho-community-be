@@ -22,6 +22,7 @@ class User:
     Attributes:
         id: 사용자 고유 식별자.
         email: 이메일 주소.
+        email_verified: 이메일 인증 여부.
         password: 비밀번호.
         nickname: 닉네임.
         profile_image_url: 프로필 이미지 URL.
@@ -34,6 +35,7 @@ class User:
     email: str
     password: str
     nickname: str
+    email_verified: bool = False
     profile_image_url: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -53,7 +55,7 @@ class User:
 
 # 공통으로 사용되는 SELECT 필드
 USER_SELECT_FIELDS = (
-    "id, email, nickname, password, profile_img, created_at, updated_at, deleted_at"
+    "id, email, email_verified, nickname, password, profile_img, created_at, updated_at, deleted_at"
 )
 
 
@@ -61,7 +63,7 @@ def _row_to_user(row: tuple) -> User:
     """데이터베이스 행을 User 객체로 변환합니다.
 
     Args:
-        row: (id, email, nickname, password, profile_img, created_at, updated_at, deleted_at)
+        row: (id, email, email_verified, nickname, password, profile_img, created_at, updated_at, deleted_at)
 
     Returns:
         User 객체.
@@ -69,12 +71,13 @@ def _row_to_user(row: tuple) -> User:
     return User(
         id=row[0],
         email=row[1],
-        nickname=row[2],
-        password=row[3],
-        profile_image_url=row[4],
-        created_at=row[5],
-        updated_at=row[6],
-        deleted_at=row[7],
+        email_verified=bool(row[2]),
+        nickname=row[3],
+        password=row[4],
+        profile_image_url=row[5],
+        created_at=row[6],
+        updated_at=row[7],
+        deleted_at=row[8],
     )
 
 

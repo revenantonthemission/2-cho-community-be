@@ -68,6 +68,7 @@ def serialize_user(user) -> dict[str, Any]:
     return {
         "user_id": user.id,
         "email": user.email,
+        "email_verified": user.email_verified,
         "nickname": user.nickname,
         "profileImageUrl": user.profileImageUrl,
     }
