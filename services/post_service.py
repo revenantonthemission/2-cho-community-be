@@ -121,26 +121,16 @@ class PostService:
             )
 
         # 3. 변경사항 확인
-        updates = {}
-        if title is not None:
-            updates["title"] = title
-        if content is not None:
-            updates["content"] = content
-        if image_url is not None:
-            updates["image_url"] = image_url
-        if category_id is not None:
-            updates["category_id"] = category_id
-
-        if not updates:
+        if all(v is None for v in (title, content, image_url, category_id)):
             raise bad_request_error("no_changes_provided", timestamp)
 
         # 4. DB 업데이트
         updated_post = await post_models.update_post(
             post_id,
-            title=updates.get("title"),
-            content=updates.get("content"),
-            image_url=updates.get("image_url"),
-            category_id=updates.get("category_id"),
+            title=title,
+            content=content,
+            image_url=image_url,
+            category_id=category_id,
         )
         assert updated_post is not None  # 게시글 존재는 위에서 검증됨
 

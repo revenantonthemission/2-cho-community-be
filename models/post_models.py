@@ -213,8 +213,8 @@ async def update_post(
     Returns:
         수정된 게시글 객체, 없거나 삭제된 경우 None.
     """
-    updates = []
-    params = []
+    updates: list[str] = []
+    params: list[str | int] = []
 
     if title is not None:
         updates.append("title = %s")

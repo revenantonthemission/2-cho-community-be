@@ -20,24 +20,22 @@ class ReportService:
         timestamp: str,
     ) -> Dict:
         """신고를 생성합니다."""
-        # 1. 대상 존재 확인
+        # 1. 대상 존재 확인 + 자기 콘텐츠 신고 방지
         if target_type == "post":
-            target = await post_models.get_post_by_id(target_id)
-            if not target:
+            post_target = await post_models.get_post_by_id(target_id)
+            if not post_target:
                 raise not_found_error("post", timestamp)
-            # 자기 게시글 신고 방지
-            if target.author_id == reporter_id:
+            if post_target.author_id == reporter_id:
                 raise bad_request_error(
                     "cannot_report_own_content",
                     timestamp,
                     "자신의 게시글은 신고할 수 없습니다.",
                 )
         elif target_type == "comment":
-            target = await comment_models.get_comment_by_id(target_id)
-            if not target:
+            comment_target = await comment_models.get_comment_by_id(target_id)
+            if not comment_target:
                 raise not_found_error("comment", timestamp)
-            # 자기 댓글 신고 방지
-            if target.author_id == reporter_id:
+            if comment_target.author_id == reporter_id:
                 raise bad_request_error(
                     "cannot_report_own_content",
                     timestamp,
