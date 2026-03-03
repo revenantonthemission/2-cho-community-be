@@ -68,15 +68,23 @@ jobs:
           docker push "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
 
       # SHA 태그로 Lambda 업데이트 (불변 태그 → 동시 배포 시 race condition 방지)
-      - name: Update Lambda Function
+      # --publish로 번호 매긴 버전 생성 → 헬스 체크 후 alias 전환 (Blue/Green)
+      - name: Update Lambda Function and Publish Version
+        id: lambda-update
         env:
           ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
           IMAGE_TAG: sha-${{ github.sha }}
         run: |
-          aws lambda update-function-code \
+          RESULT=$(aws lambda update-function-code \
             --function-name "$LAMBDA_FUNCTION" \
             --image-uri "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
-            --region "$AWS_REGION"
+            --publish \
+            --region "$AWS_REGION" \
+            --output json)
+
+          NEW_VERSION=$(echo "$RESULT" | jq -r '.Version')
+          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Published Lambda version: $NEW_VERSION"
 
       # Lambda 함수 업데이트가 완료될 때까지 대기
       - name: Wait for Lambda Update
@@ -85,3 +93,55 @@ jobs:
             --function-name "$LAMBDA_FUNCTION" \
             --region "$AWS_REGION"
           echo "Lambda function updated successfully"
+
+      # 새 버전에 직접 헬스 체크 — 실패 시 alias 전환 차단 (프로덕션 트래픽 보호)
+      - name: Health Check New Version
+        env:
+          NEW_VERSION: ${{ steps.lambda-update.outputs.new_version }}
+        run: |
+          PAYLOAD='{"version":"2.0","routeKey":"GET /health","rawPath":"/health","requestContext":{"http":{"method":"GET","path":"/health"},"routeKey":"GET /health"},"isBase64Encoded":false}'
+
+          RESPONSE=$(aws lambda invoke \
+            --function-name "$LAMBDA_FUNCTION" \
+            --qualifier "$NEW_VERSION" \
+            --cli-binary-format raw-in-base64-out \
+            --payload "$PAYLOAD" \
+            --region "$AWS_REGION" \
+            /tmp/health_response.json 2>&1)
+
+          echo "Invoke response: $RESPONSE"
+
+          FUNC_ERROR=$(echo "$RESPONSE" | jq -r '.FunctionError // empty')
+          if [ -n "$FUNC_ERROR" ]; then
+            echo "::error::Lambda execution error: $FUNC_ERROR"
+            cat /tmp/health_response.json
+            exit 1
+          fi
+
+          STATUS=$(cat /tmp/health_response.json | jq -r '.statusCode')
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::Health check failed with status: $STATUS"
+            cat /tmp/health_response.json
+            exit 1
+          fi
+
+          echo "Health check passed (status: $STATUS)"
+
+      # 헬스 체크 통과 후 live alias를 새 버전으로 전환 (Blue/Green 완료)
+      - name: Switch Traffic to New Version
+        env:
+          NEW_VERSION: ${{ steps.lambda-update.outputs.new_version }}
+        run: |
+          PREV_VERSION=$(aws lambda get-alias \
+            --function-name "$LAMBDA_FUNCTION" \
+            --name "live" \
+            --region "$AWS_REGION" \
+            --query 'FunctionVersion' --output text 2>/dev/null || echo "none")
+
+          aws lambda update-alias \
+            --function-name "$LAMBDA_FUNCTION" \
+            --name "live" \
+            --function-version "$NEW_VERSION" \
+            --region "$AWS_REGION"
+
+          echo "Alias 'live' switched: version $PREV_VERSION → $NEW_VERSION"
