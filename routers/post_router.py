@@ -60,6 +60,10 @@ async def get_post(
     post_id: int,
     request: Request,
     current_user: User | None = Depends(get_optional_user),
+    comment_sort: str = Query(
+        default="oldest",
+        description="댓글 정렬: oldest(오래된순), latest(최신순)",
+    ),
 ) -> dict:
     """특정 게시글의 상세 정보를 조회합니다.
 
@@ -70,11 +74,18 @@ async def get_post(
         post_id: 조회할 게시글 ID.
         request: FastAPI Request 객체.
         current_user: 현재 인증된 사용자 (선택적).
+        comment_sort: 댓글 정렬 옵션 (oldest, latest).
 
     Returns:
         게시글 상세 정보와 댓글 목록이 포함된 응답.
     """
-    return await post_controller.get_post(post_id, request, current_user)
+    from models.comment_models import ALLOWED_COMMENT_SORT_OPTIONS
+    if comment_sort not in ALLOWED_COMMENT_SORT_OPTIONS:
+        comment_sort = "oldest"
+
+    return await post_controller.get_post(
+        post_id, request, current_user, comment_sort=comment_sort
+    )
 
 
 @post_router.post("/", status_code=status.HTTP_201_CREATED)

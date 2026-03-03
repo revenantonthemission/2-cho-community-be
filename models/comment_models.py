@@ -11,6 +11,8 @@ from datetime import datetime
 from database.connection import get_connection, transactional
 from schemas.common import build_author_dict
 
+ALLOWED_COMMENT_SORT_OPTIONS = {"oldest", "latest"}
+
 
 @dataclass
 class Comment:
@@ -242,6 +244,7 @@ async def get_comments_with_author(
     post_id: int,
     current_user_id: int | None = None,
     blocked_user_ids: set[int] | None = None,
+    comment_sort: str = "oldest",
 ) -> list[dict]:
     """게시글의 댓글 목록을 트리 구조로 반환합니다.
 
@@ -348,7 +351,11 @@ async def get_comments_with_author(
                         filtered_root.append(c)
                 root_comments = filtered_root
 
-            # 6. author_id 키 제거 (API 응답에 불필요)
+            # 6. 루트 댓글 정렬 (대댓글은 항상 시간순 유지)
+            if comment_sort == "latest":
+                root_comments.reverse()
+
+            # 7. author_id 키 제거 (API 응답에 불필요)
             for c in root_comments:
                 c.pop("author_id", None)
                 for r in c.get("replies", []):

@@ -94,7 +94,8 @@ async def get_posts(
 
 
 async def get_post(
-    post_id: int, request: Request, current_user: User | None = None
+    post_id: int, request: Request, current_user: User | None = None,
+    comment_sort: str = "oldest",
 ) -> dict:
     """
     게시글 상세 정보를 조회합니다.
@@ -122,7 +123,9 @@ async def get_post(
         )
 
     # Service Layer 호출
-    result_data = await PostService.get_post_detail(post_id, current_user, timestamp)
+    result_data = await PostService.get_post_detail(
+        post_id, current_user, timestamp, comment_sort=comment_sort
+    )
 
     return create_response(
         "POST_RETRIEVED",

@@ -57,7 +57,8 @@ class PostService:
 
     @staticmethod
     async def get_post_detail(
-        post_id: int, current_user: Optional[User], timestamp: str
+        post_id: int, current_user: Optional[User], timestamp: str,
+        comment_sort: str = "oldest",
     ) -> Dict:
         """게시글 상세 조회 및 조회수 증가 처리."""
         # 1. 게시글 존재 확인
@@ -108,6 +109,7 @@ class PostService:
             post_id,
             current_user_id=current_user.id if current_user else None,
             blocked_user_ids=blocked_ids,
+            comment_sort=comment_sort,
         )
 
         # 6. 데이터 가공
