@@ -485,6 +485,7 @@ sequenceDiagram
   - CD 파이프라인: `--publish`로 Lambda 버전 발행 → `/health` 직접 호출 health check → `live` alias 전환
   - 롤백 워크플로우: `rollback-backend.yml` 신규 — 수동 트리거로 이전 Lambda 버전 즉시 전환
   - 보안 강화: 입력값 sanitization (env var 패턴), 동시 배포 방지 (`concurrency`), `create-alias` 폴백
+  - Health check payload에 Mangum 필수 필드 추가 (`sourceIp`, `rawQueryString`, `headers`, `protocol`)
 
 - **03-02: 북마크, 댓글 좋아요, 공유, 다중 이미지, 사용자 차단, 인기 게시글**
   - 북마크: `post_bookmark` 테이블, 게시글 북마크 추가/해제 API, 내 북마크 목록, 상세 `bookmarks_count`+`is_bookmarked`
