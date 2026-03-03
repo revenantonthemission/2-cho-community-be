@@ -9,6 +9,7 @@ from dependencies.auth import get_optional_user, require_verified_email, require
 from models.user_models import User
 from schemas.post_schemas import CreatePostRequest, UpdatePostRequest
 from schemas.comment_schemas import CreateCommentRequest, UpdateCommentRequest
+from models.comment_models import ALLOWED_COMMENT_SORT_OPTIONS
 
 
 post_router = APIRouter(prefix="/v1/posts", tags=["posts"])
@@ -79,7 +80,6 @@ async def get_post(
     Returns:
         게시글 상세 정보와 댓글 목록이 포함된 응답.
     """
-    from models.comment_models import ALLOWED_COMMENT_SORT_OPTIONS
     if comment_sort not in ALLOWED_COMMENT_SORT_OPTIONS:
         comment_sort = "oldest"
 
