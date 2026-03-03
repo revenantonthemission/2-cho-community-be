@@ -17,10 +17,14 @@ from typing import Dict, Tuple
 import asyncio
 import logging
 import ipaddress
+import re
 
 from core.config import settings
 
 logger = logging.getLogger(__name__)
+
+# 숫자로만 이루어진 경로 세그먼트를 {id}로 치환
+_PATH_PARAM_RE = re.compile(r"/\d+(?=/|$)")
 
 
 def is_valid_ip(ip_str: str) -> bool:
@@ -151,6 +155,13 @@ RATE_LIMIT_CONFIG = {
     # 신고 - 스팸 방지
     "/v1/reports": {"max_requests": 10, "window_seconds": 60},
     "/v1/admin/reports": {"max_requests": 30, "window_seconds": 60},
+    # Phase 4 엔드포인트 (경로 정규화 후 매칭)
+    "POST:/v1/posts/{id}/bookmark": {"max_requests": 30, "window_seconds": 60},
+    "DELETE:/v1/posts/{id}/bookmark": {"max_requests": 30, "window_seconds": 60},
+    "POST:/v1/posts/{id}/comments/{id}/like": {"max_requests": 30, "window_seconds": 60},
+    "DELETE:/v1/posts/{id}/comments/{id}/like": {"max_requests": 30, "window_seconds": 60},
+    "POST:/v1/users/{id}/block": {"max_requests": 10, "window_seconds": 60},
+    "DELETE:/v1/users/{id}/block": {"max_requests": 10, "window_seconds": 60},
 }
 
 # 기본 Rate Limit (설정되지 않은 엔드포인트)
@@ -253,14 +264,20 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         client_ip = get_client_ip(request)
         path = request.url.path
 
+        # 경로 정규화: 숫자 세그먼트를 {id}로 치환하여 config 키와 매칭
+        normalized = _PATH_PARAM_RE.sub("/{id}", path)
+
         # 엔드포인트별 설정 확인 (METHOD:path 키 우선, path만 있는 키 fallback)
-        method_key = f"{request.method}:{path}"
+        method_key = f"{request.method}:{normalized}"
         config = RATE_LIMIT_CONFIG.get(
-            method_key, RATE_LIMIT_CONFIG.get(path, DEFAULT_RATE_LIMIT)
+            method_key, RATE_LIMIT_CONFIG.get(normalized, DEFAULT_RATE_LIMIT)
         )
 
+        # 같은 엔드포인트의 다른 ID 요청을 하나로 합산
+        rate_key = f"{client_ip}:{request.method}:{normalized}"
+
         is_limited, remaining = await _rate_limiter.is_rate_limited(
-            ip=client_ip,
+            ip=rate_key,
             max_requests=config["max_requests"],
             window_seconds=config["window_seconds"],
         )
