@@ -22,6 +22,10 @@ on:
         required: false
         type: string
 
+concurrency:
+  group: backend-rollback-${{ inputs.environment }}
+  cancel-in-progress: false
+
 jobs:
   rollback:
     name: Rollback ${{ inputs.environment }}
@@ -59,11 +63,18 @@ jobs:
 
       - name: Determine Rollback Target
         id: target
+        env:
+          INPUT_VERSION: ${{ inputs.target_version }}
+          CURRENT_VERSION: ${{ steps.current.outputs.current_version }}
         run: |
-          if [ -n "${{ inputs.target_version }}" ]; then
-            TARGET="${{ inputs.target_version }}"
+          if [ -n "$INPUT_VERSION" ]; then
+            if ! [[ "$INPUT_VERSION" =~ ^[0-9]+$ ]]; then
+              echo "::error::target_version must be a positive integer"
+              exit 1
+            fi
+            TARGET="$INPUT_VERSION"
           else
-            TARGET=$(( ${{ steps.current.outputs.current_version }} - 1 ))
+            TARGET=$(( CURRENT_VERSION - 1 ))
           fi
 
           if [ "$TARGET" -lt 1 ]; then

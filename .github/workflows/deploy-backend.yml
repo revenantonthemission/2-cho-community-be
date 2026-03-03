@@ -24,6 +24,10 @@ on:
           - staging
           - prod
 
+concurrency:
+  group: backend-deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
 jobs:
   deploy:
     name: Deploy to ${{ inputs.environment }}
@@ -139,6 +143,11 @@ jobs:
             --query 'FunctionVersion' --output text 2>/dev/null || echo "none")
 
           aws lambda update-alias \
+            --function-name "$LAMBDA_FUNCTION" \
+            --name "live" \
+            --function-version "$NEW_VERSION" \
+            --region "$AWS_REGION" 2>/dev/null || \
+          aws lambda create-alias \
             --function-name "$LAMBDA_FUNCTION" \
             --name "live" \
             --function-version "$NEW_VERSION" \
