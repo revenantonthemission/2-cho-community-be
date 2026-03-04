@@ -133,6 +133,7 @@ scripts/
 .claude/
 CLAUDE.md
 GEMINI.md
+docs/*
 
 # ===========================
 # Secrets / Certificates
