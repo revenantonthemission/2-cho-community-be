@@ -7,6 +7,8 @@ CREATE TABLE user (
     password varchar(2048) NOT NULL,
     profile_img varchar(2048) NULL,
     role ENUM('user','admin') NOT NULL DEFAULT 'user',
+    suspended_until TIMESTAMP NULL,
+    suspended_reason VARCHAR(500) NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP NULL
@@ -252,4 +254,7 @@ CREATE TABLE post_image (
 
     -- 19. 게시글 이미지 인덱스
     CREATE INDEX idx_post_image_post ON post_image (post_id, sort_order);
+
+    -- 20. 정지 사용자 조회
+    CREATE INDEX idx_user_suspended ON user (suspended_until);
 

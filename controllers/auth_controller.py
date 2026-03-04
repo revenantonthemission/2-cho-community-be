@@ -94,6 +94,19 @@ async def login(
             },
         )
 
+    # 정지된 사용자 로그인 차단
+    if user.is_suspended:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": "account_suspended",
+                "message": "계정이 정지되었습니다.",
+                "suspended_until": user.suspended_until.strftime("%Y-%m-%dT%H:%M:%SZ") if user.suspended_until else None,
+                "suspended_reason": user.suspended_reason,
+                "timestamp": timestamp,
+            },
+        )
+
     access_token = create_access_token(user_id=user.id)
 
     raw_refresh = create_refresh_token()
@@ -177,6 +190,20 @@ async def refresh_token(request: Request, response: Response) -> dict:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"error": "unauthorized", "timestamp": timestamp},
+        )
+
+    # 정지된 사용자 토큰 갱신 차단
+    if user.is_suspended:
+        _clear_refresh_cookie(response)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": "account_suspended",
+                "message": "계정이 정지되었습니다.",
+                "suspended_until": user.suspended_until.strftime("%Y-%m-%dT%H:%M:%SZ") if user.suspended_until else None,
+                "suspended_reason": user.suspended_reason,
+                "timestamp": timestamp,
+            },
         )
 
     # 토큰 회전: DELETE + INSERT를 단일 트랜잭션으로 묶어 원자성 보장

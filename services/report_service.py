@@ -1,10 +1,13 @@
 """report_service: 신고 관련 비즈니스 로직을 처리하는 서비스."""
 
+import logging
 from typing import Dict, List, Optional, Tuple
 
-from models import report_models, post_models, comment_models
+from models import report_models, post_models, comment_models, suspension_models
 from utils.formatters import format_datetime
 from utils.exceptions import not_found_error, bad_request_error
+
+logger = logging.getLogger(__name__)
 
 
 class ReportService:
@@ -84,6 +87,7 @@ class ReportService:
         admin_id: int,
         new_status: str,
         timestamp: str,
+        suspend_days: int | None = None,
     ) -> Dict:
         """신고를 처리합니다.
 
@@ -111,10 +115,32 @@ class ReportService:
         # NOTE: resolve_report와 soft delete는 별도 트랜잭션으로 실행됨.
         # resolve 후 delete 실패 시 관리자가 수동으로 삭제해야 함.
         if new_status == "resolved":
+            author_id = None
             if report.target_type == "post":
+                post_target = await post_models.get_post_by_id(report.target_id)
+                if post_target:
+                    author_id = post_target.author_id
                 await post_models.delete_post(report.target_id)
             elif report.target_type == "comment":
+                comment_target = await comment_models.get_comment_by_id(report.target_id)
+                if comment_target:
+                    author_id = comment_target.author_id
                 await comment_models.delete_comment(report.target_id)
+
+            # 작성자 정지 (관리자 지정 시)
+            # NOTE: 콘텐츠 삭제와 정지는 별도 트랜잭션. 정지 실패 시 로그 기록
+            if suspend_days and author_id:
+                reason = f"신고 처리에 의한 정지 (신고 #{report_id}: {report.reason})"
+                suspended = await suspension_models.suspend_user(
+                    user_id=author_id,
+                    duration_days=suspend_days,
+                    reason=reason,
+                )
+                if not suspended:
+                    logger.warning(
+                        "신고 #%d 처리 중 사용자 %d 정지 실패 (이미 탈퇴했을 수 있음)",
+                        report_id, author_id,
+                    )
 
         return {
             "report_id": resolved.id,

@@ -1,6 +1,6 @@
 """report_schemas: 신고 관련 Pydantic 모델 모듈."""
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 VALID_TARGET_TYPES = {"post", "comment"}
@@ -43,6 +43,10 @@ class ResolveReportRequest(BaseModel):
     """신고 처리 요청 모델."""
 
     status: str = Field(..., description="처리 상태 (resolved, dismissed)")
+    suspend_days: int | None = Field(
+        None, ge=1, le=365,
+        description="사용자 정지 기간 (일, resolved 시에만 적용)"
+    )
 
     @field_validator("status")
     @classmethod
@@ -50,3 +54,10 @@ class ResolveReportRequest(BaseModel):
         if v not in VALID_RESOLVE_STATUSES:
             raise ValueError(f"유효하지 않은 처리 상태입니다: {v}")
         return v
+
+    @model_validator(mode="after")
+    def validate_suspend_only_on_resolved(self):
+        """suspend_days는 resolved 상태에서만 허용합니다."""
+        if self.suspend_days is not None and self.status != "resolved":
+            raise ValueError("정지는 resolved 처리 시에만 적용할 수 있습니다.")
+        return self

@@ -155,6 +155,9 @@ RATE_LIMIT_CONFIG = {
     # 신고 - 스팸 방지
     "/v1/reports": {"max_requests": 10, "window_seconds": 60},
     "/v1/admin/reports": {"max_requests": 30, "window_seconds": 60},
+    # 관리자 사용자 정지 관리
+    "POST:/v1/admin/users/{id}/suspend": {"max_requests": 30, "window_seconds": 60},
+    "DELETE:/v1/admin/users/{id}/suspend": {"max_requests": 30, "window_seconds": 60},
     # Phase 4 엔드포인트 (경로 정규화 후 매칭)
     "POST:/v1/posts/{id}/bookmark": {"max_requests": 30, "window_seconds": 60},
     "DELETE:/v1/posts/{id}/bookmark": {"max_requests": 30, "window_seconds": 60},

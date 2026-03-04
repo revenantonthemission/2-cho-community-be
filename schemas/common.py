@@ -65,7 +65,7 @@ def serialize_user(user) -> dict[str, Any]:
     Returns:
         사용자 정보 딕셔너리.
     """
-    return {
+    result = {
         "user_id": user.id,
         "email": user.email,
         "email_verified": user.email_verified,
@@ -73,3 +73,7 @@ def serialize_user(user) -> dict[str, Any]:
         "profileImageUrl": user.profileImageUrl,
         "role": user.role,
     }
+    if user.suspended_until and user.is_suspended:
+        result["suspended_until"] = user.suspended_until.strftime("%Y-%m-%dT%H:%M:%SZ")
+        result["suspended_reason"] = user.suspended_reason
+    return result

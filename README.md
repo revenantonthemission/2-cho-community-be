@@ -3,7 +3,7 @@ AWS AI School 2기 과제: 커뮤니티 백엔드 서버
 
 ## 요약 (Summary)
 
-커뮤니티 포럼 "아무 말 대잔치"를 구축합니다. FastAPI를 기반으로 하는 비동기 백엔드와 Vanilla JavaScript 프론트엔드로 구성된 모노레포 구조이며, JWT 기반 인증(Access Token + Refresh Token)과 MySQL 데이터베이스를 사용합니다. 게시글 CRUD, 댓글(대댓글 포함), 좋아요, 북마크, 댓글 좋아요, 검색/정렬(인기순 포함), 다중 이미지, 사용자 차단, 공유, 이메일 인증, 알림, 내 활동 조회, 사용자 프로필 기능을 제공합니다.
+커뮤니티 포럼 "아무 말 대잔치"를 구축합니다. FastAPI를 기반으로 하는 비동기 백엔드와 Vanilla JavaScript 프론트엔드로 구성된 모노레포 구조이며, JWT 기반 인증(Access Token + Refresh Token)과 MySQL 데이터베이스를 사용합니다. 게시글 CRUD, 댓글(대댓글 포함), 좋아요, 북마크, 댓글 좋아요, 검색/정렬(인기순 포함), 다중 이미지, 사용자 차단, 공유, 이메일 인증, 알림, 내 활동 조회, 사용자 프로필, 계정 정지(관리자) 기능을 제공합니다.
 
 ## 배경 (Background)
 
@@ -97,6 +97,8 @@ erDiagram
         varchar nickname UK
         varchar profile_image
         enum role "user, admin"
+        timestamp suspended_until "NULL = 미정지"
+        varchar suspended_reason "정지 사유 (최대 500자)"
         boolean email_verified "default FALSE"
         datetime deleted_at
         datetime created_at
@@ -246,6 +248,7 @@ erDiagram
   - `idx_comment_like_comment_id`, `idx_comment_like_user`: 댓글 좋아요 조회
   - `idx_user_block_blocker`, `idx_user_block_blocked`: 차단 조회
   - `idx_post_image_post`: 게시글 이미지 정렬 조회
+  - `idx_user_suspended`: 정지 상태 사용자 조회
 
 ### 3. API 설계
 
@@ -324,7 +327,14 @@ erDiagram
 | ------ | -------- | ---- | ---- |
 | POST | `/v1/reports` | 신고 생성 | O (이메일 인증) |
 | GET | `/v1/admin/reports` | 신고 목록 조회 (`?status=pending\|resolved\|dismissed`) | O (관리자) |
-| PATCH | `/v1/admin/reports/{report_id}` | 신고 처리 (resolved/dismissed) | O (관리자) |
+| PATCH | `/v1/admin/reports/{report_id}` | 신고 처리 (resolved/dismissed, `suspend_days` 옵션) | O (관리자) |
+
+#### 계정 정지 API (`/v1/admin/users`)
+
+| Method | Endpoint | 설명 | 인증 |
+| ------ | -------- | ---- | ---- |
+| POST | `/v1/admin/users/{user_id}/suspend` | 사용자 기간 정지 (1~365일, 사유 필수) | O (관리자) |
+| DELETE | `/v1/admin/users/{user_id}/suspend` | 사용자 정지 해제 | O (관리자) |
 
 #### 응답 형식
 
@@ -480,6 +490,13 @@ sequenceDiagram
 ## Changelog
 
 ### 2026-03 (Mar)
+
+- **03-04: 계정 정지 시스템 (관리자 전용)**
+  - DB: `user.suspended_until` TIMESTAMP + `suspended_reason` VARCHAR(500), `idx_user_suspended` 인덱스
+  - 인증 차단: `_validate_token()`(403), `login()`(403), `refresh_token()`(403) 3중 체크. 자동 만료 (배치 작업 불필요)
+  - 관리자 API: `POST /v1/admin/users/{id}/suspend` (1~365일 기간 정지), `DELETE /v1/admin/users/{id}/suspend` (정지 해제)
+  - 신고 연동: `ResolveReportRequest.suspend_days` 옵션으로 신고 처리 시 작성자 동시 정지. 비원자적 트랜잭션 — 정지 실패 시 로깅
+  - 테스트: 17개 테스트 (인증 차단, 만료 허용, 신고 연동, 입력 검증, 비정지 사용자 해제 방지)
 
 - **03-03: Blue/Green Deployment (Lambda Alias 기반)**
   - CD 파이프라인: `--publish`로 Lambda 버전 발행 → `/health` 직접 호출 health check → `live` alias 전환

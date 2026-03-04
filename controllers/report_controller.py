@@ -94,6 +94,7 @@ async def resolve_report(
         admin_id=current_user.id,
         new_status=report_data.status,
         timestamp=timestamp,
+        suspend_days=report_data.suspend_days,
     )
 
     return create_response(

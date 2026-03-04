@@ -55,6 +55,21 @@ async def _validate_token(request: Request) -> User | None:
             },
         )
 
+    # 정지된 사용자는 API 접근 차단
+    if user.is_suspended:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": "account_suspended",
+                "message": "계정이 정지되었습니다.",
+                "suspended_until": user.suspended_until.strftime("%Y-%m-%dT%H:%M:%SZ") if user.suspended_until else None,
+                "suspended_reason": user.suspended_reason,
+                "timestamp": datetime.now(timezone.utc).strftime(
+                    "%Y-%m-%dT%H:%M:%SZ"
+                ),
+            },
+        )
+
     return user
 
 
@@ -90,6 +105,7 @@ async def get_optional_user(request: Request) -> User | None:
     """선택적으로 현재 사용자를 추출합니다.
 
     인증되지 않은 요청에서도 에러를 발생시키지 않고 None을 반환합니다.
+    정지된 사용자의 403 에러는 전파합니다.
 
     Args:
         request: FastAPI Request 객체.
@@ -99,7 +115,9 @@ async def get_optional_user(request: Request) -> User | None:
     """
     try:
         return await _validate_token(request)
-    except HTTPException:
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_403_FORBIDDEN:
+            raise  # 정지된 사용자 에러는 전파
         return None
 
 
