@@ -43,6 +43,10 @@ class ResolveReportRequest(BaseModel):
     """신고 처리 요청 모델."""
 
     status: str = Field(..., description="처리 상태 (resolved, dismissed)")
+    suspend_days: int | None = Field(
+        None, ge=1, le=365,
+        description="사용자 정지 기간 (일, resolved 시에만 적용)"
+    )
 
     @field_validator("status")
     @classmethod

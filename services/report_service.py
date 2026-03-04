@@ -2,7 +2,7 @@
 
 from typing import Dict, List, Optional, Tuple
 
-from models import report_models, post_models, comment_models
+from models import report_models, post_models, comment_models, suspension_models
 from utils.formatters import format_datetime
 from utils.exceptions import not_found_error, bad_request_error
 
@@ -84,6 +84,7 @@ class ReportService:
         admin_id: int,
         new_status: str,
         timestamp: str,
+        suspend_days: int | None = None,
     ) -> Dict:
         """신고를 처리합니다.
 
@@ -111,10 +112,26 @@ class ReportService:
         # NOTE: resolve_report와 soft delete는 별도 트랜잭션으로 실행됨.
         # resolve 후 delete 실패 시 관리자가 수동으로 삭제해야 함.
         if new_status == "resolved":
+            author_id = None
             if report.target_type == "post":
+                post_target = await post_models.get_post_by_id(report.target_id)
+                if post_target:
+                    author_id = post_target.author_id
                 await post_models.delete_post(report.target_id)
             elif report.target_type == "comment":
+                comment_target = await comment_models.get_comment_by_id(report.target_id)
+                if comment_target:
+                    author_id = comment_target.author_id
                 await comment_models.delete_comment(report.target_id)
+
+            # 작성자 정지 (관리자 지정 시)
+            if suspend_days and author_id:
+                reason = f"신고 처리에 의한 정지 (신고 #{report_id}: {report.reason})"
+                await suspension_models.suspend_user(
+                    user_id=author_id,
+                    duration_days=suspend_days,
+                    reason=reason,
+                )
 
         return {
             "report_id": resolved.id,
