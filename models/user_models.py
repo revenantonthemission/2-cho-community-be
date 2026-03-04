@@ -6,7 +6,7 @@
 import time
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
 from database.connection import get_connection, transactional
 
@@ -38,6 +38,8 @@ class User:
     email_verified: bool = False
     profile_image_url: str | None = None
     role: str = "user"
+    suspended_until: datetime | None = None
+    suspended_reason: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
     deleted_at: datetime | None = None
@@ -53,6 +55,17 @@ class User:
         return self.role == "admin"
 
     @property
+    def is_suspended(self) -> bool:
+        """사용자가 현재 정지 상태인지 확인합니다."""
+        if self.suspended_until is None:
+            return False
+        # MySQL TIMESTAMP는 timezone-naive로 반환될 수 있으므로 UTC 기준 비교
+        suspended = self.suspended_until
+        if suspended.tzinfo is None:
+            suspended = suspended.replace(tzinfo=timezone.utc)
+        return suspended > datetime.now(timezone.utc)
+
+    @property
     def profileImageUrl(self) -> str:
         """프로필 이미지 URL을 반환합니다 (하위 호환성)."""
         # 실제 파일이 assets/profiles/default_profile.jpg 에 위치함
@@ -61,7 +74,8 @@ class User:
 
 # 공통으로 사용되는 SELECT 필드
 USER_SELECT_FIELDS = (
-    "id, email, email_verified, nickname, password, profile_img, role, created_at, updated_at, deleted_at"
+    "id, email, email_verified, nickname, password, profile_img, role, "
+    "suspended_until, suspended_reason, created_at, updated_at, deleted_at"
 )
 
 
@@ -82,9 +96,11 @@ def _row_to_user(row: tuple) -> User:
         password=row[4],
         profile_image_url=row[5],
         role=row[6],
-        created_at=row[7],
-        updated_at=row[8],
-        deleted_at=row[9],
+        suspended_until=row[7],
+        suspended_reason=row[8],
+        created_at=row[9],
+        updated_at=row[10],
+        deleted_at=row[11],
     )
 
 
