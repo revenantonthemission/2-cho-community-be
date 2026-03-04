@@ -103,6 +103,17 @@ async def unsuspend_user(
             },
         )
 
+    # 정지 상태가 아닌 사용자는 해제 불필요
+    if not target_user.is_suspended:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "user_not_suspended",
+                "message": "정지 상태가 아닌 사용자입니다.",
+                "timestamp": timestamp,
+            },
+        )
+
     success = await suspension_models.unsuspend_user(user_id)
 
     if not success:

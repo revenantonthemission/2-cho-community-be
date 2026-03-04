@@ -388,3 +388,50 @@ async def test_suspend_empty_reason(client: AsyncClient, authorized_user, fake):
         json={"duration_days": 7, "reason": "   "},
     )
     assert res.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_unsuspend_not_suspended_user(client: AsyncClient, authorized_user, fake):
+    """SUSPEND-16: 정지 상태가 아닌 사용자를 해제하면 400을 반환한다."""
+    admin_cli, admin_info, _ = authorized_user
+    await _make_admin(admin_info["user_id"])
+
+    _, user_info, _ = await _create_verified_user(client, fake)
+
+    res = await admin_cli.delete(
+        f"/v1/admin/users/{user_info['user_id']}/suspend",
+    )
+    assert res.status_code == 400
+    assert res.json()["detail"]["error"] == "user_not_suspended"
+
+
+@pytest.mark.asyncio
+async def test_report_dismiss_with_suspend_days_rejected(
+    client: AsyncClient, authorized_user, fake,
+):
+    """SUSPEND-17: dismissed 상태에서 suspend_days를 보내면 422를 반환한다."""
+    admin_cli, admin_info, _ = authorized_user
+    await _make_admin(admin_info["user_id"])
+
+    user_token, _, _ = await _create_verified_user(client, fake)
+    post_res = await client.post(
+        "/v1/posts/",
+        json={"title": "Post", "content": "Content", "category_id": 1},
+        headers=_auth(user_token),
+    )
+    post_id = post_res.json()["data"]["post_id"]
+
+    reporter_token, _, _ = await _create_verified_user(client, fake)
+    report_res = await client.post(
+        "/v1/reports",
+        json={"target_type": "post", "target_id": post_id, "reason": "spam"},
+        headers=_auth(reporter_token),
+    )
+    report_id = report_res.json()["data"]["report_id"]
+
+    # dismissed + suspend_days → 422
+    res = await admin_cli.patch(
+        f"/v1/admin/reports/{report_id}",
+        json={"status": "dismissed", "suspend_days": 7},
+    )
+    assert res.status_code == 422
