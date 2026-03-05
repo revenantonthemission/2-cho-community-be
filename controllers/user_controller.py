@@ -15,6 +15,7 @@ from schemas.recovery_schemas import FindEmailRequest, FindPasswordRequest
 from schemas.common import create_response, serialize_user
 from dependencies.request_context import get_request_timestamp
 from utils.upload import save_file
+from models import user_models, block_models
 from services.user_service import UserService
 
 
@@ -25,6 +26,23 @@ def _serialize_public_user(user) -> dict:
         "nickname": user.nickname,
         "profileImageUrl": user.profileImageUrl,
     }
+
+
+async def search_users(q: str, limit: int, current_user, request) -> dict:
+    """닉네임 접두어로 사용자 검색."""
+    if not q or not q.strip():
+        return {"data": [], "request_timestamp": request.state.request_timestamp}
+
+    limit = min(max(limit, 1), 20)
+
+    blocked_ids = await block_models.get_blocked_user_ids(current_user.id)
+    exclude_ids = blocked_ids | {current_user.id}
+
+    results = await user_models.search_users_by_nickname(
+        query=q.strip(), exclude_user_ids=exclude_ids, limit=limit
+    )
+
+    return {"data": results, "request_timestamp": request.state.request_timestamp}
 
 
 async def get_user(user_id: int, request: Request) -> dict:

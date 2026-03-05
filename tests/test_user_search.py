@@ -1,9 +1,10 @@
 """사용자 검색 및 통계 모델 함수 테스트."""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from controllers.user_controller import search_users
 from models.user_models import get_user_stats, search_users_by_nickname
 
 
@@ -127,3 +128,63 @@ class TestGetUserStats:
             "comments_count": 0,
             "likes_received_count": 0,
         }
+
+
+def _make_request():
+    """request.state.request_timestamp를 가진 mock Request 생성."""
+    request = MagicMock()
+    request.state.request_timestamp = "2026-03-05T00:00:00Z"
+    return request
+
+
+def _make_user(user_id=1):
+    """current_user mock 생성."""
+    user = MagicMock()
+    user.id = user_id
+    return user
+
+
+class TestSearchUsersController:
+    """사용자 검색 컨트롤러 함수 테스트."""
+
+    @pytest.mark.asyncio
+    @patch("controllers.user_controller.block_models.get_blocked_user_ids", new_callable=AsyncMock)
+    @patch("controllers.user_controller.user_models.search_users_by_nickname", new_callable=AsyncMock)
+    async def test_search_returns_results(self, mock_search, mock_blocked):
+        """검색 결과가 올바르게 반환된다."""
+        mock_blocked.return_value = set()
+        mock_search.return_value = [
+            {"user_id": 2, "nickname": "alice", "profileImageUrl": "/img.jpg"},
+        ]
+
+        result = await search_users(
+            q="ali", limit=10, current_user=_make_user(), request=_make_request()
+        )
+
+        assert len(result["data"]) == 1
+        assert result["data"][0]["nickname"] == "alice"
+        mock_search.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_search_empty_query_returns_empty(self):
+        """빈 쿼리는 빈 data 리스트를 반환한다."""
+        result = await search_users(
+            q="", limit=10, current_user=_make_user(), request=_make_request()
+        )
+        assert result["data"] == []
+
+    @pytest.mark.asyncio
+    @patch("controllers.user_controller.block_models.get_blocked_user_ids", new_callable=AsyncMock)
+    @patch("controllers.user_controller.user_models.search_users_by_nickname", new_callable=AsyncMock)
+    async def test_search_limit_capped_at_20(self, mock_search, mock_blocked):
+        """limit=50이 20으로 제한된다."""
+        mock_blocked.return_value = set()
+        mock_search.return_value = []
+
+        await search_users(
+            q="test", limit=50, current_user=_make_user(), request=_make_request()
+        )
+
+        # search_users_by_nickname에 전달된 limit이 20인지 확인
+        call_kwargs = mock_search.call_args
+        assert call_kwargs[1]["limit"] == 20

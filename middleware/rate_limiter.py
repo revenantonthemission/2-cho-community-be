@@ -163,6 +163,8 @@ RATE_LIMIT_CONFIG = {
     "DELETE:/v1/posts/{id}/bookmark": {"max_requests": 30, "window_seconds": 60},
     "POST:/v1/posts/{id}/comments/{id}/like": {"max_requests": 30, "window_seconds": 60},
     "DELETE:/v1/posts/{id}/comments/{id}/like": {"max_requests": 30, "window_seconds": 60},
+    # 사용자 검색 - 자동완성 빈도 고려
+    "GET:/v1/users/search": {"max_requests": 30, "window_seconds": 60},
     "POST:/v1/users/{id}/block": {"max_requests": 10, "window_seconds": 60},
     "DELETE:/v1/users/{id}/block": {"max_requests": 10, "window_seconds": 60},
 }
