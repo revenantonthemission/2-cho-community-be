@@ -120,7 +120,7 @@ CREATE TABLE post_view_log (
 CREATE TABLE notification (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id INT UNSIGNED NOT NULL,
-    type ENUM('comment', 'like') NOT NULL,
+    type ENUM('comment', 'like', 'mention') NOT NULL,
     post_id INT UNSIGNED NOT NULL,
     comment_id INT UNSIGNED NULL,
     actor_id INT UNSIGNED NOT NULL,
