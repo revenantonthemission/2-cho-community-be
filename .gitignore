@@ -131,6 +131,7 @@ scripts/
 .agent/
 .gemini/
 .claude/
+.serena/
 CLAUDE.md
 GEMINI.md
 docs/*

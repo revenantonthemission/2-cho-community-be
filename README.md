@@ -3,7 +3,7 @@ AWS AI School 2기 과제: 커뮤니티 백엔드 서버
 
 ## 요약 (Summary)
 
-커뮤니티 포럼 "아무 말 대잔치"를 구축합니다. FastAPI를 기반으로 하는 비동기 백엔드와 Vanilla JavaScript 프론트엔드로 구성된 모노레포 구조이며, JWT 기반 인증(Access Token + Refresh Token)과 MySQL 데이터베이스를 사용합니다. 게시글 CRUD, 댓글(대댓글 포함), 좋아요, 북마크, 댓글 좋아요, 검색/정렬(인기순 포함), 다중 이미지, 사용자 차단, 공유, 이메일 인증, 알림, 내 활동 조회, 사용자 프로필, 계정 정지(관리자) 기능을 제공합니다.
+커뮤니티 포럼 "아무 말 대잔치"를 구축합니다. FastAPI를 기반으로 하는 비동기 백엔드와 Vanilla JavaScript 프론트엔드로 구성된 모노레포 구조이며, JWT 기반 인증(Access Token + Refresh Token)과 MySQL 데이터베이스를 사용합니다. 게시글 CRUD, 댓글(대댓글 포함), 좋아요, 북마크, 댓글 좋아요, 검색/정렬(인기순 포함), 다중 이미지, 사용자 차단, 공유, 이메일 인증, 알림, 내 활동 조회, 사용자 프로필, 계정 정지(관리자), 태그 시스템, 읽은 게시글 표시 기능을 제공합니다.
 
 ## 배경 (Background)
 
@@ -31,6 +31,8 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
 - 알림 시스템을 제공한다. (좋아요/댓글 시 알림 생성, 읽음 처리, 폴링 기반)
 - 내 활동 조회 기능을 제공한다. (내가 쓴 글/댓글, 좋아요한 글, 북마크한 글)
 - 타 사용자 프로필 조회 기능을 제공한다. (공개 프로필, 닉네임 클릭으로 이동, 차단 기능)
+- 태그 시스템을 제공한다. (카테고리 + 태그 병행, 자유 입력, 게시글당 최대 5개, 태그 검색/필터링)
+- 읽은 게시글 표시 기능을 제공한다. (게시글 목록에서 이미 읽은 글 시각적 구분)
 
 ## 목표가 아닌 것 (Non-Goals)
 
@@ -59,7 +61,7 @@ flowchart TD
     Backend -->|"Async Connection Pool"| DB
 
     subgraph DB["MySQL Database"]
-        Tables["user, refresh_token, post, comment,<br/>post_like, image, post_view_log,<br/>email_verification, notification"]
+        Tables["user, refresh_token, post, comment,<br/>post_like, image, post_view_log, tag, post_tag,<br/>email_verification, notification"]
     end
 ```
 
@@ -89,6 +91,8 @@ erDiagram
     post ||--o{ post_view_log : "tracks"
     comment ||--o{ comment_like : "receives likes"
     category ||--o{ post : "classifies"
+    tag ||--o{ post_tag : "tagged"
+    post ||--o{ post_tag : "has tags"
 
     user {
         int id PK
@@ -194,7 +198,7 @@ erDiagram
         int user_id FK "수신자"
         int actor_id FK "발신자"
         int post_id FK
-        enum type "like, comment, reply"
+        enum type "like, comment, reply, mention"
         boolean is_read "default FALSE"
         datetime created_at
     }
@@ -227,6 +231,17 @@ erDiagram
         tinyint sort_order
         datetime created_at
     }
+
+    tag {
+        int id PK
+        varchar name UK "1~30자"
+        datetime created_at
+    }
+
+    post_tag {
+        int post_id PK_FK
+        int tag_id PK_FK
+    }
 ```
 
 #### 주요 설계 결정
@@ -249,6 +264,8 @@ erDiagram
   - `idx_user_block_blocker`, `idx_user_block_blocked`: 차단 조회
   - `idx_post_image_post`: 게시글 이미지 정렬 조회
   - `idx_user_suspended`: 정지 상태 사용자 조회
+  - `idx_tag_name`: 태그 이름 검색
+  - `idx_post_tag_tag_id`: 태그별 게시글 조회
 
 ### 3. API 설계
 
@@ -297,8 +314,8 @@ erDiagram
 
 | Method | Endpoint | 설명 | 인증 |
 | ------ | -------- | ---- | ---- |
-| GET | `/v1/posts` | 게시글 목록 (페이지네이션, `?search=`, `?sort=latest\|likes\|views\|comments\|hot`, `?category_id=`) | X |
-| POST | `/v1/posts` | 게시글 작성 (`category_id` 필수) | O (이메일 인증) |
+| GET | `/v1/posts` | 게시글 목록 (페이지네이션, `?search=`, `?sort=latest\|likes\|views\|comments\|hot`, `?category_id=`, `?tag=태그명`) | X |
+| POST | `/v1/posts` | 게시글 작성 (`category_id` 필수, `tags[]` 선택, 최대 5개) | O (이메일 인증) |
 | GET | `/v1/posts/{post_id}` | 게시글 상세 조회 | X |
 | PATCH | `/v1/posts/{post_id}` | 게시글 수정 | O (작성자) |
 | DELETE | `/v1/posts/{post_id}` | 게시글 삭제 | O (작성자/관리자) |
@@ -314,6 +331,12 @@ erDiagram
 | PUT | `/v1/posts/{post_id}/comments/{comment_id}` | 댓글 수정 | O (작성자) |
 | DELETE | `/v1/posts/{post_id}/comments/{comment_id}` | 댓글 삭제 | O (작성자/관리자) |
 | POST | `/v1/posts/image` | 게시글 이미지 업로드 | O |
+
+#### 태그 API (`/v1/tags`)
+
+| Method | Endpoint | 설명 | 인증 |
+| ------ | -------- | ---- | ---- |
+| GET | `/v1/tags` | 태그 검색 (`?search=키워드`, 상위 10개, post_count 포함) | X |
 
 #### 카테고리 API (`/v1/categories`)
 
@@ -490,6 +513,24 @@ sequenceDiagram
 ## Changelog
 
 ### 2026-03 (Mar)
+
+- **03-06: 태그 시스템**
+  - DB: `tag`(이름 UNIQUE) + `post_tag`(다대다) 테이블, `migration_tags.sql` 마이그레이션
+  - API: 게시글 생성/수정에 `tags[]` 배열 추가 (최대 5개, 소문자 정규화, 자동 생성)
+  - 태그 검색: `GET /v1/tags?search=키워드` (상위 10개, post_count 포함)
+  - 태그 필터: `GET /v1/posts?tag=태그명` (해당 태그가 달린 게시글 필터링)
+  - 테스트: 12개 테스트 (CRUD, 정규화, 검색, 필터링, 제한)
+
+- **03-06: 읽은 게시글 표시**
+  - `post_view_log` 테이블 재활용, `get_read_post_ids()` 벌크 조회 (N+1 방지)
+  - 게시글 목록 응답에 `is_read: bool` 필드 추가 (비로그인 시 항상 false)
+  - 테스트: 3개 테스트 (미읽음, 조회 후 읽음, 비로그인)
+
+- **03-05: @멘션 알림**
+  - 댓글 @닉네임 파싱 → 사용자 조회 → 멘션 알림 생성
+  - `notification.type` ENUM에 `mention` 추가
+  - 자기 자신/중복 알림 방지 (`already_notified` set)
+  - 테스트: 11개 테스트
 
 - **03-04: 계정 정지 시스템 (관리자 전용)**
   - DB: `user.suspended_until` TIMESTAMP + `suspended_reason` VARCHAR(500), `idx_user_suspended` 인덱스
