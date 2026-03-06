@@ -6,6 +6,7 @@
 from pydantic import BaseModel, Field, field_validator
 
 from schemas._image_validators import validate_upload_image_url, validate_upload_image_url_list
+from schemas.poll_schemas import PollCreate
 
 
 class CreatePostRequest(BaseModel):
@@ -24,6 +25,7 @@ class CreatePostRequest(BaseModel):
     image_urls: list[str] | None = None
     category_id: int = Field(..., ge=1)
     tags: list[str] | None = None
+    poll: PollCreate | None = None
 
     @field_validator("tags")
     @classmethod

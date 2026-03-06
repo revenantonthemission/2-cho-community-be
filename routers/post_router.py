@@ -4,10 +4,11 @@
 """
 
 from fastapi import APIRouter, Depends, Query, Request, UploadFile, File, status
-from controllers import post_controller, like_controller, comment_controller, bookmark_controller, comment_like_controller
+from controllers import post_controller, like_controller, comment_controller, bookmark_controller, comment_like_controller, poll_controller
 from dependencies.auth import get_optional_user, require_verified_email, require_admin
 from models.user_models import User
 from schemas.post_schemas import CreatePostRequest, UpdatePostRequest
+from schemas.poll_schemas import PollVoteRequest
 from schemas.comment_schemas import CreateCommentRequest, UpdateCommentRequest
 from models.comment_models import ALLOWED_COMMENT_SORT_OPTIONS
 
@@ -360,3 +361,17 @@ async def unlike_comment(
     return await comment_like_controller.unlike_comment(
         post_id, comment_id, current_user, request
     )
+
+
+# ============ 투표 라우터 ============
+
+
+@post_router.post("/{post_id}/poll/vote", status_code=status.HTTP_200_OK)
+async def vote_on_poll(
+    post_id: int,
+    vote_data: PollVoteRequest,
+    request: Request,
+    current_user: User = Depends(require_verified_email),
+) -> dict:
+    """게시글의 투표에 참여합니다."""
+    return await poll_controller.vote_on_poll(post_id, vote_data, current_user, request)

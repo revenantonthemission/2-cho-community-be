@@ -1,7 +1,7 @@
 """post_service: 게시글 관련 비즈니스 로직을 처리하는 서비스."""
 
 from typing import List, Dict, Tuple, Optional
-from models import post_models, tag_models
+from models import post_models, tag_models, poll_models
 from models.user_models import User
 from models.like_models import get_like
 from models.bookmark_models import get_bookmark
@@ -123,6 +123,11 @@ class PostService:
         # 태그 목록 조회
         post_data["tags"] = await tag_models.get_post_tags(post_id)
 
+        # 투표 데이터 조회
+        post_data["poll"] = await poll_models.get_poll_by_post_id(
+            post_id, current_user_id=current_user.id if current_user else None
+        )
+
         # 5. 댓글 목록 조회
         comments_data = await post_models.get_comments_with_author(
             post_id,
@@ -184,6 +189,15 @@ class PostService:
         if post_data.tags:
             tag_ids = await tag_models.get_or_create_tags(post_data.tags)
             await tag_models.save_post_tags(post.id, tag_ids)
+
+        # 투표 생성
+        if post_data.poll:
+            await poll_models.create_poll(
+                post_id=post.id,
+                question=post_data.poll.question,
+                options=post_data.poll.options,
+                expires_at=post_data.poll.expires_at,
+            )
 
         return post.id
 
