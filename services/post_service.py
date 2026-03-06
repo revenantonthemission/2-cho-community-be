@@ -53,6 +53,16 @@ class PostService:
             if len(content) > 200:
                 post["content"] = content[:200] + "..."
 
+        # 읽음 상태 조회 (로그인 사용자만)
+        if current_user:
+            post_ids = [p["post_id"] for p in posts_data]
+            read_ids = await post_models.get_read_post_ids(current_user.id, post_ids)
+            for post in posts_data:
+                post["is_read"] = post["post_id"] in read_ids
+        else:
+            for post in posts_data:
+                post["is_read"] = False
+
         return posts_data, total_count, has_more
 
     @staticmethod

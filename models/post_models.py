@@ -332,6 +332,20 @@ async def increment_view_count(post_id: int, user_id: int) -> bool:
         return False
 
 
+async def get_read_post_ids(user_id: int, post_ids: list[int]) -> set[int]:
+    """사용자가 조회한 게시글 ID 집합을 반환합니다."""
+    if not post_ids:
+        return set()
+    async with get_connection() as conn:
+        async with conn.cursor() as cur:
+            placeholders = ", ".join(["%s"] * len(post_ids))
+            await cur.execute(
+                f"SELECT DISTINCT post_id FROM post_view_log WHERE user_id = %s AND post_id IN ({placeholders})",
+                [user_id, *post_ids],
+            )
+            return {row[0] for row in await cur.fetchall()}
+
+
 async def get_posts_with_details(
     offset: int = 0,
     limit: int = 10,
