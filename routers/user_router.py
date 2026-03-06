@@ -15,7 +15,7 @@ from fastapi import (
     HTTPException,
 )
 from pydantic import ValidationError
-from controllers import user_controller, activity_controller, block_controller
+from controllers import user_controller, activity_controller, block_controller, follow_controller
 from dependencies.auth import get_current_user, get_optional_user, require_verified_email
 from models.user_models import User
 from schemas.user_schemas import (
@@ -213,6 +213,32 @@ async def get_my_blocks(
     )
 
 
+@user_router.get("/me/following", status_code=status.HTTP_200_OK)
+async def get_my_following(
+    request: Request,
+    offset: int = Query(0, ge=0, description="시작 위치"),
+    limit: int = Query(10, ge=1, le=100, description="조회 수"),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """팔로잉 목록을 조회합니다."""
+    return await follow_controller.get_my_following(
+        current_user, request, offset, limit
+    )
+
+
+@user_router.get("/me/followers", status_code=status.HTTP_200_OK)
+async def get_my_followers(
+    request: Request,
+    offset: int = Query(0, ge=0, description="시작 위치"),
+    limit: int = Query(10, ge=1, le=100, description="조회 수"),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """팔로워 목록을 조회합니다."""
+    return await follow_controller.get_my_followers(
+        current_user, request, offset, limit
+    )
+
+
 @user_router.get("/search", status_code=status.HTTP_200_OK)
 async def search_users(
     request: Request,
@@ -351,3 +377,26 @@ async def unblock_user(
 ) -> dict:
     """사용자 차단을 해제합니다."""
     return await block_controller.unblock_user(user_id, current_user, request)
+
+
+# ============ 사용자 팔로우 라우터 ============
+
+
+@user_router.post("/{user_id}/follow", status_code=status.HTTP_201_CREATED)
+async def follow_user(
+    user_id: int,
+    request: Request,
+    current_user: User = Depends(require_verified_email),
+) -> dict:
+    """사용자를 팔로우합니다."""
+    return await follow_controller.follow_user(user_id, current_user, request)
+
+
+@user_router.delete("/{user_id}/follow", status_code=status.HTTP_200_OK)
+async def unfollow_user(
+    user_id: int,
+    request: Request,
+    current_user: User = Depends(require_verified_email),
+) -> dict:
+    """팔로우를 해제합니다."""
+    return await follow_controller.unfollow_user(user_id, current_user, request)

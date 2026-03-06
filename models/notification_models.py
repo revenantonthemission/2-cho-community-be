@@ -6,7 +6,7 @@ from database.connection import get_connection, transactional
 from schemas.common import build_author_dict
 from utils.formatters import format_datetime
 
-NotificationType = Literal["comment", "like", "mention"]
+NotificationType = Literal["comment", "like", "mention", "follow"]
 
 
 async def create_notification(

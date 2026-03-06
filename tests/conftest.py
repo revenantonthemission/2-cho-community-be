@@ -34,6 +34,7 @@ async def clear_all_data() -> None:
             await cur.execute("TRUNCATE TABLE post")
             await cur.execute("TRUNCATE TABLE tag")
             await cur.execute("TRUNCATE TABLE user_block")
+            await cur.execute("TRUNCATE TABLE user_follow")
             await cur.execute("TRUNCATE TABLE refresh_token")
             await cur.execute("TRUNCATE TABLE category")
             await cur.execute("TRUNCATE TABLE user")

@@ -3,7 +3,7 @@ AWS AI School 2기 과제: 커뮤니티 백엔드 서버
 
 ## 요약 (Summary)
 
-커뮤니티 포럼 "아무 말 대잔치"를 구축합니다. FastAPI를 기반으로 하는 비동기 백엔드와 Vanilla JavaScript 프론트엔드로 구성된 모노레포 구조이며, JWT 기반 인증(Access Token + Refresh Token)과 MySQL 데이터베이스를 사용합니다. 게시글 CRUD, 댓글(대댓글 포함), 좋아요, 북마크, 댓글 좋아요, 검색/정렬(인기순 포함), 다중 이미지, 사용자 차단, 공유, 이메일 인증, 알림, 내 활동 조회, 사용자 프로필, 계정 정지(관리자), 태그 시스템, 읽은 게시글 표시 기능을 제공합니다.
+커뮤니티 포럼 "아무 말 대잔치"를 구축합니다. FastAPI를 기반으로 하는 비동기 백엔드와 Vanilla JavaScript 프론트엔드로 구성된 모노레포 구조이며, JWT 기반 인증(Access Token + Refresh Token)과 MySQL 데이터베이스를 사용합니다. 게시글 CRUD, 댓글(대댓글 포함), 좋아요, 북마크, 댓글 좋아요, 검색/정렬(인기순 포함), 다중 이미지, 사용자 차단, 공유, 이메일 인증, 알림, 내 활동 조회, 사용자 프로필, 계정 정지(관리자), 태그 시스템, 읽은 게시글 표시, 팔로우/팔로잉, 관리자 대시보드, 투표(Poll) 기능을 제공합니다.
 
 ## 배경 (Background)
 
@@ -513,6 +513,27 @@ sequenceDiagram
 ## Changelog
 
 ### 2026-03 (Mar)
+
+- **03-06: 투표(Poll) 시스템**
+  - DB: `poll`, `poll_option`, `poll_vote` 테이블, `migration_polls.sql` 마이그레이션
+  - 게시글 생성 시 투표 동시 생성 (`CreatePostRequest.poll` 필드, 옵션 2~10개, 만료일 선택)
+  - 투표 참여 API: `POST /v1/posts/{id}/poll/vote` (중복 투표 409, 만료 400)
+  - 게시글 상세에 투표 데이터 포함 (옵션별 득표수, 총 투표수, 내 투표, 만료 여부)
+  - 테스트: 9개 테스트
+
+- **03-06: 관리자 대시보드**
+  - 대시보드 요약 API: `GET /v1/admin/dashboard` (총 사용자/게시글/댓글, 오늘 가입자)
+  - 일별 통계 API: 30일간 가입자/게시글/댓글 수 추이
+  - 사용자 관리 API: `GET /v1/admin/users` (검색, 페이지네이션)
+  - 테스트: 5개 테스트
+
+- **03-06: 팔로우/팔로잉 시스템**
+  - DB: `user_follow` 테이블, `notification.type` ENUM에 `follow` 추가
+  - 팔로우/언팔로우 API: `POST/DELETE /v1/users/{id}/follow` (자기 자신/중복 방지)
+  - 내 팔로워/팔로잉 목록: `GET /v1/users/me/followers`, `/me/following`
+  - 프로필에 팔로워/팔로잉 수 + 팔로우 여부 표시
+  - 팔로우한 사용자의 새 게시글 작성 시 팔로워에게 알림 발송
+  - 테스트: 12개 테스트
 
 - **03-06: 태그 시스템**
   - DB: `tag`(이름 UNIQUE) + `post_tag`(다대다) 테이블, `migration_tags.sql` 마이그레이션

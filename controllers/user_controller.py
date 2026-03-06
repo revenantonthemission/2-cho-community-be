@@ -15,7 +15,7 @@ from schemas.recovery_schemas import FindEmailRequest, FindPasswordRequest
 from schemas.common import create_response, serialize_user
 from dependencies.request_context import get_request_timestamp
 from utils.upload import save_file
-from models import user_models, block_models
+from models import user_models, block_models, follow_models
 from services.user_service import UserService
 
 
@@ -74,6 +74,8 @@ async def get_user(user_id: int, request: Request) -> dict:
     profile = _serialize_public_user(user)
     stats = await user_models.get_user_stats(user_id)
     profile.update(stats)
+    follow_counts = await follow_models.get_follow_counts(user_id)
+    profile.update(follow_counts)
 
     return create_response(
         "QUERY_SUCCESS",
@@ -122,10 +124,14 @@ async def get_my_info(current_user: User, request: Request) -> dict:
     """현재 로그인 중인 사용자의 정보를 반환합니다."""
     timestamp = get_request_timestamp(request)
 
+    user_data = serialize_user(current_user)
+    follow_counts = await follow_models.get_follow_counts(current_user.id)
+    user_data.update(follow_counts)
+
     return create_response(
         "AUTH_SUCCESS",
         "현재 로그인 중인 상태입니다.",
-        data={"user": serialize_user(current_user)},
+        data={"user": user_data},
         timestamp=timestamp,
     )
 
@@ -140,6 +146,9 @@ async def get_user_info(user_id: int, current_user: User, request: Request) -> d
     profile = _serialize_public_user(user)
     stats = await user_models.get_user_stats(user_id)
     profile.update(stats)
+    follow_counts = await follow_models.get_follow_counts(user_id)
+    profile.update(follow_counts)
+    profile["is_following"] = await follow_models.is_following(current_user.id, user_id)
 
     return create_response(
         "QUERY_SUCCESS",

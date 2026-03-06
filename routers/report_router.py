@@ -3,7 +3,7 @@
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Query, Request, status
-from controllers import report_controller, suspension_controller
+from controllers import report_controller, suspension_controller, admin_controller
 from dependencies.auth import require_verified_email, require_admin
 from models.user_models import User
 from schemas.report_schemas import CreateReportRequest, ResolveReportRequest
@@ -84,4 +84,30 @@ async def unsuspend_user(
     """사용자 정지를 해제합니다 (관리자 전용)."""
     return await suspension_controller.unsuspend_user(
         user_id, current_user, request
+    )
+
+
+# ============ 관리자 대시보드 ============
+
+
+@report_router.get("/v1/admin/dashboard", status_code=status.HTTP_200_OK)
+async def get_dashboard(
+    request: Request,
+    current_user: User = Depends(require_admin),
+) -> dict:
+    """대시보드 통계를 조회합니다 (관리자 전용)."""
+    return await admin_controller.get_dashboard(current_user, request)
+
+
+@report_router.get("/v1/admin/users", status_code=status.HTTP_200_OK)
+async def get_admin_users(
+    request: Request,
+    current_user: User = Depends(require_admin),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    search: str | None = Query(None, description="닉네임/이메일 검색"),
+) -> dict:
+    """사용자 목록을 조회합니다 (관리자 전용)."""
+    return await admin_controller.get_users(
+        current_user, request, offset, limit, search
     )

@@ -194,9 +194,10 @@ class TestGetUserProfileStats:
     """공개 프로필 응답에 활동 통계가 포함되는지 테스트."""
 
     @pytest.mark.asyncio
+    @patch("controllers.user_controller.follow_models.get_follow_counts", new_callable=AsyncMock)
     @patch("controllers.user_controller.user_models.get_user_stats", new_callable=AsyncMock)
     @patch("controllers.user_controller.UserService.get_user_by_id", new_callable=AsyncMock)
-    async def test_public_profile_includes_stats(self, mock_get_user, mock_stats):
+    async def test_public_profile_includes_stats(self, mock_get_user, mock_stats, mock_follow_counts):
         """비인증 공개 프로필 응답에 활동 통계가 포함된다."""
         user = MagicMock()
         user.id = 2
@@ -208,6 +209,10 @@ class TestGetUserProfileStats:
             "posts_count": 10,
             "comments_count": 20,
             "likes_received_count": 30,
+        }
+        mock_follow_counts.return_value = {
+            "followers_count": 0,
+            "following_count": 0,
         }
 
         result = await get_user(user_id=2, request=_make_request())
