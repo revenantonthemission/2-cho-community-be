@@ -1,7 +1,5 @@
 """post_service: 게시글 관련 비즈니스 로직을 처리하는 서비스."""
 
-import logging
-
 from typing import List, Dict, Tuple, Optional
 from models import post_models, tag_models, poll_models
 from models.user_models import User
