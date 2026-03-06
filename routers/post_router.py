@@ -28,6 +28,7 @@ async def get_posts(
     sort: str = Query("latest", description="정렬: latest, likes, views, comments, hot"),
     author_id: int | None = Query(None, ge=1, description="작성자 ID로 필터링"),
     category_id: int | None = Query(None, ge=1, description="카테고리 ID로 필터링"),
+    tag: str | None = Query(default=None, description="태그 이름으로 필터링"),
     current_user: User | None = Depends(get_optional_user),
 ) -> dict:
     """게시글 목록을 조회합니다.
@@ -52,7 +53,7 @@ async def get_posts(
     return await post_controller.get_posts(
         offset, limit, request, search, sort,
         author_id=author_id, category_id=category_id,
-        current_user=current_user,
+        current_user=current_user, tag=tag,
     )
 
 

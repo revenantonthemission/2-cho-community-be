@@ -191,6 +191,24 @@ CREATE TABLE post_image (
     FOREIGN KEY (post_id) REFERENCES post (id) ON DELETE CASCADE
 );
 
+    -- 태그 테이블
+CREATE TABLE tag (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(30) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_tag_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 게시글-태그 연결 테이블
+CREATE TABLE post_tag (
+    post_id INT UNSIGNED NOT NULL,
+    tag_id BIGINT UNSIGNED NOT NULL,
+    PRIMARY KEY (post_id, tag_id),
+    FOREIGN KEY (post_id) REFERENCES post(id) ON DELETE CASCADE,
+    FOREIGN KEY (tag_id) REFERENCES tag(id) ON DELETE CASCADE,
+    INDEX idx_post_tag_tag_id (tag_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
     -- 성능 최적화 인덱스
     -- 1. 인증/리프레시 토큰 (크리티컬)
     CREATE INDEX idx_refresh_token_hash ON refresh_token (token_hash);

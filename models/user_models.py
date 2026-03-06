@@ -197,6 +197,80 @@ async def get_user_by_nickname(nickname: str) -> User | None:
             return _row_to_user(row) if row else None
 
 
+async def search_users_by_nickname(
+    query: str, exclude_user_ids: set[int], limit: int = 10
+) -> list[dict]:
+    """닉네임 접두어로 사용자 검색. 제외 ID set으로 자기 자신/차단 사용자 필터링."""
+    if not query or not query.strip():
+        return []
+
+    query = query.strip()
+    async with get_connection() as conn:
+        async with conn.cursor() as cur:
+            if exclude_user_ids:
+                placeholders = ",".join(["%s"] * len(exclude_user_ids))
+                sql = (
+                    f"SELECT id, nickname, profile_img FROM user "
+                    f"WHERE nickname LIKE %s AND deleted_at IS NULL "
+                    f"AND id NOT IN ({placeholders}) "
+                    f"ORDER BY nickname LIMIT %s"
+                )
+                params = [f"{query}%", *exclude_user_ids, limit]
+            else:
+                sql = (
+                    "SELECT id, nickname, profile_img FROM user "
+                    "WHERE nickname LIKE %s AND deleted_at IS NULL "
+                    "ORDER BY nickname LIMIT %s"
+                )
+                params = [f"{query}%", limit]
+
+            await cur.execute(sql, params)
+            rows = await cur.fetchall()
+
+    from schemas.common import DEFAULT_PROFILE_IMAGE
+    return [
+        {
+            "user_id": row[0],
+            "nickname": row[1],
+            "profileImageUrl": row[2] or DEFAULT_PROFILE_IMAGE,
+        }
+        for row in rows
+    ]
+
+
+async def get_user_stats(user_id: int) -> dict:
+    """사용자 활동 통계 조회 (게시글 수, 댓글 수, 받은 좋아요 수)."""
+    async with get_connection() as conn:
+        async with conn.cursor() as cur_posts:
+            await cur_posts.execute(
+                "SELECT COUNT(*) FROM post WHERE author_id = %s AND deleted_at IS NULL",
+                (user_id,),
+            )
+            posts_row = await cur_posts.fetchone()
+
+        async with conn.cursor() as cur_comments:
+            await cur_comments.execute(
+                "SELECT COUNT(*) FROM comment WHERE author_id = %s AND deleted_at IS NULL",
+                (user_id,),
+            )
+            comments_row = await cur_comments.fetchone()
+
+        async with conn.cursor() as cur_likes:
+            await cur_likes.execute(
+                "SELECT COUNT(*) FROM post_like pl "
+                "JOIN post p ON pl.post_id = p.id "
+                "WHERE p.author_id = %s AND p.deleted_at IS NULL",
+                (user_id,),
+            )
+            likes_row = await cur_likes.fetchone()
+
+    return {
+        "posts_count": posts_row[0] if posts_row else 0,
+        "comments_count": comments_row[0] if comments_row else 0,
+        "likes_received_count": likes_row[0] if likes_row else 0,
+    }
+
+
 async def get_user_email_by_nickname(nickname: str) -> str | None:
     """닉네임으로 사용자 이메일을 조회합니다 (이메일 찾기용).
 
