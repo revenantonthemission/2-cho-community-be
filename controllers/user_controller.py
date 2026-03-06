@@ -15,6 +15,7 @@ from schemas.recovery_schemas import FindEmailRequest, FindPasswordRequest
 from schemas.common import create_response, serialize_user
 from dependencies.request_context import get_request_timestamp
 from utils.upload import save_file
+from models import user_models, block_models
 from services.user_service import UserService
 
 
@@ -25,6 +26,23 @@ def _serialize_public_user(user) -> dict:
         "nickname": user.nickname,
         "profileImageUrl": user.profileImageUrl,
     }
+
+
+async def search_users(q: str, limit: int, current_user, request) -> dict:
+    """닉네임 접두어로 사용자 검색."""
+    if not q or not q.strip():
+        return {"data": [], "request_timestamp": request.state.request_timestamp}
+
+    limit = min(max(limit, 1), 20)
+
+    blocked_ids = await block_models.get_blocked_user_ids(current_user.id)
+    exclude_ids = blocked_ids | {current_user.id}
+
+    results = await user_models.search_users_by_nickname(
+        query=q.strip(), exclude_user_ids=exclude_ids, limit=limit
+    )
+
+    return {"data": results, "request_timestamp": request.state.request_timestamp}
 
 
 async def get_user(user_id: int, request: Request) -> dict:
@@ -53,10 +71,14 @@ async def get_user(user_id: int, request: Request) -> dict:
     # 별도 try-except 없이 처리 가능 (Global Handler 위임).
     # 단, get_user는 Service에서 user_models.get_user_by_id 호출 후 None이면 not_found_error raise함.
 
+    profile = _serialize_public_user(user)
+    stats = await user_models.get_user_stats(user_id)
+    profile.update(stats)
+
     return create_response(
         "QUERY_SUCCESS",
         "유저 조회에 성공했습니다.",
-        data={"user": _serialize_public_user(user)},
+        data={"user": profile},
         timestamp=timestamp,
     )
 
@@ -115,10 +137,14 @@ async def get_user_info(user_id: int, current_user: User, request: Request) -> d
     # Service Layer 호출
     user = await UserService.get_user_by_id(user_id, timestamp)
 
+    profile = _serialize_public_user(user)
+    stats = await user_models.get_user_stats(user_id)
+    profile.update(stats)
+
     return create_response(
         "QUERY_SUCCESS",
         "유저 조회에 성공했습니다.",
-        data={"user": _serialize_public_user(user)},
+        data={"user": profile},
         timestamp=timestamp,
     )
 

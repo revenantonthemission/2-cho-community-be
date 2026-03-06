@@ -213,6 +213,19 @@ async def get_my_blocks(
     )
 
 
+@user_router.get("/search", status_code=status.HTTP_200_OK)
+async def search_users(
+    request: Request,
+    q: str = "",
+    limit: int = 10,
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """사용자 닉네임 검색 (멘션 자동완성용)."""
+    return await user_controller.search_users(
+        q=q, limit=limit, current_user=current_user, request=request
+    )
+
+
 @user_router.get("/{user_id}", status_code=status.HTTP_200_OK)
 async def get_user(
     user_id: int,
