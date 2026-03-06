@@ -1,7 +1,7 @@
 """post_service: 게시글 관련 비즈니스 로직을 처리하는 서비스."""
 
 from typing import List, Dict, Tuple, Optional
-from models import post_models
+from models import post_models, tag_models
 from models.user_models import User
 from models.like_models import get_like
 from models.bookmark_models import get_bookmark
@@ -23,6 +23,7 @@ class PostService:
         author_id: Optional[int] = None,
         category_id: Optional[int] = None,
         current_user: Optional[User] = None,
+        tag: Optional[str] = None,
     ) -> Tuple[List[Dict], int, bool]:
         """게시글 목록 조회 및 가공."""
         # 차단된 사용자 목록 조회
@@ -36,11 +37,11 @@ class PostService:
         posts_data = await post_models.get_posts_with_details(
             offset, limit, search=search, sort=sort,
             author_id=author_id, category_id=category_id,
-            blocked_user_ids=blocked_ids,
+            blocked_user_ids=blocked_ids, tag=tag,
         )
         total_count = await post_models.get_total_posts_count(
             search=search, author_id=author_id, category_id=category_id,
-            blocked_user_ids=blocked_ids,
+            blocked_user_ids=blocked_ids, tag=tag,
         )
         has_more = offset + limit < total_count
 
@@ -52,6 +53,12 @@ class PostService:
             content = post["content"]
             if len(content) > 200:
                 post["content"] = content[:200] + "..."
+
+        # 3. 태그 벌크 조회
+        post_ids = [p["post_id"] for p in posts_data]
+        tags_map = await tag_models.get_posts_tags(post_ids)
+        for post in posts_data:
+            post["tags"] = tags_map.get(post["post_id"], [])
 
         return posts_data, total_count, has_more
 
@@ -103,6 +110,9 @@ class PostService:
             post_data["image_urls"] = [post_data["image_url"]]
         else:
             post_data["image_urls"] = []
+
+        # 태그 목록 조회
+        post_data["tags"] = await tag_models.get_post_tags(post_id)
 
         # 5. 댓글 목록 조회
         comments_data = await post_models.get_comments_with_author(
@@ -161,6 +171,11 @@ class PostService:
         if image_list:
             await post_models.save_post_images(post.id, image_list)
 
+        # 태그 저장
+        if post_data.tags:
+            tag_ids = await tag_models.get_or_create_tags(post_data.tags)
+            await tag_models.save_post_tags(post.id, tag_ids)
+
         return post.id
 
     @staticmethod
@@ -173,6 +188,7 @@ class PostService:
         timestamp: str,
         category_id: Optional[int] = None,
         image_urls: Optional[list[str]] = None,
+        tags: Optional[list[str]] = None,
     ) -> Dict:
         """게시글 수정."""
         # 1. 존재 확인
@@ -187,7 +203,7 @@ class PostService:
             )
 
         # 3. 변경사항 확인
-        if all(v is None for v in (title, content, image_url, category_id, image_urls)):
+        if all(v is None for v in (title, content, image_url, category_id, image_urls, tags)):
             raise bad_request_error("no_changes_provided", timestamp)
 
         # 4. 다중 이미지 처리
@@ -195,6 +211,11 @@ class PostService:
         if image_urls is not None and len(image_urls) > 0:
             effective_image_url = image_urls[0]
             await post_models.save_post_images(post_id, image_urls)
+
+        # 태그 업데이트 (tags가 None이 아닌 경우에만 변경)
+        if tags is not None:
+            tag_ids = await tag_models.get_or_create_tags(tags)
+            await tag_models.save_post_tags(post_id, tag_ids)
 
         # 5. DB 업데이트
         updated_post = await post_models.update_post(

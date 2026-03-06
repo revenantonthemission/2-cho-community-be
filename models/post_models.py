@@ -93,6 +93,7 @@ async def get_total_posts_count(
     author_id: int | None = None,
     category_id: int | None = None,
     blocked_user_ids: set[int] | None = None,
+    tag: str | None = None,
 ) -> int:
     """삭제되지 않은 게시글의 총 개수를 반환합니다.
 
@@ -127,6 +128,10 @@ async def get_total_posts_count(
                 placeholders = ", ".join(["%s"] * len(blocked_user_ids))
                 where += f" AND (author_id NOT IN ({placeholders}) OR author_id IS NULL)"
                 params.extend(blocked_user_ids)
+
+            if tag:
+                where += " AND EXISTS (SELECT 1 FROM post_tag pt INNER JOIN tag t ON pt.tag_id = t.id WHERE pt.post_id = post.id AND t.name = %s)"
+                params.append(tag)
 
             await cur.execute(
                 f"SELECT COUNT(*) FROM post WHERE {where}",
@@ -340,6 +345,7 @@ async def get_posts_with_details(
     author_id: int | None = None,
     category_id: int | None = None,
     blocked_user_ids: set[int] | None = None,
+    tag: str | None = None,
 ) -> list[dict]:
     """게시글 목록을 작성자 정보, 좋아요 수, 댓글 수, 북마크 수와 함께 조회합니다.
 
@@ -383,6 +389,10 @@ async def get_posts_with_details(
         placeholders = ", ".join(["%s"] * len(blocked_user_ids))
         where += f" AND (p.author_id NOT IN ({placeholders}) OR p.author_id IS NULL)"
         params.extend(blocked_user_ids)
+
+    if tag:
+        where += " AND EXISTS (SELECT 1 FROM post_tag pt INNER JOIN tag t ON pt.tag_id = t.id WHERE pt.post_id = p.id AND t.name = %s)"
+        params.append(tag)
 
     params.extend([limit, offset])
 

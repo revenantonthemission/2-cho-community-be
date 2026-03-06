@@ -23,6 +23,29 @@ class CreatePostRequest(BaseModel):
     image_url: str | None = None
     image_urls: list[str] | None = None
     category_id: int = Field(..., ge=1)
+    tags: list[str] | None = None
+
+    @field_validator("tags")
+    @classmethod
+    def validate_tags(cls, v: list[str] | None) -> list[str] | None:
+        """태그 유효성 검증: 최대 5개, 각 1~30자, 정규화 후 중복 제거."""
+        if v is None:
+            return None
+        from models.tag_models import normalize_tag_name
+        normalized = []
+        seen: set[str] = set()
+        for tag in v:
+            name = normalize_tag_name(tag)
+            if not name:
+                raise ValueError("태그 이름이 비어 있습니다.")
+            if len(name) > 30:
+                raise ValueError(f"태그는 30자 이내여야 합니다: '{name}'")
+            if name not in seen:
+                seen.add(name)
+                normalized.append(name)
+        if len(normalized) > 5:
+            raise ValueError("태그는 최대 5개까지 가능합니다.")
+        return normalized if normalized else None
 
     @field_validator("title")
     @classmethod
@@ -88,6 +111,29 @@ class UpdatePostRequest(BaseModel):
     image_url: str | None = None
     image_urls: list[str] | None = None
     category_id: int | None = Field(None, ge=1)
+    tags: list[str] | None = None
+
+    @field_validator("tags")
+    @classmethod
+    def validate_tags(cls, v: list[str] | None) -> list[str] | None:
+        """태그 유효성 검증: 최대 5개, 각 1~30자, 정규화 후 중복 제거."""
+        if v is None:
+            return None
+        from models.tag_models import normalize_tag_name
+        normalized = []
+        seen: set[str] = set()
+        for tag in v:
+            name = normalize_tag_name(tag)
+            if not name:
+                raise ValueError("태그 이름이 비어 있습니다.")
+            if len(name) > 30:
+                raise ValueError(f"태그는 30자 이내여야 합니다: '{name}'")
+            if name not in seen:
+                seen.add(name)
+                normalized.append(name)
+        if len(normalized) > 5:
+            raise ValueError("태그는 최대 5개까지 가능합니다.")
+        return normalized if normalized else None
 
     @field_validator("image_url")
     @classmethod

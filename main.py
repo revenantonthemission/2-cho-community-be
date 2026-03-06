@@ -16,6 +16,7 @@ from routers.terms_router import terms_router
 from routers.category_router import category_router
 from routers.report_router import report_router
 from routers import notification_router
+from routers.tag_router import tag_router
 from middleware import TimingMiddleware, LoggingMiddleware, RateLimitMiddleware
 from middleware.exception_handler import (
     global_exception_handler,
@@ -103,6 +104,7 @@ app.include_router(user_router)
 app.include_router(post_router)
 app.include_router(terms_router)
 app.include_router(category_router)
+app.include_router(tag_router)
 app.include_router(report_router)
 app.include_router(notification_router.router)
 
