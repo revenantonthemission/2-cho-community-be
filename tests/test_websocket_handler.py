@@ -7,7 +7,7 @@ sys.path에 추가하여 import합니다.
 import json
 import sys
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 
