@@ -167,6 +167,14 @@ RATE_LIMIT_CONFIG = {
     "GET:/v1/users/search": {"max_requests": 30, "window_seconds": 60},
     "POST:/v1/users/{id}/block": {"max_requests": 10, "window_seconds": 60},
     "DELETE:/v1/users/{id}/block": {"max_requests": 10, "window_seconds": 60},
+    # DM(쪽지)
+    "POST:/v1/dms": {"max_requests": 10, "window_seconds": 60},
+    "POST:/v1/dms/{id}/messages": {"max_requests": 30, "window_seconds": 60},
+    "GET:/v1/dms": {"max_requests": 50, "window_seconds": 60},
+    "GET:/v1/dms/unread-count": {"max_requests": 60, "window_seconds": 60},
+    "GET:/v1/dms/{id}": {"max_requests": 50, "window_seconds": 60},
+    "PATCH:/v1/dms/{id}/read": {"max_requests": 30, "window_seconds": 60},
+    "DELETE:/v1/dms/{id}": {"max_requests": 10, "window_seconds": 60},
 }
 
 # 기본 Rate Limit (설정되지 않은 엔드포인트)
