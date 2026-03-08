@@ -17,6 +17,8 @@ async def clear_all_data() -> None:
     async with get_connection() as conn:
         async with conn.cursor() as cur:
             await cur.execute("SET FOREIGN_KEY_CHECKS = 0")
+            await cur.execute("TRUNCATE TABLE dm_message")
+            await cur.execute("TRUNCATE TABLE dm_conversation")
             await cur.execute("TRUNCATE TABLE poll_vote")
             await cur.execute("TRUNCATE TABLE poll_option")
             await cur.execute("TRUNCATE TABLE poll")
