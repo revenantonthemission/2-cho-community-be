@@ -66,6 +66,7 @@ async def like_comment(
                 post_id=post_id,
                 actor_id=current_user.id,
                 comment_id=comment_id,
+                actor_nickname=current_user.nickname,
             )
     except Exception:
         logger.warning("댓글 좋아요 알림 생성 실패", exc_info=True)

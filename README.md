@@ -3,7 +3,7 @@ AWS AI School 2기 과제: 커뮤니티 백엔드 서버
 
 ## 요약 (Summary)
 
-커뮤니티 포럼 "아무 말 대잔치"를 구축합니다. FastAPI를 기반으로 하는 비동기 백엔드와 Vanilla JavaScript 프론트엔드로 구성된 모노레포 구조이며, JWT 기반 인증(Access Token + Refresh Token)과 MySQL 데이터베이스를 사용합니다. 게시글 CRUD, 댓글(대댓글 포함), 좋아요, 북마크, 댓글 좋아요, 검색/정렬(인기순 포함), 다중 이미지, 사용자 차단, 공유, 이메일 인증, 알림, 내 활동 조회, 사용자 프로필, 계정 정지(관리자), 태그 시스템, 읽은 게시글 표시, 팔로우/팔로잉, 관리자 대시보드, 투표(Poll) 기능을 제공합니다.
+커뮤니티 포럼 "아무 말 대잔치"를 구축합니다. FastAPI를 기반으로 하는 비동기 백엔드와 Vanilla JavaScript 프론트엔드로 구성된 모노레포 구조이며, JWT 기반 인증(Access Token + Refresh Token)과 MySQL 데이터베이스를 사용합니다. 게시글 CRUD, 댓글(대댓글 포함), 좋아요, 북마크, 댓글 좋아요, 검색/정렬(인기순 포함), 다중 이미지, 사용자 차단, 공유, 이메일 인증, 실시간 알림(WebSocket), 내 활동 조회, 사용자 프로필, 계정 정지(관리자), 태그 시스템, 읽은 게시글 표시, 팔로우/팔로잉, 관리자 대시보드, 투표(Poll) 기능을 제공합니다.
 
 ## 배경 (Background)
 
@@ -36,7 +36,6 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
 
 ## 목표가 아닌 것 (Non-Goals)
 
-- 실시간 알림 기능 (WebSocket) — 현재는 30초 폴링 방식 사용
 - 소셜 로그인 (OAuth)
 
 ## 계획 (Plan)
@@ -513,6 +512,13 @@ sequenceDiagram
 ## Changelog
 
 ### 2026-03 (Mar)
+
+- **03-08: 실시간 알림 (WebSocket) — 백엔드**
+  - WebSocket Lambda 핸들러: `websocket/` 패키지 (`handler.py`, `dynamo.py`, `auth.py`)
+  - WebSocket Pusher: `utils/websocket_pusher.py` — DynamoDB 조회 → API GW Management API 전송 (best-effort)
+  - 알림 생성 시 실시간 푸시 통합: `notification_models.create_notification()` → `push_to_user()`
+  - 로컬 개발 WebSocket: `routers/websocket_router.py` (DEBUG 전용, 인메모리 연결 관리)
+  - 테스트: 22개 (handler + pusher), 전체 256 passed, 86% coverage
 
 - **03-06: 투표(Poll) 시스템**
   - DB: `poll`, `poll_option`, `poll_vote` 테이블, `migration_polls.sql` 마이그레이션

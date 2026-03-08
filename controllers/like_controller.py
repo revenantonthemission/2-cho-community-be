@@ -62,6 +62,7 @@ async def like_post(
                 notification_type="like",
                 post_id=post_id,
                 actor_id=current_user.id,
+                actor_nickname=current_user.nickname,
             )
     except Exception:
         import logging

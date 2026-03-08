@@ -110,6 +110,10 @@ class Settings(BaseSettings):
     # 프론트엔드 URL (이메일 인증 링크 등에 사용)
     FRONTEND_URL: str = "http://localhost:8080"
 
+    # WebSocket 푸시 설정 (Lambda 환경에서만 설정, 로컬에서는 빈 문자열)
+    WS_DYNAMODB_TABLE: str = ""
+    WS_API_GW_ENDPOINT: str = ""
+
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )

@@ -1,10 +1,13 @@
 """notification_models: 알림 관련 모델."""
 
+import logging
 from typing import Literal
 
 from database.connection import get_connection, transactional
 from schemas.common import build_author_dict
 from utils.formatters import format_datetime
+
+logger = logging.getLogger(__name__)
 
 NotificationType = Literal["comment", "like", "mention", "follow"]
 
@@ -15,11 +18,20 @@ async def create_notification(
     post_id: int,
     actor_id: int,
     comment_id: int | None = None,
+    actor_nickname: str | None = None,
 ) -> None:
-    """알림을 생성합니다. 자기 자신에 대한 알림은 생성하지 않습니다."""
+    """알림을 생성하고 WebSocket으로 실시간 전송합니다.
+
+    자기 자신에 대한 알림은 생성하지 않습니다.
+    WebSocket 전송은 best-effort — 실패해도 DB 저장에 영향 없습니다.
+
+    Args:
+        actor_nickname: 호출부에서 이미 알고 있는 경우 전달하면 DB 조회 생략.
+    """
     if user_id == actor_id:
         return
 
+    notification_id = None
     async with transactional() as cur:
         await cur.execute(
             """
@@ -28,6 +40,42 @@ async def create_notification(
             """,
             (user_id, notification_type, post_id, comment_id, actor_id),
         )
+        notification_id = cur.lastrowid
+
+    # WebSocket 실시간 푸시 (best-effort, transactional 밖에서 실행)
+    if notification_id:
+        try:
+            from utils.websocket_pusher import push_to_user
+
+            # 닉네임이 전달되지 않은 경우에만 DB 조회
+            if actor_nickname is None:
+                async with get_connection() as conn:
+                    async with conn.cursor() as cur:
+                        await cur.execute(
+                            "SELECT nickname FROM user WHERE id = %s AND deleted_at IS NULL",
+                            (actor_id,),
+                        )
+                        row = await cur.fetchone()
+                        if row:
+                            actor_nickname = row[0]
+
+            await push_to_user(user_id, {
+                "type": "notification",
+                "data": {
+                    "notification_id": notification_id,
+                    "notification_type": notification_type,
+                    "post_id": post_id,
+                    "comment_id": comment_id,
+                    "actor_id": actor_id,
+                    "actor_nickname": actor_nickname or "알 수 없는 사용자",
+                },
+            })
+        except Exception:
+            logger.warning(
+                "WebSocket 푸시 실패 (notification_id=%d)",
+                notification_id,
+                exc_info=True,
+            )
 
 
 async def get_notifications(

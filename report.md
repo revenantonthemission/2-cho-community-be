@@ -51,7 +51,7 @@
 | **읽기 중심 워크로드** (게시글 목록·상세 조회가 전체 요청의 ~80%) | DB 읽기 부하 분산, 캐싱 전략 | RDS Read Replica (미적용), CloudFront 캐싱 고려 |
 | **이미지 업로드** (게시글당 최대 5장, 프로필 이미지) | 파일 저장소 내구성, 처리량 확보 | EFS 마운트 (3-AZ 자동 복제), 백업 필요 |
 | **FULLTEXT 검색** (한국어 ngram 파서) | DB CPU 부하 증가, 인덱스 유지 비용 | MySQL FULLTEXT INDEX, 대량 데이터 시 별도 검색 엔진 고려 |
-| **알림 폴링** (30초 간격, 로그인 사용자 전원) | 사용자 수에 비례하는 상시 요청 발생 | DAU 300+ 시 WebSocket 전환 검토 필요 |
+| **실시간 알림** (WebSocket 푸시 + 폴링 폴백) | WebSocket 연결 관리, 상태 저장소 필요 | DynamoDB 연결 매핑 + API GW Management API, 폴링 자동 폴백 |
 | **인증 토큰 관리** (JWT 발급·갱신·폐기) | 토큰 저장소 정합성, 브루트포스 방어 | DB 행 잠금, Rate Limiting (분산 환경 한계 존재) |
 | **동시 쓰기** (좋아요·북마크·댓글 동시 요청) | 경쟁 상태 방지, 트랜잭션 격리 | UNIQUE 제약, READ COMMITTED 격리 수준 |
 | **계정 정지** (관리자 기간 정지, 신고 연동) | 인증 체인 차단, 자동 만료 | 3중 체크 (로그인·토큰·API), `suspended_until` 비교 |
@@ -79,8 +79,16 @@ flowchart TD
         APIGW["API Gateway<br/>HTTP API · CORS"]
     end
 
+    subgraph WSLayer["실시간 알림"]
+        direction LR
+        R53_WS["Route 53<br/>ws.my-community.shop"]
+        APIGW_WS["WebSocket API GW<br/>$connect · $disconnect · $default"]
+    end
+
     subgraph Compute["컴퓨팅 (Private Subnet)"]
+        direction LR
         Lambda["Lambda Container<br/>FastAPI + Mangum<br/>Python 3.13 · 1024 MB"]
+        Lambda_WS["WebSocket Lambda<br/>Python 3.11 · 256 MB"]
     end
 
     subgraph Data["데이터 (Private Subnet)"]
@@ -88,6 +96,7 @@ flowchart TD
         RDS["RDS MySQL 8.0<br/>Multi-AZ Prod · gp3"]
         EFS["EFS<br/>/mnt/uploads"]
         SSM["SSM<br/>SecureString"]
+        DDB["DynamoDB<br/>ws_connections"]
     end
 
     subgraph Ops["운영"]
@@ -108,9 +117,15 @@ flowchart TD
     Browser -- "HTTPS (API 요청)<br/>Bearer Token + Cookie" --> R53
     R53 --> APIGW -- "Lambda 프록시 통합" --> Lambda
 
+    Browser -- "WSS (실시간 알림)" --> R53_WS
+    R53_WS --> APIGW_WS --> Lambda_WS
+
     Lambda -- "비동기 DB 커넥션 풀<br/>5~50개" --> RDS
     Lambda -- "파일 시스템 마운트" --> EFS
     Lambda -. "콜드 스타트 시<br/>시크릿 조회" .-> SSM
+    Lambda -- "알림 푸시<br/>ManageConnections" --> APIGW_WS
+    Lambda -- "연결 조회" --> DDB
+    Lambda_WS -- "연결 매핑" --> DDB
 
     Lambda -. "Metrics · Logs" .-> CW
     APIGW -. "Access Logs" .-> CW
@@ -119,6 +134,7 @@ flowchart TD
     GHA -- "S3 Sync" --> S3
     GHA -. "Invalidation" .-> CF
 
+    style WSLayer fill:#fce4ec,stroke:#c62828
     style Frontend fill:#e3f2fd,stroke:#1565c0
     style APILayer fill:#fff3e0,stroke:#e65100
     style Compute fill:#fce4ec,stroke:#c62828
@@ -425,6 +441,7 @@ flowchart LR
 | **DNS** | Route 53 | 도메인 관리, ACM DNS 검증 |
 | **SSL** | ACM (서울 + 버지니아) | API Gateway용 + CloudFront용 인증서 |
 | **API 라우팅** | API Gateway (HTTP API) | CORS, Lambda 프록시, 접근 로깅 |
+| **실시간 알림** | API Gateway (WebSocket API) + DynamoDB | WebSocket 연결 관리, 실시간 이벤트 푸시 |
 | **컴퓨팅** | Lambda (Container Image) | FastAPI + Mangum 실행 |
 | **컨테이너 레지스트리** | ECR | Docker 이미지 저장, 라이프사이클 관리 |
 | **데이터베이스** | RDS MySQL 8.0 (gp3) | 관계형 데이터, FULLTEXT 검색 |
@@ -1055,7 +1072,7 @@ flowchart TD
 | Aurora Serverless v2 | RDS → Aurora | 자동 스케일링, 최대 128 ACU |
 | S3 이미지 마이그레이션 | EFS → S3 + CloudFront | 이미지 CDN 배포, 무제한 확장 |
 | 3-AZ 확장 | VPC 서브넷 3개 AZ로 확장 | 가용 영역 장애 내성 강화 |
-| 실시간 알림 | WebSocket (API Gateway WebSocket API) | 폴링 제거, 사용자 경험 개선 |
+| ~~실시간 알림~~ | ~~WebSocket (API Gateway WebSocket API)~~ | ~~구현 완료~~ (별도 WebSocket API GW + Lambda + DynamoDB) |
 
 ---
 

@@ -108,6 +108,12 @@ app.include_router(tag_router)
 app.include_router(report_router)
 app.include_router(notification_router.router)
 
+# 로컬 개발 전용 WebSocket 엔드포인트 (프로덕션에서는 별도 Lambda가 담당)
+if settings.DEBUG:
+    from routers.websocket_router import router as ws_router
+
+    app.include_router(ws_router)
+
 # Lambda 환경에서는 /var/task가 읽기 전용
 # Docker 이미지에 assets/profiles/default_profile.jpg가 포함됨
 if os.environ.get("AWS_LAMBDA_EXEC") != "true":

@@ -160,6 +160,7 @@ async def create_comment(
                     post_id=post_id,
                     actor_id=current_user.id,
                     comment_id=comment.id,
+                    actor_nickname=current_user.nickname,
                 )
         else:
             # 일반 댓글 → 게시글 작성자에게 알림
@@ -170,6 +171,7 @@ async def create_comment(
                     post_id=post_id,
                     actor_id=current_user.id,
                     comment_id=comment.id,
+                    actor_nickname=current_user.nickname,
                 )
 
         # 멘션 알림 — 이미 comment 알림을 받은 사용자는 제외
@@ -196,6 +198,7 @@ async def create_comment(
                     post_id=post_id,
                     actor_id=current_user.id,
                     comment_id=comment.id,
+                    actor_nickname=current_user.nickname,
                 )
     except Exception:
         import logging
