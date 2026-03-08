@@ -5,6 +5,7 @@ from datetime import datetime
 
 from database.connection import get_connection, transactional
 from schemas.common import DEFAULT_PROFILE_IMAGE
+from utils.formatters import format_datetime
 
 
 @dataclass
@@ -210,8 +211,8 @@ async def get_conversations(
 
         conversations.append({
             "id": row[0],
-            "last_message_at": row[1],
-            "created_at": row[2],
+            "last_message_at": format_datetime(row[1]),
+            "created_at": format_datetime(row[2]),
             "other_user": {
                 "user_id": row[3],
                 "nickname": other_nickname,
@@ -270,7 +271,7 @@ async def send_message(
             "sender_id": row[2],
             "content": row[3],
             "is_read": bool(row[4]),
-            "created_at": row[5],
+            "created_at": format_datetime(row[5]),
         }
 
 
@@ -309,7 +310,7 @@ async def get_messages(
             "sender_profile_image": row[3] or DEFAULT_PROFILE_IMAGE,
             "content": row[4],
             "is_read": bool(row[5]),
-            "created_at": row[6],
+            "created_at": format_datetime(row[6]),
         })
 
     return messages, total_count

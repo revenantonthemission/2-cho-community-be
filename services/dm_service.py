@@ -28,6 +28,7 @@ async def send_message_and_push(
             "sender_id": sender.id,
             "sender_nickname": sender.nickname,
             "content": content[:100],
+            "created_at": message.get("created_at"),
         })
     except Exception:
         logger.warning(
