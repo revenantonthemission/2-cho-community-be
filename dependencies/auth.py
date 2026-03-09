@@ -182,10 +182,13 @@ async def require_verified_email(
 
 def _is_valid_internal_key(request: Request) -> bool:
     """X-Internal-Key 헤더가 유효한 내부 API 키인지 확인합니다."""
+    import hmac
+
     if not settings.INTERNAL_API_KEY:
         return False
     key = request.headers.get("X-Internal-Key", "")
-    return key == settings.INTERNAL_API_KEY
+    # 타이밍 공격 방지: 상수 시간 비교
+    return hmac.compare_digest(key, settings.INTERNAL_API_KEY)
 
 
 async def require_internal(request: Request) -> None:
@@ -232,7 +235,11 @@ async def require_admin_or_internal(request: Request) -> User | None:
     # JWT 관리자 인증 시도
     try:
         user = await _validate_token(request)
-    except HTTPException:
+    except HTTPException as e:
+        import logging
+        logging.getLogger(__name__).debug(
+            "JWT 인증 실패 (status=%d), 내부 키도 없음", e.status_code,
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={

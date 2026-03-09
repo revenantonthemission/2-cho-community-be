@@ -150,6 +150,12 @@ async def cleanup_tokens(
     refresh_deleted = await cleanup_expired_tokens()
     verification_deleted = await cleanup_expired_verification_tokens()
 
+    import logging
+    logging.getLogger(__name__).info(
+        "토큰 정리 완료: refresh=%d, verification=%d",
+        refresh_deleted, verification_deleted,
+    )
+
     return {
         "status": "success",
         "data": {
