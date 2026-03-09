@@ -8,18 +8,15 @@
 - "unknown" IP에 대한 엄격한 제한
 """
 
-from collections import defaultdict
-from datetime import datetime, timedelta
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
-from typing import Dict, Tuple
-import asyncio
 import logging
 import ipaddress
 import re
 
 from core.config import settings
+from middleware.rate_limiter_base import RateLimiterProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -45,94 +42,29 @@ def is_valid_ip(ip_str: str) -> bool:
         return False
 
 
-class RateLimiter:
-    """메모리 기반 Rate Limiter (LRU 메모리 보호 적용).
+def _create_rate_limiter() -> RateLimiterProtocol:
+    """설정에 따라 Rate Limiter 백엔드를 생성합니다.
 
-    IP 주소별로 요청 횟수를 추적하고 제한합니다.
-    메모리 누수 방지를 위해 최대 추적 IP 수를 제한합니다.
-
-    프로덕션 환경에서는 Redis 기반으로 교체하는 것을 권장합니다.
+    settings.RATE_LIMIT_BACKEND 값에 따라 적절한 구현체를 반환합니다.
+    - "memory": 인메모리 Rate Limiter (로컬 개발, 단일 프로세스)
+    - "dynamodb": DynamoDB 기반 Rate Limiter (프로덕션, 분산 환경)
     """
+    backend = settings.RATE_LIMIT_BACKEND
 
-    def __init__(self, max_tracked_ips: int | None = None):
-        """RateLimiter 초기화.
+    if backend == "memory":
+        from middleware.rate_limiter_memory import MemoryRateLimiter
 
-        Args:
-            max_tracked_ips: 최대 추적 IP 수 (기본: settings.RATE_LIMIT_MAX_IPS).
-        """
-        # {ip: [timestamp, ...]}
-        self._requests: Dict[str, list] = defaultdict(list)
-        self._lock = asyncio.Lock()
-        self.max_tracked_ips = (
-            max_tracked_ips if max_tracked_ips is not None else settings.RATE_LIMIT_MAX_IPS
-        )
+        return MemoryRateLimiter()
 
-    async def is_rate_limited(
-        self, ip: str, max_requests: int, window_seconds: int
-    ) -> Tuple[bool, int]:
-        """요청이 속도 제한에 걸리는지 확인합니다.
+    if backend == "dynamodb":
+        from middleware.rate_limiter_dynamodb import DynamoDBRateLimiter
+        return DynamoDBRateLimiter()
 
-        배치 제거 방식으로 메모리를 보호합니다:
-        1. IP 수가 max_tracked_ips를 초과하면 오래된 IP 10% 일괄 제거
-        2. O(1) 평균 성능 보장 (배치 제거로 인한 분할 상환)
-        3. "unknown" IP는 더 엄격한 제한 적용
-
-        Args:
-            ip: 클라이언트 IP 주소.
-            max_requests: 윈도우 내 최대 요청 수.
-            window_seconds: 시간 윈도우 (초).
-
-        Returns:
-            (제한 여부, 남은 요청 수) 튜플.
-        """
-        async with self._lock:
-            # 메모리 보호: 배치 제거 방식 (성능 최적화)
-            if len(self._requests) >= self.max_tracked_ips:
-                # 10% (1000개)의 오래된 IP를 일괄 제거
-                eviction_count = max(1, self.max_tracked_ips // 10)
-
-                # IP를 마지막 요청 시간 기준으로 정렬 (오래된 순)
-                sorted_ips = sorted(
-                    self._requests.items(),
-                    key=lambda item: max(item[1]) if item[1] else datetime.min
-                )
-
-                # 가장 오래된 IP부터 제거
-                for ip_to_remove, _ in sorted_ips[:eviction_count]:
-                    del self._requests[ip_to_remove]
-
-                logger.warning(
-                    f"Rate Limiter 배치 제거: {eviction_count}개 IP 제거 "
-                    f"(남은 IP: {len(self._requests)}개)"
-                )
-
-            now = datetime.now()
-            window_start = now - timedelta(seconds=window_seconds)
-
-            # 윈도우 내의 요청만 유지
-            self._requests[ip] = [
-                req_time for req_time in self._requests[ip] if req_time > window_start
-            ]
-
-            current_count = len(self._requests[ip])
-
-            # "unknown" IP는 더 엄격한 제한 적용 (10회로 제한)
-            if ip in ("unknown", "0.0.0.0", ""):
-                max_requests = min(max_requests, 10)
-                logger.warning(
-                    f"Unknown IP 감지: {ip}, 엄격한 제한 적용 (최대 {max_requests}회)"
-                )
-
-            if current_count >= max_requests:
-                return True, 0
-
-            # 새 요청 기록
-            self._requests[ip].append(now)
-            return False, max_requests - current_count - 1
+    raise ValueError(f"지원하지 않는 Rate Limiter 백엔드: {backend}")
 
 
-# 전역 Rate Limiter 인스턴스
-_rate_limiter = RateLimiter()
+# 전역 Rate Limiter 인스턴스 (설정 기반 팩토리)
+_rate_limiter = _create_rate_limiter()
 
 
 # 엔드포인트별 Rate Limit 설정

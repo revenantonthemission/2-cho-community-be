@@ -10,12 +10,12 @@
   - `INTERNAL_API_KEY` SSM Parameter Store 통합 (`_resolve_ssm_secrets()` 확장)
   - 테스트: 8 cases (내부 키 인증 + 엔드포인트)
 
-- **03-09: 분산 Rate Limiter — DynamoDB 백엔드**
-  - Protocol 패턴으로 Rate Limiter 백엔드 추상화 (`RateLimiterProtocol`)
-  - DynamoDB Fixed Window Counter 구현 (fail-open, 원자적 카운터)
-  - 팩토리 패턴: `RATE_LIMIT_BACKEND` 환경변수로 `memory`/`dynamodb` 선택
-  - 기존 인메모리 Rate Limiter를 `MemoryRateLimiter`로 분리 (로컬 개발용 유지)
-  - 테스트: 6 cases (DynamoDB 모킹)
+- **03-09: 분산 Rate Limiter (DynamoDB)**
+  - Rate Limiter를 프로토콜 기반으로 리팩토링 (`RateLimiterProtocol` → `MemoryRateLimiter` / `DynamoDBRateLimiter`)
+  - DynamoDB Fixed Window Counter: 수평 확장된 Lambda 인스턴스 간 rate limit 상태 공유
+  - fail-open 정책: DynamoDB 장애 시 요청 허용 (가용성 우선)
+  - 팩토리 패턴: `RATE_LIMIT_BACKEND` 설정으로 백엔드 선택 (`memory` / `dynamodb`)
+  - 테스트: 15 cases (메모리 9 + DynamoDB 6)
 
 - **03-09: 추천 피드(For You Feed) — 개인화 정렬**
   - 사용자 친화도 기반 개인화 추천: 7개 신호(좋아요/북마크/댓글 태그, 조회 카테고리, 팔로우/좋아요/북마크 작성자)

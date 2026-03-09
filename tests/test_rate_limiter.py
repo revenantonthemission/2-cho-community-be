@@ -1,17 +1,18 @@
 """test_rate_limiter: Rate Limiter 미들웨어 단위 테스트."""
 
 import pytest
-from middleware.rate_limiter import RateLimiter, RATE_LIMIT_CONFIG, get_client_ip
+from middleware.rate_limiter import RATE_LIMIT_CONFIG, get_client_ip
+from middleware.rate_limiter_memory import MemoryRateLimiter
 from unittest.mock import MagicMock
 
 
 class TestRateLimiter:
-    """RateLimiter 클래스 단위 테스트."""
+    """MemoryRateLimiter 클래스 단위 테스트."""
 
     @pytest.fixture
     def rate_limiter(self):
-        """새로운 RateLimiter 인스턴스 생성."""
-        return RateLimiter()
+        """새로운 MemoryRateLimiter 인스턴스 생성."""
+        return MemoryRateLimiter(max_tracked_ips=100)
 
     @pytest.mark.asyncio
     async def test_first_request_allowed(self, rate_limiter):
