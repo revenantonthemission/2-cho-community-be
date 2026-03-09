@@ -23,6 +23,7 @@ async def get_posts(
     category_id: int | None = None,
     current_user: User | None = None,
     tag: str | None = None,
+    following: bool = False,
 ) -> dict:
     """
     게시글 목록을 조회합니다.
@@ -76,6 +77,7 @@ async def get_posts(
         offset, limit, search=search, sort=sort,
         author_id=author_id, category_id=category_id,
         current_user=current_user, tag=tag,
+        following=following,
     )
 
     return create_response(
@@ -274,6 +276,40 @@ async def upload_image(
         "IMAGE_UPLOADED",
         "이미지가 업로드되었습니다.",
         data={"url": url},
+        timestamp=timestamp,
+    )
+
+
+async def get_related_posts(
+    post_id: int,
+    request: Request,
+    limit: int = 5,
+    current_user: User | None = None,
+) -> dict:
+    """현재 게시글과 관련된 게시글을 추천합니다.
+
+    Args:
+        post_id: 기준 게시글 ID.
+        request: FastAPI Request 객체.
+        limit: 추천 게시글 수 (1~10, 라우터에서 검증).
+        current_user: 현재 인증된 사용자 (선택적).
+
+    Returns:
+        연관 게시글 목록이 포함된 응답.
+    """
+    timestamp = get_request_timestamp(request)
+
+    posts = await PostService.get_related_posts(
+        post_id, current_user=current_user, limit=limit,
+    )
+
+    if posts is None:
+        raise not_found_error("post", timestamp)
+
+    return create_response(
+        "RELATED_POSTS_RETRIEVED",
+        "연관 게시글 조회에 성공했습니다.",
+        data={"posts": posts},
         timestamp=timestamp,
     )
 

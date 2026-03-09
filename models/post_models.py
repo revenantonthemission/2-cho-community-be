@@ -94,6 +94,7 @@ async def get_total_posts_count(
     category_id: int | None = None,
     blocked_user_ids: set[int] | None = None,
     tag: str | None = None,
+    author_ids: set[int] | None = None,
 ) -> int:
     """삭제되지 않은 게시글의 총 개수를 반환합니다.
 
@@ -102,6 +103,8 @@ async def get_total_posts_count(
         author_id: 작성자 ID로 필터링. None이면 전체 조회.
         category_id: 카테고리 ID로 필터링. None이면 전체 조회.
         blocked_user_ids: 차단된 사용자 ID 집합. 해당 사용자의 게시글 제외.
+        tag: 태그 이름으로 필터링. None이면 전체 조회.
+        author_ids: 작성자 ID 집합으로 필터링 (팔로잉 피드). None이면 전체 조회.
 
     Returns:
         게시글 총 개수.
@@ -128,6 +131,11 @@ async def get_total_posts_count(
                 placeholders = ", ".join(["%s"] * len(blocked_user_ids))
                 where += f" AND (author_id NOT IN ({placeholders}) OR author_id IS NULL)"
                 params.extend(blocked_user_ids)
+
+            if author_ids:
+                placeholders = ", ".join(["%s"] * len(author_ids))
+                where += f" AND author_id IN ({placeholders})"
+                params.extend(author_ids)
 
             if tag:
                 where += " AND EXISTS (SELECT 1 FROM post_tag pt INNER JOIN tag t ON pt.tag_id = t.id WHERE pt.post_id = post.id AND t.name = %s)"
@@ -360,6 +368,7 @@ async def get_posts_with_details(
     category_id: int | None = None,
     blocked_user_ids: set[int] | None = None,
     tag: str | None = None,
+    author_ids: set[int] | None = None,
 ) -> list[dict]:
     """게시글 목록을 작성자 정보, 좋아요 수, 댓글 수, 북마크 수와 함께 조회합니다.
 
@@ -375,6 +384,8 @@ async def get_posts_with_details(
         author_id: 작성자 ID로 필터링. None이면 전체 조회.
         category_id: 카테고리 ID로 필터링. None이면 전체 조회.
         blocked_user_ids: 차단된 사용자 ID 집합. 해당 사용자의 게시글 제외.
+        tag: 태그 이름으로 필터링. None이면 전체 조회.
+        author_ids: 작성자 ID 집합으로 필터링 (팔로잉 피드). None이면 전체 조회.
 
     Returns:
         게시글 상세 정보 딕셔너리 목록.
@@ -403,6 +414,12 @@ async def get_posts_with_details(
         placeholders = ", ".join(["%s"] * len(blocked_user_ids))
         where += f" AND (p.author_id NOT IN ({placeholders}) OR p.author_id IS NULL)"
         params.extend(blocked_user_ids)
+
+    # 팔로잉 피드: 특정 작성자 ID 집합으로 필터링
+    if author_ids:
+        placeholders = ", ".join(["%s"] * len(author_ids))
+        where += f" AND p.author_id IN ({placeholders})"
+        params.extend(author_ids)
 
     if tag:
         where += " AND EXISTS (SELECT 1 FROM post_tag pt INNER JOIN tag t ON pt.tag_id = t.id WHERE pt.post_id = p.id AND t.name = %s)"
@@ -601,6 +618,125 @@ async def get_post_images(post_id: int) -> list[dict]:
             rows = await cur.fetchall()
             return [
                 {"id": row[0], "image_url": row[1], "sort_order": row[2]}
+                for row in rows
+            ]
+
+
+async def get_related_posts(
+    current_post_id: int,
+    category_id: int | None,
+    tag_ids: list[int],
+    limit: int = 5,
+    blocked_user_ids: set[int] | None = None,
+) -> list[dict]:
+    """현재 게시글과 관련된 게시글을 태그/카테고리 기반으로 조회합니다.
+
+    태그 매칭 수 → 같은 카테고리 → hot score 순으로 정렬합니다.
+
+    Args:
+        current_post_id: 현재 게시글 ID (결과에서 제외).
+        category_id: 현재 게시글의 카테고리 ID.
+        tag_ids: 현재 게시글의 태그 ID 목록.
+        limit: 최대 반환 개수.
+        blocked_user_ids: 차단된 사용자 ID 집합.
+
+    Returns:
+        연관 게시글 딕셔너리 목록.
+    """
+    where = "p.deleted_at IS NULL AND p.id != %s"
+    params: list = [current_post_id]
+
+    if blocked_user_ids:
+        placeholders = ", ".join(["%s"] * len(blocked_user_ids))
+        where += f" AND (p.author_id NOT IN ({placeholders}) OR p.author_id IS NULL)"
+        params.extend(blocked_user_ids)
+
+    # 태그 매칭 서브쿼리: tag_ids가 있으면 LEFT JOIN으로 매칭 수 계산
+    if tag_ids:
+        tag_placeholders = ", ".join(["%s"] * len(tag_ids))
+        tag_join = f"LEFT JOIN post_tag pt ON p.id = pt.post_id AND pt.tag_id IN ({tag_placeholders})"
+        tag_select = "COUNT(pt.tag_id) AS matched_tags"
+        tag_params = list(tag_ids)
+    else:
+        tag_join = ""
+        tag_select = "0 AS matched_tags"
+        tag_params = []
+
+    # 같은 카테고리 보너스
+    if category_id is not None:
+        same_category = "CASE WHEN p.category_id = %s THEN 1 ELSE 0 END AS same_category"
+        cat_params = [category_id]
+    else:
+        same_category = "0 AS same_category"
+        cat_params = []
+
+    params.extend([limit])
+
+    async with get_connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                f"""
+                SELECT
+                    p.id, p.title, p.content, p.image_url, p.views,
+                    p.created_at, p.updated_at,
+                    u.id, u.nickname, u.profile_img,
+                    COALESCE(likes.count, 0) AS likes_count,
+                    COALESCE(comments.count, 0) AS comments_count,
+                    p.is_pinned, p.category_id, cat.name AS category_name,
+                    COALESCE(bk.count, 0) AS bookmarks_count,
+                    {tag_select},
+                    {same_category},
+                    (COALESCE(likes.count, 0) * 3
+                     + COALESCE(comments.count, 0) * 2
+                     + p.views * 0.5)
+                    / POW(TIMESTAMPDIFF(HOUR, p.created_at, NOW()) + 2, 1.5)
+                    AS hot_score
+                FROM post p
+                LEFT JOIN user u ON p.author_id = u.id
+                LEFT JOIN category cat ON p.category_id = cat.id
+                {tag_join}
+                LEFT JOIN (
+                    SELECT post_id, COUNT(*) AS count
+                    FROM post_like
+                    GROUP BY post_id
+                ) likes ON p.id = likes.post_id
+                LEFT JOIN (
+                    SELECT post_id, COUNT(*) AS count
+                    FROM comment
+                    WHERE deleted_at IS NULL
+                    GROUP BY post_id
+                ) comments ON p.id = comments.post_id
+                LEFT JOIN (
+                    SELECT post_id, COUNT(*) AS count
+                    FROM post_bookmark
+                    GROUP BY post_id
+                ) bk ON p.id = bk.post_id
+                WHERE {where}
+                GROUP BY p.id
+                ORDER BY matched_tags DESC, same_category DESC, hot_score DESC
+                LIMIT %s
+                """,
+                [*cat_params, *tag_params, *params],
+            )
+            rows = await cur.fetchall()
+
+            return [
+                {
+                    "post_id": row[0],
+                    "title": row[1],
+                    "content": row[2],
+                    "image_url": row[3],
+                    "views_count": row[4],
+                    "created_at": row[5],
+                    "updated_at": row[6],
+                    "author": build_author_dict(row[7], row[8], row[9]),
+                    "likes_count": row[10],
+                    "comments_count": row[11],
+                    "is_pinned": bool(row[12]),
+                    "category_id": row[13],
+                    "category_name": row[14],
+                    "bookmarks_count": row[15],
+                }
                 for row in rows
             ]
 
