@@ -513,6 +513,12 @@ sequenceDiagram
 
 ### 2026-03 (Mar)
 
+- **03-09: Quick Wins — 팔로잉 피드 + 연관 게시글 추천**
+  - 팔로잉 피드: `GET /v1/posts?following=true` — 팔로우한 사용자의 게시글만 필터링
+  - 연관 게시글: `GET /v1/posts/{id}/related?limit=5` — 태그 매칭 + 카테고리 + hot score 기반 추천
+  - 팔로우 Rate Limit 보강: `POST/DELETE /v1/users/{id}/follow` (10 req/60s)
+  - 연관 게시글 Rate Limit: `GET /v1/posts/{id}/related` (30 req/60s)
+
 - **03-08: 실시간 알림 (WebSocket) — 백엔드**
   - WebSocket Lambda 핸들러: `websocket/` 패키지 (`handler.py`, `dynamo.py`, `auth.py`)
   - WebSocket Pusher: `utils/websocket_pusher.py` — DynamoDB 조회 → API GW Management API 전송 (best-effort)
