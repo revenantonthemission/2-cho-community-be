@@ -881,7 +881,7 @@ async def main():
         print("=" * 50)
         print(f"✓ 시드 완료! 소요 시간: {elapsed.total_seconds():.1f}초")
         print("=" * 50)
-        print(f"  로그인: user1@example.com / Test1234! (admin)")
+        print("  로그인: user1@example.com / Test1234! (admin)")
         print(f"  일반: user2@example.com ~ user{cfg['users']}@example.com / Test1234!")
         print("=" * 50)
 
