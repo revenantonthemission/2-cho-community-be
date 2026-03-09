@@ -103,6 +103,8 @@ async def get_total_posts_count(
         author_id: 작성자 ID로 필터링. None이면 전체 조회.
         category_id: 카테고리 ID로 필터링. None이면 전체 조회.
         blocked_user_ids: 차단된 사용자 ID 집합. 해당 사용자의 게시글 제외.
+        tag: 태그 이름으로 필터링. None이면 전체 조회.
+        author_ids: 작성자 ID 집합으로 필터링 (팔로잉 피드). None이면 전체 조회.
 
     Returns:
         게시글 총 개수.
@@ -382,6 +384,8 @@ async def get_posts_with_details(
         author_id: 작성자 ID로 필터링. None이면 전체 조회.
         category_id: 카테고리 ID로 필터링. None이면 전체 조회.
         blocked_user_ids: 차단된 사용자 ID 집합. 해당 사용자의 게시글 제외.
+        tag: 태그 이름으로 필터링. None이면 전체 조회.
+        author_ids: 작성자 ID 집합으로 필터링 (팔로잉 피드). None이면 전체 조회.
 
     Returns:
         게시글 상세 정보 딕셔너리 목록.
