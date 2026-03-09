@@ -365,6 +365,93 @@ async def test_send_long_message(client: AsyncClient, authorized_user):
 
 
 @pytest.mark.asyncio
+async def test_delete_message(client: AsyncClient, authorized_user):
+    """메시지 삭제 후 조회 시 is_deleted=True, content=None."""
+    cli, _, _ = authorized_user
+    target_cli, target_info = await _create_second_user(client)
+
+    async with target_cli:
+        conv_res = await cli.post(
+            "/v1/dms",
+            json={"recipient_id": target_info["user_id"]},
+        )
+        conv_id = conv_res.json()["data"]["conversation"]["id"]
+
+        # 메시지 전송
+        msg_res = await cli.post(
+            f"/v1/dms/{conv_id}/messages",
+            json={"content": "삭제할 메시지"},
+        )
+        msg_id = msg_res.json()["data"]["message"]["id"]
+
+        # 메시지 삭제
+        del_res = await cli.delete(f"/v1/dms/{conv_id}/messages/{msg_id}")
+        assert del_res.status_code == 200
+
+        # 조회 시 is_deleted=True, content=None
+        get_res = await cli.get(f"/v1/dms/{conv_id}")
+        assert get_res.status_code == 200
+        messages = get_res.json()["data"]["messages"]
+        deleted_msg = [m for m in messages if m["id"] == msg_id][0]
+        assert deleted_msg["is_deleted"] is True
+        assert deleted_msg["content"] is None
+
+
+@pytest.mark.asyncio
+async def test_delete_message_not_owner(client: AsyncClient, authorized_user):
+    """상대방 메시지 삭제 시도 → 403."""
+    cli, _, _ = authorized_user
+    target_cli, target_info = await _create_second_user(client)
+
+    async with target_cli:
+        conv_res = await cli.post(
+            "/v1/dms",
+            json={"recipient_id": target_info["user_id"]},
+        )
+        conv_id = conv_res.json()["data"]["conversation"]["id"]
+
+        # 상대방이 메시지 전송
+        msg_res = await target_cli.post(
+            f"/v1/dms/{conv_id}/messages",
+            json={"content": "상대방 메시지"},
+        )
+        msg_id = msg_res.json()["data"]["message"]["id"]
+
+        # 내가 상대방 메시지 삭제 시도
+        del_res = await cli.delete(f"/v1/dms/{conv_id}/messages/{msg_id}")
+        assert del_res.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_delete_message_already_deleted(client: AsyncClient, authorized_user):
+    """중복 삭제 → 400."""
+    cli, _, _ = authorized_user
+    target_cli, target_info = await _create_second_user(client)
+
+    async with target_cli:
+        conv_res = await cli.post(
+            "/v1/dms",
+            json={"recipient_id": target_info["user_id"]},
+        )
+        conv_id = conv_res.json()["data"]["conversation"]["id"]
+
+        # 메시지 전송
+        msg_res = await cli.post(
+            f"/v1/dms/{conv_id}/messages",
+            json={"content": "두 번 삭제"},
+        )
+        msg_id = msg_res.json()["data"]["message"]["id"]
+
+        # 첫 번째 삭제
+        del_res1 = await cli.delete(f"/v1/dms/{conv_id}/messages/{msg_id}")
+        assert del_res1.status_code == 200
+
+        # 두 번째 삭제 (이미 삭제됨)
+        del_res2 = await cli.delete(f"/v1/dms/{conv_id}/messages/{msg_id}")
+        assert del_res2.status_code == 400
+
+
+@pytest.mark.asyncio
 async def test_dm_unauthorized(client: AsyncClient):
     """미인증 사용자 DM 접근 (401)."""
     res = await client.get("/v1/dms")

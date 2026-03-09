@@ -114,6 +114,7 @@ RATE_LIMIT_CONFIG = {
     "GET:/v1/dms/unread-count": {"max_requests": 60, "window_seconds": 60},
     "GET:/v1/dms/{id}": {"max_requests": 50, "window_seconds": 60},
     "PATCH:/v1/dms/{id}/read": {"max_requests": 30, "window_seconds": 60},
+    "DELETE:/v1/dms/{id}/messages/{id}": {"max_requests": 20, "window_seconds": 60},
     "DELETE:/v1/dms/{id}": {"max_requests": 10, "window_seconds": 60},
 }
 

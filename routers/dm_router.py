@@ -67,6 +67,21 @@ async def send_message(
     )
 
 
+@router.delete(
+    "/{conversation_id}/messages/{message_id}",
+    dependencies=[Depends(require_verified_email)],
+)
+async def delete_message(
+    conversation_id: int,
+    message_id: int,
+    request: Request,
+    current_user: User = Depends(require_verified_email),
+):
+    return await dm_controller.delete_message(
+        conversation_id, message_id, current_user, request
+    )
+
+
 @router.patch("/{conversation_id}/read")
 async def mark_read(
     conversation_id: int,
