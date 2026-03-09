@@ -2,6 +2,14 @@
 
 ## 2026-03 (Mar)
 
+- **03-09: 추천 피드(For You Feed) — 개인화 정렬**
+  - 사용자 친화도 기반 개인화 추천: 7개 신호(좋아요/북마크/댓글 태그, 조회 카테고리, 팔로우/좋아요/북마크 작성자)
+  - 아키텍처: `affinity_models.py`(SQL) → `affinity_scorer.py`(순수 Python) → `feed_service.py`(배치)
+  - DB: `user_post_score` 테이블, 30분 주기 배치 갱신 (Lambda: 관리자 엔드포인트로 외부 트리거)
+  - `GET /v1/posts/?sort=for_you` + `POST /v1/admin/feed/recompute` (관리자 전용)
+  - 콜드 스타트 폴백, 다양성 필터 (작성자당 최대 3개), 기존 필터와 자유 조합
+  - 테스트: 22 cases, 전체 303 passed
+
 - **03-09: 팔로잉 피드 + 연관 게시글 추천**
   - 팔로잉 피드: `GET /v1/posts?following=true` — 팔로우한 사용자의 게시글만 필터링
   - 연관 게시글: `GET /v1/posts/{id}/related?limit=5` — 태그 매칭 + 카테고리 + hot score 기반 추천
