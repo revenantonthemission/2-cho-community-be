@@ -8,7 +8,8 @@ import json
 import logging
 import os
 
-from dynamo import save_connection, authenticate_connection, delete_connection
+from dynamo import save_connection, authenticate_connection, delete_connection, \
+    get_user_id_for_connection, get_connections_for_user
 from auth import verify_token
 
 logger = logging.getLogger(__name__)
@@ -70,6 +71,8 @@ def _handle_message(connection_id: str, body: dict) -> dict:
     지원 메시지 타입:
     - auth: JWT 인증 (첫 메시지로 전송 필수)
     - ping: 연결 유지 heartbeat
+    - typing_start: 타이핑 시작 이벤트 중계
+    - typing_stop: 타이핑 중지 이벤트 중계
     """
     msg_type = body.get("type")
 
@@ -80,8 +83,41 @@ def _handle_message(connection_id: str, body: dict) -> dict:
         _send_to_connection(connection_id, {"type": "pong"})
         return {"statusCode": 200}
 
+    if msg_type in ("typing_start", "typing_stop"):
+        return _handle_typing(connection_id, body, msg_type)
+
     # 알 수 없는 메시지 타입은 무시 (에러 전파 안 함)
     logger.debug("무시된 메시지 타입: %s", msg_type)
+    return {"statusCode": 200}
+
+
+def _handle_typing(connection_id: str, body: dict, msg_type: str) -> dict:
+    """타이핑 이벤트를 상대방에게 중계합니다."""
+    conversation_id = body.get("conversation_id")
+    if not conversation_id:
+        return {"statusCode": 400}
+
+    # 발신자 확인
+    sender_id = get_user_id_for_connection(connection_id)
+    if not sender_id:
+        return {"statusCode": 401}
+
+    # 상대방 user_id는 클라이언트가 전달 (DynamoDB에서 대화 정보 미저장)
+    try:
+        recipient_id = int(body.get("recipient_id", ""))
+    except (TypeError, ValueError):
+        return {"statusCode": 400}
+
+    # 상대방의 모든 연결에 전달
+    connections = get_connections_for_user(recipient_id)
+    payload = {
+        "type": msg_type,
+        "conversation_id": conversation_id,
+        "sender_id": sender_id,
+    }
+    for conn_id in connections:
+        _send_to_connection(conn_id, payload)
+
     return {"statusCode": 200}
 
 

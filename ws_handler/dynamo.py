@@ -74,6 +74,17 @@ def delete_connection(connection_id: str) -> None:
     logger.debug("연결 삭제: %s", connection_id)
 
 
+def get_user_id_for_connection(connection_id: str) -> int | None:
+    """connection_id에 해당하는 인증된 user_id를 반환합니다."""
+    table = _get_table()
+    response = table.get_item(Key={"connection_id": connection_id})
+    item = response.get("Item")
+    if not item or not item.get("authenticated"):
+        return None
+    user_id = item.get("user_id", _UNAUTHENTICATED_USER_ID)
+    return user_id if user_id != _UNAUTHENTICATED_USER_ID else None
+
+
 def get_connections_for_user(user_id: int) -> list[str]:
     """사용자의 모든 인증된 connection_id를 반환합니다."""
     if user_id == _UNAUTHENTICATED_USER_ID:
