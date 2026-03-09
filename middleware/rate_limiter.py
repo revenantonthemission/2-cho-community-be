@@ -158,6 +158,9 @@ RATE_LIMIT_CONFIG = {
     # 관리자 사용자 정지 관리
     "POST:/v1/admin/users/{id}/suspend": {"max_requests": 30, "window_seconds": 60},
     "DELETE:/v1/admin/users/{id}/suspend": {"max_requests": 30, "window_seconds": 60},
+    # 내부 배치 작업 (EventBridge 호출)
+    "POST:/v1/admin/cleanup/tokens": {"max_requests": 5, "window_seconds": 60},
+    "POST:/v1/admin/feed/recompute": {"max_requests": 5, "window_seconds": 60},
     # Phase 4 엔드포인트 (경로 정규화 후 매칭)
     "POST:/v1/posts/{id}/bookmark": {"max_requests": 30, "window_seconds": 60},
     "DELETE:/v1/posts/{id}/bookmark": {"max_requests": 30, "window_seconds": 60},
