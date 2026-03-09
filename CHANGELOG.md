@@ -2,6 +2,13 @@
 
 ## 2026-03 (Mar)
 
+- **03-10: DM 기능 개선**
+  - 메시지 삭제 API 추가 (`DELETE /v1/dms/{id}/messages/{msg_id}`, soft delete)
+  - 삭제된 메시지 플레이스홀더 표시, 대화 목록 프리뷰 반영, unread count 제외
+  - `GET /v1/dms/{id}` 응답에 `other_user` 객체 추가
+  - 읽음 확인 WebSocket 푸시 (`message_read` 이벤트)
+  - WebSocket Lambda: 타이핑 인디케이터 중계 (`typing_start`/`typing_stop`)
+
 - **03-09: EventBridge 배치 작업 전환 — 수평 확장 대응**
   - `main.py`의 인프로세스 배치 작업(토큰 정리, 피드 점수 재계산) 제거 → EventBridge 스케줄 기반으로 전환
   - 내부 API 인증: `X-Internal-Key` 헤더 기반 `require_internal` / `require_admin_or_internal` 이중 인증

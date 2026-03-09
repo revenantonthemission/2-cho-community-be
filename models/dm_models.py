@@ -157,7 +157,7 @@ async def get_conversations(
                     u.profile_img,
                     u.deleted_at AS user_deleted_at,
                     (
-                        SELECT m.content
+                        SELECT IF(m.deleted_at IS NULL, m.content, NULL)
                         FROM dm_message m
                         WHERE m.conversation_id = c.id
                         ORDER BY m.created_at DESC
@@ -176,6 +176,7 @@ async def get_conversations(
                         WHERE m.conversation_id = c.id
                           AND m.sender_id != %s
                           AND m.is_read = 0
+                          AND m.deleted_at IS NULL
                     ) AS unread_count
                 FROM dm_conversation c
                 JOIN user u ON u.id = IF(
@@ -200,14 +201,26 @@ async def get_conversations(
         last_content = row[7]
         last_sender_id = row[8]
 
-        # 마지막 메시지 내용 100자 truncate
+        # last_content가 None이고 last_sender_id가 있으면 삭제된 메시지
+        # (IF(deleted_at IS NULL, content, NULL) 서브쿼리에서 삭제 시 NULL 반환)
+        last_msg_deleted = last_sender_id is not None and last_content is None
+
+        # 마지막 메시지 내용 100자 truncate (삭제된 메시지는 content=None)
         last_message = None
-        if last_content is not None:
-            truncated = last_content[:100] + ("..." if len(last_content) > 100 else "")
-            last_message = {
-                "content": truncated,
-                "is_mine": last_sender_id == user_id,
-            }
+        if last_sender_id is not None:
+            if last_msg_deleted:
+                last_message = {
+                    "content": None,
+                    "is_mine": last_sender_id == user_id,
+                    "is_deleted": True,
+                }
+            elif last_content is not None:
+                truncated = last_content[:100] + ("..." if len(last_content) > 100 else "")
+                last_message = {
+                    "content": truncated,
+                    "is_mine": last_sender_id == user_id,
+                    "is_deleted": False,
+                }
 
         conversations.append({
             "id": row[0],
@@ -290,7 +303,7 @@ async def get_messages(
             await cur.execute(
                 """
                 SELECT m.id, m.sender_id, u.nickname, u.profile_img,
-                       m.content, m.is_read, m.created_at
+                       m.content, m.is_read, m.created_at, m.deleted_at
                 FROM dm_message m
                 JOIN user u ON m.sender_id = u.id
                 WHERE m.conversation_id = %s
@@ -303,14 +316,16 @@ async def get_messages(
 
     messages = []
     for row in rows:
+        is_deleted = row[7] is not None
         messages.append({
             "id": row[0],
             "sender_id": row[1],
             "sender_nickname": row[2] or "탈퇴한 사용자",
             "sender_profile_image": row[3] or DEFAULT_PROFILE_IMAGE,
-            "content": row[4],
+            "content": None if is_deleted else row[4],
             "is_read": bool(row[5]),
             "created_at": format_datetime(row[6]),
+            "is_deleted": is_deleted,
         })
 
     return messages, total_count
@@ -330,6 +345,7 @@ async def mark_as_read(conversation_id: int, reader_id: int) -> int:
             WHERE conversation_id = %s
               AND sender_id != %s
               AND is_read = 0
+              AND deleted_at IS NULL
             """,
             (conversation_id, reader_id),
         )
@@ -349,10 +365,47 @@ async def get_unread_conversation_count(user_id: int) -> int:
                   AND c.deleted_at IS NULL
                   AND m.sender_id != %s
                   AND m.is_read = 0
+                  AND m.deleted_at IS NULL
                 """,
                 (user_id, user_id, user_id),
             )
             return (await cur.fetchone())[0]
+
+
+async def delete_message(
+    conversation_id: int, message_id: int, sender_id: int
+) -> dict | None:
+    """메시지를 soft delete합니다. 본인 메시지만 삭제 가능."""
+    async with transactional() as cur:
+        await cur.execute(
+            """
+            SELECT id, conversation_id, sender_id, deleted_at
+            FROM dm_message
+            WHERE id = %s AND conversation_id = %s
+            """,
+            (message_id, conversation_id),
+        )
+        row = await cur.fetchone()
+        if not row:
+            return None
+
+        msg = {
+            "id": row[0],
+            "conversation_id": row[1],
+            "sender_id": row[2],
+            "already_deleted": row[3] is not None,
+        }
+        if msg["sender_id"] != sender_id:
+            msg["forbidden"] = True
+            return msg
+        if msg["already_deleted"]:
+            return msg
+
+        await cur.execute(
+            "UPDATE dm_message SET deleted_at = CURRENT_TIMESTAMP WHERE id = %s",
+            (message_id,),
+        )
+        return msg
 
 
 async def delete_conversation(conversation_id: int) -> bool:

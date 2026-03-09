@@ -435,6 +435,7 @@ erDiagram
 | GET | `/v1/dms/{conversation_id}` | 메시지 목록 | O |
 | DELETE | `/v1/dms/{conversation_id}` | 대화 삭제 (soft delete) | O |
 | POST | `/v1/dms/{conversation_id}/messages` | 메시지 전송 | O |
+| DELETE | `/v1/dms/{conversation_id}/messages/{message_id}` | 메시지 삭제 (soft delete) | O (작성자) |
 | PATCH | `/v1/dms/{conversation_id}/read` | 읽음 처리 | O |
 
 ### 투표 API
@@ -455,10 +456,13 @@ erDiagram
 | 이벤트 | 설명 |
 | --- | --- |
 | `$connect` | JWT 인증 핸드셰이크, DynamoDB 연결 저장 |
-| `$default` | Heartbeat (30초 주기 ping/pong) |
+| `$default` | Heartbeat (30초 주기 ping/pong), `typing_start`/`typing_stop` 이벤트 중계 |
 | `$disconnect` | DynamoDB 연결 삭제 |
 | `notification` | 실시간 알림 푸시 (like, comment, mention, follow) |
 | `dm` | 실시간 DM 메시지 수신 |
+| `message_deleted` | DM 메시지 삭제 알림 (conversation_id, message_id) |
+| `message_read` | DM 읽음 처리 알림 (conversation_id, read_count) |
+| `typing` | 타이핑 인디케이터 (conversation_id, sender_id, type: start/stop) |
 
 ### 응답 형식
 
