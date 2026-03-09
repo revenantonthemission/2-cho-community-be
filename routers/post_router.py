@@ -48,6 +48,8 @@ async def get_posts(
         sort: 정렬 옵션 (latest, likes, views, comments).
         author_id: 작성자 ID로 필터링 (선택).
         category_id: 카테고리 ID로 필터링 (선택).
+        tag: 태그명으로 필터링 (선택).
+        following: True이면 팔로우한 사용자의 게시글만 조회 (로그인 필요, 비로그인 시 무시).
 
     Returns:
         게시글 목록과 페이지네이션 정보가 포함된 응답.
