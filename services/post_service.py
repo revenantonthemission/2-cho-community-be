@@ -26,6 +26,7 @@ class PostService:
         category_id: Optional[int] = None,
         current_user: Optional[User] = None,
         tag: Optional[str] = None,
+        following: bool = False,
     ) -> Tuple[List[Dict], int, bool]:
         """게시글 목록 조회 및 가공."""
         # 차단된 사용자 목록 조회
@@ -35,15 +36,24 @@ class PostService:
             if not blocked_ids:
                 blocked_ids = None
 
+        # 팔로잉 피드 처리
+        author_ids: set[int] | None = None
+        if following and current_user:
+            author_ids = await follow_models.get_following_ids(current_user.id)
+            if not author_ids:
+                return ([], 0, False)
+
         # 1. DB 조회
         posts_data = await post_models.get_posts_with_details(
             offset, limit, search=search, sort=sort,
             author_id=author_id, category_id=category_id,
             blocked_user_ids=blocked_ids, tag=tag,
+            author_ids=author_ids,
         )
         total_count = await post_models.get_total_posts_count(
             search=search, author_id=author_id, category_id=category_id,
             blocked_user_ids=blocked_ids, tag=tag,
+            author_ids=author_ids,
         )
         has_more = offset + limit < total_count
 
