@@ -3,7 +3,7 @@ AWS AI School 2기 과제: 커뮤니티 백엔드 서버
 
 ## 요약 (Summary)
 
-커뮤니티 포럼 "아무 말 대잔치"를 구축합니다. FastAPI를 기반으로 하는 비동기 백엔드와 Vanilla JavaScript 프론트엔드로 구성된 모노레포 구조이며, JWT 기반 인증(Access Token + Refresh Token)과 MySQL 데이터베이스를 사용합니다. 게시글 CRUD, 댓글(대댓글 포함), 좋아요, 북마크, 댓글 좋아요, 검색/정렬(인기순 포함), 다중 이미지, 사용자 차단, 공유, 이메일 인증, 실시간 알림(WebSocket), 내 활동 조회, 사용자 프로필, 계정 정지(관리자), 태그 시스템, 읽은 게시글 표시, 팔로우/팔로잉, 관리자 대시보드, 투표(Poll) 기능을 제공합니다.
+커뮤니티 포럼 "아무 말 대잔치"를 구축합니다. FastAPI를 기반으로 하는 비동기 백엔드와 Vanilla JavaScript 프론트엔드로 구성된 모노레포 구조이며, JWT 기반 인증(Access Token + Refresh Token)과 MySQL 데이터베이스를 사용합니다. 게시글 CRUD, 댓글(대댓글 포함), 좋아요, 북마크, 댓글 좋아요, 검색/정렬(인기순 포함), 다중 이미지, 사용자 차단, 공유, 이메일 인증, 실시간 알림(WebSocket), 내 활동 조회, 사용자 프로필, 계정 정지(관리자), 태그 시스템, 읽은 게시글 표시, 팔로우/팔로잉, 관리자 대시보드, 투표(Poll), DM(쪽지) 기능을 제공합니다.
 
 ## 배경 (Background)
 
@@ -33,6 +33,12 @@ AWS AI School 2기의 개인 프로젝트로 커뮤니티 서비스를 개발해
 - 타 사용자 프로필 조회 기능을 제공한다. (공개 프로필, 닉네임 클릭으로 이동, 차단 기능)
 - 태그 시스템을 제공한다. (카테고리 + 태그 병행, 자유 입력, 게시글당 최대 5개, 태그 검색/필터링)
 - 읽은 게시글 표시 기능을 제공한다. (게시글 목록에서 이미 읽은 글 시각적 구분)
+- 팔로우/팔로잉 기능을 제공한다. (팔로우/언팔로우, 팔로워/팔로잉 목록, 새 게시글 알림)
+- 관리자 대시보드를 제공한다. (총 사용자/게시글/댓글 통계, 일별 추이, 사용자 관리)
+- 투표(Poll) 기능을 제공한다. (게시글에 투표 첨부, 옵션 2~10개, 만료일, 중복 투표 방지)
+- 실시간 알림을 제공한다. (WebSocket 우선 + 폴링 폴백, DynamoDB 연결 관리)
+- @멘션 알림 기능을 제공한다. (댓글에서 @닉네임 파싱, 멘션 알림 생성)
+- DM(쪽지) 기능을 제공한다. (1:1 비공개 메시지, 대화 목록, 읽음 처리, WebSocket 실시간 수신)
 
 ## 목표가 아닌 것 (Non-Goals)
 
@@ -60,7 +66,7 @@ flowchart TD
     Backend -->|"Async Connection Pool"| DB
 
     subgraph DB["MySQL Database"]
-        Tables["user, refresh_token, post, comment,<br/>post_like, image, post_view_log, tag, post_tag,<br/>email_verification, notification"]
+        Tables["user, refresh_token, post, comment,<br/>post_like, post_bookmark, comment_like, user_block,<br/>post_image, image, post_view_log, tag, post_tag,<br/>email_verification, notification, category, report,<br/>user_follow, poll, poll_option, poll_vote,<br/>dm_conversation, dm_message"]
     end
 ```
 
@@ -92,6 +98,13 @@ erDiagram
     category ||--o{ post : "classifies"
     tag ||--o{ post_tag : "tagged"
     post ||--o{ post_tag : "has tags"
+    user ||--o{ user_follow : "follows"
+    user ||--o{ poll_vote : "votes"
+    post ||--o{ poll : "has poll"
+    poll ||--o{ poll_option : "has options"
+    poll_option ||--o{ poll_vote : "receives"
+    user ||--o{ dm_conversation : "participates"
+    dm_conversation ||--o{ dm_message : "contains"
 
     user {
         int id PK
@@ -197,7 +210,7 @@ erDiagram
         int user_id FK "수신자"
         int actor_id FK "발신자"
         int post_id FK
-        enum type "like, comment, reply, mention"
+        enum type "like, comment, reply, mention, follow"
         boolean is_read "default FALSE"
         datetime created_at
     }
@@ -241,6 +254,51 @@ erDiagram
         int post_id PK_FK
         int tag_id PK_FK
     }
+
+    user_follow {
+        int id PK
+        int follower_id FK
+        int following_id FK
+        datetime created_at
+    }
+
+    poll {
+        int id PK
+        int post_id FK
+        varchar question
+        datetime expires_at
+        datetime created_at
+    }
+
+    poll_option {
+        int id PK
+        int poll_id FK
+        varchar text
+        int sort_order
+    }
+
+    poll_vote {
+        int id PK
+        int poll_option_id FK
+        int user_id FK
+        datetime created_at
+    }
+
+    dm_conversation {
+        int id PK
+        int participant1_id FK "MIN(user_id)"
+        int participant2_id FK "MAX(user_id)"
+        datetime last_message_at
+        datetime created_at
+    }
+
+    dm_message {
+        int id PK
+        int conversation_id FK
+        int sender_id FK
+        text content
+        datetime created_at
+    }
 ```
 
 #### 주요 설계 결정
@@ -265,6 +323,13 @@ erDiagram
   - `idx_user_suspended`: 정지 상태 사용자 조회
   - `idx_tag_name`: 태그 이름 검색
   - `idx_post_tag_tag_id`: 태그별 게시글 조회
+  - `idx_user_follow_follower`: 팔로워 목록 조회
+  - `idx_user_follow_following`: 팔로잉 목록 조회
+  - `idx_poll_post_id`: 게시글별 투표 조회
+  - `idx_poll_vote_option`: 옵션별 투표 집계
+  - `idx_poll_vote_user`: 사용자별 투표 조회
+  - `idx_dm_conversation_participants`: 참가자별 대화 조회
+  - `idx_dm_message_conversation`: 대화별 메시지 목록 조회
 
 ### 3. API 설계
 
@@ -357,6 +422,40 @@ erDiagram
 | ------ | -------- | ---- | ---- |
 | POST | `/v1/admin/users/{user_id}/suspend` | 사용자 기간 정지 (1~365일, 사유 필수) | O (관리자) |
 | DELETE | `/v1/admin/users/{user_id}/suspend` | 사용자 정지 해제 | O (관리자) |
+
+#### 팔로우 API
+
+| Method | Endpoint | 설명 | 인증 |
+| ------ | -------- | ---- | ---- |
+| POST | `/v1/users/{user_id}/follow` | 팔로우 | O (이메일 인증) |
+| DELETE | `/v1/users/{user_id}/follow` | 언팔로우 | O (이메일 인증) |
+| GET | `/v1/users/me/followers` | 내 팔로워 목록 | O |
+| GET | `/v1/users/me/following` | 내 팔로잉 목록 | O |
+
+#### 투표 API
+
+| Method | Endpoint | 설명 | 인증 |
+| ------ | -------- | ---- | ---- |
+| POST | `/v1/posts/{post_id}/poll/vote` | 투표 참여 (중복 409, 만료 400) | O (이메일 인증) |
+
+#### 관리자 대시보드 API
+
+| Method | Endpoint | 설명 | 인증 |
+| ------ | -------- | ---- | ---- |
+| GET | `/v1/admin/dashboard` | 대시보드 요약 통계 + 일별 추이 | O (관리자) |
+| GET | `/v1/admin/users` | 사용자 관리 목록 (검색+페이지네이션) | O (관리자) |
+
+#### DM API (`/v1/dms`)
+
+| Method | Endpoint | 설명 | 인증 |
+| ------ | -------- | ---- | ---- |
+| GET | `/v1/dms` | 대화 목록 조회 | O |
+| POST | `/v1/dms` | 대화 시작 (recipient_id) | O |
+| GET | `/v1/dms/unread-count` | 읽지 않은 대화 수 | O |
+| GET | `/v1/dms/{conversation_id}` | 메시지 목록 조회 | O |
+| DELETE | `/v1/dms/{conversation_id}` | 대화 삭제 (soft delete) | O |
+| POST | `/v1/dms/{conversation_id}/messages` | 메시지 전송 (1~2000자) | O |
+| PATCH | `/v1/dms/{conversation_id}/read` | 읽음 처리 | O |
 
 #### 응답 형식
 
@@ -512,6 +611,13 @@ sequenceDiagram
 ## Changelog
 
 ### 2026-03 (Mar)
+
+- **03-08: DM(쪽지) 시스템**
+  - DB: `dm_conversation` (MIN/MAX 참가자 정규화, UNIQUE) + `dm_message` 테이블
+  - 대화 시작/목록/메시지 전송/삭제/읽음 처리 API
+  - 차단 사용자 간 대화/메시지 전송 403 차단
+  - WebSocket `type: "dm"` 이벤트로 실시간 수신
+  - 테스트: 14개 테스트, 전체 270 passed, 87% coverage
 
 - **03-08: 실시간 알림 (WebSocket) — 백엔드**
   - WebSocket Lambda 핸들러: `websocket/` 패키지 (`handler.py`, `dynamo.py`, `auth.py`)
