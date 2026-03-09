@@ -3,7 +3,6 @@
 애플리케이션 설정, 미들웨어 구성, 라우터 등록, 전역 예외 핸들러를 설정합니다.
 """
 
-import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -31,43 +30,7 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from mangum import Mangum
 
 
-_TOKEN_CLEANUP_INTERVAL_HOURS = 1
-_FEED_SCORE_INTERVAL_MINUTES = 30
-
 logger = logging.getLogger("api")
-
-
-async def _periodic_token_cleanup() -> None:
-    """만료된 토큰을 주기적으로 정리하는 백그라운드 작업.
-
-    Refresh Token과 이메일 인증 토큰을 함께 정리합니다.
-    """
-    from models.token_models import cleanup_expired_tokens
-    from models.verification_models import cleanup_expired_verification_tokens
-
-    while True:
-        await asyncio.sleep(_TOKEN_CLEANUP_INTERVAL_HOURS * 3600)
-        try:
-            await cleanup_expired_tokens()
-        except Exception:
-            logger.exception("Refresh Token 정리 중 오류 발생")
-        try:
-            await cleanup_expired_verification_tokens()
-        except Exception:
-            logger.exception("이메일 인증 토큰 정리 중 오류 발생")
-
-
-async def _periodic_feed_score_refresh() -> None:
-    """추천 피드 점수를 주기적으로 재계산하는 백그라운드 작업."""
-    from services.feed_service import FeedService
-
-    while True:
-        await asyncio.sleep(_FEED_SCORE_INTERVAL_MINUTES * 60)
-        try:
-            result = await FeedService.recompute_all_scores()
-            logger.info("피드 점수 재계산 완료: %s", result)
-        except Exception:
-            logger.exception("피드 점수 재계산 중 오류 발생")
 
 
 @asynccontextmanager
@@ -75,20 +38,12 @@ async def lifespan(app: FastAPI):
     """애플리케이션 생명주기 관리.
 
     시작 시 데이터베이스 연결 풀을 초기화하고,
-    만료 토큰 정리 작업을 스케줄링하며,
-    종료 시 백그라운드 작업과 연결 풀을 정리합니다.
+    종료 시 연결 풀을 정리합니다.
+
+    배치 작업(토큰 정리, 피드 점수 재계산)은 EventBridge 스케줄로 실행됩니다.
     """
     await init_db()
-    cleanup_task = asyncio.create_task(_periodic_token_cleanup())
-    # Lambda 환경에서는 배경 작업 실행 불가 (단일 요청 수명)
-    # 프로덕션에서는 EventBridge 등 외부 트리거로 /v1/admin/feed/recompute 호출
-    feed_task = None
-    if os.environ.get("AWS_LAMBDA_EXEC") != "true":
-        feed_task = asyncio.create_task(_periodic_feed_score_refresh())
     yield
-    cleanup_task.cancel()
-    if feed_task:
-        feed_task.cancel()
     await close_db()
 
 

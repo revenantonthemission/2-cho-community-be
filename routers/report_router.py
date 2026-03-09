@@ -4,7 +4,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, Query, Request, status
 from controllers import report_controller, suspension_controller, admin_controller
-from dependencies.auth import require_verified_email, require_admin
+from dependencies.auth import require_verified_email, require_admin, require_admin_or_internal
 from models.user_models import User
 from schemas.report_schemas import CreateReportRequest, ResolveReportRequest
 from schemas.suspension_schemas import SuspendUserRequest
@@ -119,13 +119,41 @@ async def get_admin_users(
 @report_router.post("/v1/admin/feed/recompute", status_code=status.HTTP_200_OK)
 async def recompute_feed_scores(
     request: Request,
-    current_user: User = Depends(require_admin),
+    current_user: User | None = Depends(require_admin_or_internal),
 ) -> dict:
-    """추천 피드 점수를 수동으로 재계산합니다 (관리자 전용).
+    """추천 피드 점수를 수동으로 재계산합니다 (관리자 또는 내부 호출).
 
-    프로덕션(Lambda)에서는 EventBridge 등 외부 트리거로 호출합니다.
+    관리자 UI에서 수동 호출하거나 EventBridge 스케줄로 자동 호출합니다.
     """
     from services.feed_service import FeedService
 
     result = await FeedService.recompute_all_scores()
     return {"status": "success", "data": result}
+
+
+# ============ 내부 배치 작업 ============
+
+
+@report_router.post("/v1/admin/cleanup/tokens", status_code=status.HTTP_200_OK)
+async def cleanup_tokens(
+    request: Request,
+    current_user: User | None = Depends(require_admin_or_internal),
+) -> dict:
+    """만료된 토큰을 정리합니다 (관리자 또는 내부 호출).
+
+    Refresh Token과 이메일 인증 토큰을 일괄 삭제합니다.
+    EventBridge 스케줄로 주기적으로 호출합니다.
+    """
+    from models.token_models import cleanup_expired_tokens
+    from models.verification_models import cleanup_expired_verification_tokens
+
+    refresh_deleted = await cleanup_expired_tokens()
+    verification_deleted = await cleanup_expired_verification_tokens()
+
+    return {
+        "status": "success",
+        "data": {
+            "refresh_tokens_deleted": refresh_deleted,
+            "verification_tokens_deleted": verification_deleted,
+        },
+    }

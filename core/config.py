@@ -18,6 +18,7 @@ def _resolve_ssm_secrets() -> None:
     ssm_mappings = {
         "DB_PASSWORD": os.getenv("DB_PASSWORD_SSM_NAME"),
         "SECRET_KEY": os.getenv("SECRET_KEY_SSM_NAME"),
+        "INTERNAL_API_KEY": os.getenv("INTERNAL_API_KEY_SSM_NAME"),
     }
 
     params_to_fetch = {k: v for k, v in ssm_mappings.items() if v}
@@ -111,6 +112,9 @@ class Settings(BaseSettings):
 
     # 프론트엔드 URL (이메일 인증 링크 등에 사용)
     FRONTEND_URL: str = "http://localhost:8080"
+
+    # 내부 API 인증 키 (EventBridge 등 자동화된 호출에서 사용)
+    INTERNAL_API_KEY: str = ""
 
     # WebSocket 푸시 설정 (Lambda 환경에서만 설정, 로컬에서는 빈 문자열)
     WS_DYNAMODB_TABLE: str = ""

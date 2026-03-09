@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 from fastapi import Depends, HTTPException, Request, status
 
+from core.config import settings
 from dependencies.request_context import get_request_timestamp
 from models import user_models
 from models.user_models import User
@@ -177,3 +178,78 @@ async def require_verified_email(
             },
         )
     return current_user
+
+
+def _is_valid_internal_key(request: Request) -> bool:
+    """X-Internal-Key 헤더가 유효한 내부 API 키인지 확인합니다."""
+    if not settings.INTERNAL_API_KEY:
+        return False
+    key = request.headers.get("X-Internal-Key", "")
+    return key == settings.INTERNAL_API_KEY
+
+
+async def require_internal(request: Request) -> None:
+    """내부 API 호출 인증을 요구합니다.
+
+    EventBridge 등 자동화된 호출에서 X-Internal-Key 헤더로 인증합니다.
+
+    Args:
+        request: FastAPI Request 객체.
+
+    Raises:
+        HTTPException: 키가 없거나 유효하지 않으면 403.
+    """
+    if not _is_valid_internal_key(request):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": "forbidden",
+                "message": "유효한 내부 API 키가 필요합니다.",
+                "timestamp": get_request_timestamp(request),
+            },
+        )
+
+
+async def require_admin_or_internal(request: Request) -> User | None:
+    """관리자 JWT 또는 내부 API 키 인증을 요구합니다.
+
+    관리자 UI에서는 JWT로, EventBridge 등 자동화에서는 X-Internal-Key로 인증합니다.
+    내부 키 인증 시 사용자 객체 없이 None을 반환합니다.
+
+    Args:
+        request: FastAPI Request 객체.
+
+    Returns:
+        관리자 사용자 객체 또는 None (내부 키 인증 시).
+
+    Raises:
+        HTTPException: 두 인증 모두 실패 시 403.
+    """
+    # 내부 API 키 우선 확인
+    if _is_valid_internal_key(request):
+        return None
+
+    # JWT 관리자 인증 시도
+    try:
+        user = await _validate_token(request)
+    except HTTPException:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": "forbidden",
+                "message": "관리자 권한 또는 내부 API 키가 필요합니다.",
+                "timestamp": get_request_timestamp(request),
+            },
+        )
+
+    if not user or not user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": "forbidden",
+                "message": "관리자 권한 또는 내부 API 키가 필요합니다.",
+                "timestamp": get_request_timestamp(request),
+            },
+        )
+
+    return user
