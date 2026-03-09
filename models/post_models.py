@@ -94,6 +94,7 @@ async def get_total_posts_count(
     category_id: int | None = None,
     blocked_user_ids: set[int] | None = None,
     tag: str | None = None,
+    author_ids: set[int] | None = None,
 ) -> int:
     """삭제되지 않은 게시글의 총 개수를 반환합니다.
 
@@ -102,6 +103,8 @@ async def get_total_posts_count(
         author_id: 작성자 ID로 필터링. None이면 전체 조회.
         category_id: 카테고리 ID로 필터링. None이면 전체 조회.
         blocked_user_ids: 차단된 사용자 ID 집합. 해당 사용자의 게시글 제외.
+        tag: 태그 이름으로 필터링. None이면 전체 조회.
+        author_ids: 작성자 ID 집합으로 필터링 (팔로잉 피드). None이면 전체 조회.
 
     Returns:
         게시글 총 개수.
@@ -128,6 +131,11 @@ async def get_total_posts_count(
                 placeholders = ", ".join(["%s"] * len(blocked_user_ids))
                 where += f" AND (author_id NOT IN ({placeholders}) OR author_id IS NULL)"
                 params.extend(blocked_user_ids)
+
+            if author_ids:
+                placeholders = ", ".join(["%s"] * len(author_ids))
+                where += f" AND author_id IN ({placeholders})"
+                params.extend(author_ids)
 
             if tag:
                 where += " AND EXISTS (SELECT 1 FROM post_tag pt INNER JOIN tag t ON pt.tag_id = t.id WHERE pt.post_id = post.id AND t.name = %s)"
@@ -360,6 +368,7 @@ async def get_posts_with_details(
     category_id: int | None = None,
     blocked_user_ids: set[int] | None = None,
     tag: str | None = None,
+    author_ids: set[int] | None = None,
 ) -> list[dict]:
     """게시글 목록을 작성자 정보, 좋아요 수, 댓글 수, 북마크 수와 함께 조회합니다.
 
@@ -375,6 +384,8 @@ async def get_posts_with_details(
         author_id: 작성자 ID로 필터링. None이면 전체 조회.
         category_id: 카테고리 ID로 필터링. None이면 전체 조회.
         blocked_user_ids: 차단된 사용자 ID 집합. 해당 사용자의 게시글 제외.
+        tag: 태그 이름으로 필터링. None이면 전체 조회.
+        author_ids: 작성자 ID 집합으로 필터링 (팔로잉 피드). None이면 전체 조회.
 
     Returns:
         게시글 상세 정보 딕셔너리 목록.
@@ -403,6 +414,12 @@ async def get_posts_with_details(
         placeholders = ", ".join(["%s"] * len(blocked_user_ids))
         where += f" AND (p.author_id NOT IN ({placeholders}) OR p.author_id IS NULL)"
         params.extend(blocked_user_ids)
+
+    # 팔로잉 피드: 특정 작성자 ID 집합으로 필터링
+    if author_ids:
+        placeholders = ", ".join(["%s"] * len(author_ids))
+        where += f" AND p.author_id IN ({placeholders})"
+        params.extend(author_ids)
 
     if tag:
         where += " AND EXISTS (SELECT 1 FROM post_tag pt INNER JOIN tag t ON pt.tag_id = t.id WHERE pt.post_id = p.id AND t.name = %s)"

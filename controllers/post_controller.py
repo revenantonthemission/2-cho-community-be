@@ -23,6 +23,7 @@ async def get_posts(
     category_id: int | None = None,
     current_user: User | None = None,
     tag: str | None = None,
+    following: bool = False,
 ) -> dict:
     """
     게시글 목록을 조회합니다.
@@ -76,6 +77,7 @@ async def get_posts(
         offset, limit, search=search, sort=sort,
         author_id=author_id, category_id=category_id,
         current_user=current_user, tag=tag,
+        following=following,
     )
 
     return create_response(

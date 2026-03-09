@@ -167,6 +167,9 @@ RATE_LIMIT_CONFIG = {
     "GET:/v1/users/search": {"max_requests": 30, "window_seconds": 60},
     "POST:/v1/users/{id}/block": {"max_requests": 10, "window_seconds": 60},
     "DELETE:/v1/users/{id}/block": {"max_requests": 10, "window_seconds": 60},
+    # 팔로우
+    "POST:/v1/users/{id}/follow": {"max_requests": 10, "window_seconds": 60},
+    "DELETE:/v1/users/{id}/follow": {"max_requests": 10, "window_seconds": 60},
     # 연관 게시글
     "GET:/v1/posts/{id}/related": {"max_requests": 30, "window_seconds": 60},
     # DM(쪽지)
