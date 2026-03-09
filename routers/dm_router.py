@@ -67,10 +67,7 @@ async def send_message(
     )
 
 
-@router.delete(
-    "/{conversation_id}/messages/{message_id}",
-    dependencies=[Depends(require_verified_email)],
-)
+@router.delete("/{conversation_id}/messages/{message_id}")
 async def delete_message(
     conversation_id: int,
     message_id: int,

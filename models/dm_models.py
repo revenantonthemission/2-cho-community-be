@@ -376,12 +376,18 @@ async def get_unread_conversation_count(user_id: int) -> int:
             return (await cur.fetchone())[0]
 
 
-async def delete_message(message_id: int, sender_id: int) -> dict | None:
+async def delete_message(
+    conversation_id: int, message_id: int, sender_id: int
+) -> dict | None:
     """메시지를 soft delete합니다. 본인 메시지만 삭제 가능."""
     async with transactional() as cur:
         await cur.execute(
-            "SELECT id, conversation_id, sender_id, deleted_at FROM dm_message WHERE id = %s",
-            (message_id,),
+            """
+            SELECT id, conversation_id, sender_id, deleted_at
+            FROM dm_message
+            WHERE id = %s AND conversation_id = %s
+            """,
+            (message_id, conversation_id),
         )
         row = await cur.fetchone()
         if not row:

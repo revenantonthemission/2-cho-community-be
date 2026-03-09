@@ -273,7 +273,7 @@ async def delete_message(
 
     _verify_participant(conversation, current_user.id, timestamp)
 
-    result = await dm_models.delete_message(message_id, current_user.id)
+    result = await dm_models.delete_message(conversation_id, message_id, current_user.id)
     if result is None:
         raise not_found_error("message", timestamp)
     if result.get("forbidden"):
