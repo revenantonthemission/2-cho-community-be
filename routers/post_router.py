@@ -3,7 +3,7 @@
 게시글 CRUD, 이미지 업로드, 좋아요, 댓글 엔드포인트를 제공합니다.
 """
 
-from fastapi import APIRouter, Depends, Query, Request, UploadFile, File, status
+from fastapi import APIRouter, Depends, Path, Query, Request, UploadFile, File, status
 from controllers import post_controller, like_controller, comment_controller, bookmark_controller, comment_like_controller, poll_controller
 from dependencies.auth import get_optional_user, require_verified_email, require_admin
 from models.user_models import User
@@ -57,6 +57,31 @@ async def get_posts(
         author_id=author_id, category_id=category_id,
         current_user=current_user, tag=tag,
         following=following,
+    )
+
+
+@post_router.get("/{post_id}/related", status_code=status.HTTP_200_OK)
+async def get_related_posts(
+    request: Request,
+    post_id: int = Path(ge=1, description="게시글 ID"),
+    limit: int = Query(5, ge=1, le=10, description="추천 게시글 수"),
+    current_user: User | None = Depends(get_optional_user),
+) -> dict:
+    """현재 게시글과 관련된 게시글을 추천합니다.
+
+    같은 태그/카테고리를 가진 게시글을 관련도 순으로 반환합니다.
+
+    Args:
+        request: FastAPI Request 객체.
+        post_id: 기준 게시글 ID.
+        limit: 추천 게시글 수 (1~10, 기본 5).
+        current_user: 현재 인증된 사용자 (선택적).
+
+    Returns:
+        연관 게시글 목록이 포함된 응답.
+    """
+    return await post_controller.get_related_posts(
+        post_id, request, limit=limit, current_user=current_user,
     )
 
 

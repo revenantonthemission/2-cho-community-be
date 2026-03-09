@@ -622,6 +622,125 @@ async def get_post_images(post_id: int) -> list[dict]:
             ]
 
 
+async def get_related_posts(
+    current_post_id: int,
+    category_id: int | None,
+    tag_ids: list[int],
+    limit: int = 5,
+    blocked_user_ids: set[int] | None = None,
+) -> list[dict]:
+    """현재 게시글과 관련된 게시글을 태그/카테고리 기반으로 조회합니다.
+
+    태그 매칭 수 → 같은 카테고리 → hot score 순으로 정렬합니다.
+
+    Args:
+        current_post_id: 현재 게시글 ID (결과에서 제외).
+        category_id: 현재 게시글의 카테고리 ID.
+        tag_ids: 현재 게시글의 태그 ID 목록.
+        limit: 최대 반환 개수.
+        blocked_user_ids: 차단된 사용자 ID 집합.
+
+    Returns:
+        연관 게시글 딕셔너리 목록.
+    """
+    where = "p.deleted_at IS NULL AND p.id != %s"
+    params: list = [current_post_id]
+
+    if blocked_user_ids:
+        placeholders = ", ".join(["%s"] * len(blocked_user_ids))
+        where += f" AND (p.author_id NOT IN ({placeholders}) OR p.author_id IS NULL)"
+        params.extend(blocked_user_ids)
+
+    # 태그 매칭 서브쿼리: tag_ids가 있으면 LEFT JOIN으로 매칭 수 계산
+    if tag_ids:
+        tag_placeholders = ", ".join(["%s"] * len(tag_ids))
+        tag_join = f"LEFT JOIN post_tag pt ON p.id = pt.post_id AND pt.tag_id IN ({tag_placeholders})"
+        tag_select = "COUNT(pt.tag_id) AS matched_tags"
+        tag_params = list(tag_ids)
+    else:
+        tag_join = ""
+        tag_select = "0 AS matched_tags"
+        tag_params = []
+
+    # 같은 카테고리 보너스
+    if category_id is not None:
+        same_category = "CASE WHEN p.category_id = %s THEN 1 ELSE 0 END AS same_category"
+        cat_params = [category_id]
+    else:
+        same_category = "0 AS same_category"
+        cat_params = []
+
+    params.extend([limit])
+
+    async with get_connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                f"""
+                SELECT
+                    p.id, p.title, p.content, p.image_url, p.views,
+                    p.created_at, p.updated_at,
+                    u.id, u.nickname, u.profile_img,
+                    COALESCE(likes.count, 0) AS likes_count,
+                    COALESCE(comments.count, 0) AS comments_count,
+                    p.is_pinned, p.category_id, cat.name AS category_name,
+                    COALESCE(bk.count, 0) AS bookmarks_count,
+                    {tag_select},
+                    {same_category},
+                    (COALESCE(likes.count, 0) * 3
+                     + COALESCE(comments.count, 0) * 2
+                     + p.views * 0.5)
+                    / POW(TIMESTAMPDIFF(HOUR, p.created_at, NOW()) + 2, 1.5)
+                    AS hot_score
+                FROM post p
+                LEFT JOIN user u ON p.author_id = u.id
+                LEFT JOIN category cat ON p.category_id = cat.id
+                {tag_join}
+                LEFT JOIN (
+                    SELECT post_id, COUNT(*) AS count
+                    FROM post_like
+                    GROUP BY post_id
+                ) likes ON p.id = likes.post_id
+                LEFT JOIN (
+                    SELECT post_id, COUNT(*) AS count
+                    FROM comment
+                    WHERE deleted_at IS NULL
+                    GROUP BY post_id
+                ) comments ON p.id = comments.post_id
+                LEFT JOIN (
+                    SELECT post_id, COUNT(*) AS count
+                    FROM post_bookmark
+                    GROUP BY post_id
+                ) bk ON p.id = bk.post_id
+                WHERE {where}
+                GROUP BY p.id
+                ORDER BY matched_tags DESC, same_category DESC, hot_score DESC
+                LIMIT %s
+                """,
+                [*cat_params, *tag_params, *params],
+            )
+            rows = await cur.fetchall()
+
+            return [
+                {
+                    "post_id": row[0],
+                    "title": row[1],
+                    "content": row[2],
+                    "image_url": row[3],
+                    "views_count": row[4],
+                    "created_at": row[5],
+                    "updated_at": row[6],
+                    "author": build_author_dict(row[7], row[8], row[9]),
+                    "likes_count": row[10],
+                    "comments_count": row[11],
+                    "is_pinned": bool(row[12]),
+                    "category_id": row[13],
+                    "category_name": row[14],
+                    "bookmarks_count": row[15],
+                }
+                for row in rows
+            ]
+
+
 # get_comments_with_author는 comment_models.py에서 정의됨 (상단 import 참조)
 # 하위 호환성을 위해 다시 내보내기
 __all__ = ["Post", "get_comments_with_author"]

@@ -305,3 +305,62 @@ class PostService:
 
         # 3. DB 삭제
         await post_models.delete_post(post_id)
+
+    @staticmethod
+    async def get_related_posts(
+        post_id: int,
+        current_user: Optional[User] = None,
+        limit: int = 5,
+    ) -> Optional[List[Dict]]:
+        """현재 게시글과 관련된 게시글 목록을 조회합니다.
+
+        태그/카테고리 기반 관련도 정렬 후 반환합니다.
+
+        Args:
+            post_id: 기준 게시글 ID.
+            current_user: 현재 로그인한 사용자 (차단 필터링용).
+            limit: 최대 반환 개수.
+
+        Returns:
+            연관 게시글 목록, 기준 게시글이 없으면 None.
+        """
+        # 1. 게시글 존재 확인
+        post = await post_models.get_post_by_id(post_id)
+        if not post:
+            return None
+
+        # 2. 태그 조회 → tag_ids 추출
+        tags = await tag_models.get_post_tags(post_id)
+        tag_ids = [t["id"] for t in tags]
+
+        # 3. 차단 사용자 조회 (로그인 시)
+        blocked_ids: set[int] | None = None
+        if current_user:
+            blocked_ids = await get_blocked_user_ids(current_user.id)
+            if not blocked_ids:
+                blocked_ids = None
+
+        # 4. 연관 게시글 조회
+        posts_data = await post_models.get_related_posts(
+            current_post_id=post_id,
+            category_id=post.category_id,
+            tag_ids=tag_ids,
+            limit=limit,
+            blocked_user_ids=blocked_ids,
+        )
+
+        # 5. 데이터 가공 (날짜 포맷, 내용 요약)
+        for p in posts_data:
+            p["created_at"] = format_datetime(p["created_at"])
+            p["updated_at"] = format_datetime(p.get("updated_at"))
+            content = p["content"]
+            if len(content) > 200:
+                p["content"] = content[:200] + "..."
+
+        # 6. 태그 벌크 조회
+        post_ids = [p["post_id"] for p in posts_data]
+        posts_tags = await tag_models.get_posts_tags(post_ids)
+        for p in posts_data:
+            p["tags"] = posts_tags.get(p["post_id"], [])
+
+        return posts_data

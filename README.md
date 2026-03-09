@@ -513,7 +513,7 @@ sequenceDiagram
 
 ### 2026-03 (Mar)
 
-- **03-09: Quick Wins — 팔로잉 피드 + 연관 게시글 추천**
+- **03-09: 팔로잉 피드 + 연관 게시글 추천**
   - 팔로잉 피드: `GET /v1/posts?following=true` — 팔로우한 사용자의 게시글만 필터링
   - 연관 게시글: `GET /v1/posts/{id}/related?limit=5` — 태그 매칭 + 카테고리 + hot score 기반 추천
   - 팔로우 Rate Limit 보강: `POST/DELETE /v1/users/{id}/follow` (10 req/60s)
