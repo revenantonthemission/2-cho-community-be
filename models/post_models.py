@@ -716,6 +716,7 @@ async def get_related_posts(
                 ORDER BY matched_tags DESC, same_category DESC, hot_score DESC
                 LIMIT %s
                 """,
+                # 파라미터 순서: cat_params(SELECT CASE), tag_params(JOIN IN), params(WHERE+LIMIT)
                 [*cat_params, *tag_params, *params],
             )
             rows = await cur.fetchall()
