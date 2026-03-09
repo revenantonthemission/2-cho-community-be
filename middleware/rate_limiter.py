@@ -167,6 +167,8 @@ RATE_LIMIT_CONFIG = {
     "GET:/v1/users/search": {"max_requests": 30, "window_seconds": 60},
     "POST:/v1/users/{id}/block": {"max_requests": 10, "window_seconds": 60},
     "DELETE:/v1/users/{id}/block": {"max_requests": 10, "window_seconds": 60},
+    # 연관 게시글
+    "GET:/v1/posts/{id}/related": {"max_requests": 30, "window_seconds": 60},
 }
 
 # 기본 Rate Limit (설정되지 않은 엔드포인트)

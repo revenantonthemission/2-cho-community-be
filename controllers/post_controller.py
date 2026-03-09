@@ -289,17 +289,13 @@ async def get_related_posts(
     Args:
         post_id: 기준 게시글 ID.
         request: FastAPI Request 객체.
-        limit: 추천 게시글 수 (1~10, 범위 밖이면 5).
+        limit: 추천 게시글 수 (1~10, 라우터에서 검증).
         current_user: 현재 인증된 사용자 (선택적).
 
     Returns:
         연관 게시글 목록이 포함된 응답.
     """
     timestamp = get_request_timestamp(request)
-
-    # limit 범위 검증 (1~10, 범위 밖이면 기본값 5)
-    if limit < 1 or limit > 10:
-        limit = 5
 
     posts = await PostService.get_related_posts(
         post_id, current_user=current_user, limit=limit,
