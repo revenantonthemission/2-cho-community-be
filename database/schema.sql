@@ -352,6 +352,7 @@ CREATE TABLE dm_message (
     content TEXT NOT NULL,
     is_read TINYINT(1) NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL,
     FOREIGN KEY (conversation_id) REFERENCES dm_conversation(id),
     FOREIGN KEY (sender_id) REFERENCES user(id),
     INDEX idx_msg_conversation (conversation_id, created_at),
