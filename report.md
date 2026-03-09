@@ -34,11 +34,11 @@
 
 | 계층 | 기술 | 선택 근거 | 운영 고려사항 |
 | ------ | ------ | ----------- | ------------- |
-| **프론트엔드** | Vanilla JavaScript (MPA) | 프레임워크 없이 JS 기본기 학습 | S3 + CloudFront로 정적 배포, 서버 부하 0 |
+| **프론트엔드** | Vanilla JavaScript (MPA, Vite 빌드) | 프레임워크 없이 JS 기본기 학습 | S3 + CloudFront로 정적 배포, 서버 부하 0 |
 | **백엔드** | FastAPI (Python 3.13) | 비동기 I/O, 자동 API 문서화 | Lambda 컨테이너 실행, 콜드 스타트 영향 |
 | **데이터베이스** | MySQL 8.0 (aiomysql) | FULLTEXT 검색(ngram), 트랜잭션 격리 | 커넥션 풀 관리, Lambda 스케일링 시 폭발 위험 |
 | **인증** | JWT (Access 30분 + Refresh 7일) | Stateless 인증, XSS 방어 | 토큰 저장소 DB 의존, 만료 토큰 주기적 정리 |
-| **인프라** | AWS (Terraform 15개 모듈) | 서버리스 아키텍처, IaC 재현성 | 3개 환경(Dev/Staging/Prod) 차등 설계 |
+| **인프라** | AWS (Terraform 18개 모듈) | 서버리스 아키텍처, IaC 재현성 | 3개 환경(Dev/Staging/Prod) 차등 설계 |
 | **CI/CD** | GitHub Actions + OIDC | 장기 자격 증명 없는 배포 | Blue/Green 배포 (Lambda Alias), Health check 게이트, 롤백 워크플로우 |
 | **부하 테스트** | Locust (gevent 기반) | 3종 사용자 시나리오 | 병목 사전 식별, 50~200 동시 사용자 검증 완료 |
 
@@ -55,6 +55,8 @@
 | **인증 토큰 관리** (JWT 발급·갱신·폐기) | 토큰 저장소 정합성, 브루트포스 방어 | DB 행 잠금, Rate Limiting (분산 환경 한계 존재) |
 | **동시 쓰기** (좋아요·북마크·댓글 동시 요청) | 경쟁 상태 방지, 트랜잭션 격리 | UNIQUE 제약, READ COMMITTED 격리 수준 |
 | **계정 정지** (관리자 기간 정지, 신고 연동) | 인증 체인 차단, 자동 만료 | 3중 체크 (로그인·토큰·API), `suspended_until` 비교 |
+| **마크다운 렌더링** (marked + DOMPurify + highlight.js) | XSS 방지, 번들 크기 관리 | DOMPurify sanitize → `<template>.innerHTML` 패턴, 코드 스플릿 ~46KB |
+| **DM 쪽지** (1:1 비공개 메시지, WebSocket 푸시) | 대화 정규화, soft delete, 차단 연동 | MIN/MAX 참가자 UNIQUE 제약, `last_message_at` 비정규화, MarkdownEditor 컴팩트 모드 |
 
 ---
 
@@ -452,7 +454,7 @@ flowchart LR
 | **접근 관리** | IAM (MFA 강제) | 최소 권한 원칙, OIDC 역할 |
 | **네트워크** | VPC (2-AZ) | Private Subnet 격리, NAT Gateway |
 | **배포** | GitHub Actions + OIDC | 장기 자격 증명 없는 CI/CD |
-| **IaC** | Terraform (>= 1.5.0) | 15개 모듈, 3개 환경 |
+| **IaC** | Terraform (>= 1.5.0) | 18개 모듈, 3개 환경 |
 
 ---
 
@@ -1019,7 +1021,7 @@ flowchart TD
 | 강점 | 설명 |
 | ------ | ------ |
 | **완전 서버리스** | Lambda + API Gateway로 서버 관리 부담 제거, 유휴 시 비용 0 |
-| **IaC 완전 관리** | Terraform 15개 모듈로 전체 인프라 코드화, 환경 재현 가능 |
+| **IaC 완전 관리** | Terraform 18개 모듈로 전체 인프라 코드화, 환경 재현 가능 |
 | **보안 계층화** | VPC 격리, SSM 시크릿, OIDC 배포, MFA 강제, OAC 전용 S3 |
 | **환경별 차등 설계** | Dev(비용 최소) → Staging(중간) → Prod(HA 강화) 단계적 구성 |
 | **모니터링 기반** | CloudWatch 6개 알람 + 4개 위젯 대시보드 + CloudTrail 감사 |
