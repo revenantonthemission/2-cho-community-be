@@ -1,73 +1,13 @@
 """comment_controller: 댓글 관련 컨트롤러 모듈."""
 
-from fastapi import HTTPException, Request, status
-from models import post_models, comment_models
+from fastapi import Request
+
 from models.user_models import User
 from schemas.comment_schemas import CreateCommentRequest, UpdateCommentRequest
 from schemas.common import create_response
 from dependencies.request_context import get_request_timestamp
+from services.comment_service import CommentService
 from utils.formatters import format_datetime
-
-
-async def _validate_comment_access(
-    post_id: int,
-    comment_id: int,
-    current_user: User,
-    timestamp: str,
-    require_author: bool = True,
-) -> comment_models.Comment:
-    """댓글 접근 권한을 검증합니다.
-
-    게시글 존재, 댓글 존재, 댓글-게시글 소속, 작성자 권한을 확인합니다.
-
-    Args:
-        post_id: 게시글 ID.
-        comment_id: 댓글 ID.
-        current_user: 현재 인증된 사용자 객체.
-        timestamp: 요청 타임스탬프.
-        require_author: 작성자 권한 확인 여부.
-
-    Returns:
-        검증된 댓글 객체.
-
-    Raises:
-        HTTPException: 검증 실패 시.
-    """
-    # 게시글 존재 확인
-    post = await post_models.get_post_by_id(post_id)
-    if not post:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"error": "post_not_found", "timestamp": timestamp},
-        )
-
-    # 댓글 존재 확인
-    comment = await comment_models.get_comment_by_id(comment_id)
-    if not comment:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"error": "comment_not_found", "timestamp": timestamp},
-        )
-
-    # 댓글이 해당 게시글에 속하는지 확인
-    if comment.post_id != post_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"error": "comment_not_in_post", "timestamp": timestamp},
-        )
-
-    # 작성자 권한 확인
-    if require_author and comment.author_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={
-                "error": "not_author",
-                "message": "댓글 작성자만 수정/삭제할 수 있습니다.",
-                "timestamp": timestamp,
-            },
-        )
-
-    return comment
 
 
 async def create_comment(
@@ -92,118 +32,14 @@ async def create_comment(
     """
     timestamp = get_request_timestamp(request)
 
-    post = await post_models.get_post_by_id(post_id)
-    if not post:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={
-                "error": "post_not_found",
-                "timestamp": timestamp,
-            },
-        )
-
-    # 대댓글 검증
-    parent_id = comment_data.parent_id
-    if parent_id is not None:
-        parent_comment = await comment_models.get_comment_by_id(parent_id)
-
-        # 부모 댓글 존재 확인 (get_comment_by_id는 deleted_at IS NULL 필터링하므로 삭제된 댓글은 None 반환)
-        if not parent_comment:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={
-                    "error": "parent_comment_not_found",
-                    "message": "삭제된 댓글에 답글을 달 수 없습니다.",
-                    "timestamp": timestamp,
-                },
-            )
-
-        # 같은 게시글 소속 확인
-        if parent_comment.post_id != post_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={
-                    "error": "parent_comment_not_in_post",
-                    "message": "해당 게시글의 댓글이 아닙니다.",
-                    "timestamp": timestamp,
-                },
-            )
-
-        # 1단계 제한: 부모가 이미 대댓글이면 거부
-        if parent_comment.parent_id is not None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={
-                    "error": "nested_reply_not_allowed",
-                    "message": "1단계 대댓글만 가능합니다.",
-                    "timestamp": timestamp,
-                },
-            )
-
-    comment = await comment_models.create_comment(
+    comment = await CommentService.create_comment(
         post_id=post_id,
-        author_id=current_user.id,
+        user_id=current_user.id,
         content=comment_data.content,
-        parent_id=parent_id,
+        parent_id=comment_data.parent_id,
+        actor_nickname=current_user.nickname,
+        timestamp=timestamp,
     )
-
-    # 알림 생성 (실패해도 댓글 생성에 영향 없음)
-    try:
-        from models import notification_models
-
-        if comment.parent_id and parent_id is not None:
-            # 대댓글 → 부모 댓글 작성자에게 알림 (이미 조회한 parent_comment 재사용)
-            if parent_comment and parent_comment.author_id:
-                await notification_models.create_notification(
-                    user_id=parent_comment.author_id,
-                    notification_type="comment",
-                    post_id=post_id,
-                    actor_id=current_user.id,
-                    comment_id=comment.id,
-                    actor_nickname=current_user.nickname,
-                )
-        else:
-            # 일반 댓글 → 게시글 작성자에게 알림
-            if post.author_id:
-                await notification_models.create_notification(
-                    user_id=post.author_id,
-                    notification_type="comment",
-                    post_id=post_id,
-                    actor_id=current_user.id,
-                    comment_id=comment.id,
-                    actor_nickname=current_user.nickname,
-                )
-
-        # 멘션 알림 — 이미 comment 알림을 받은 사용자는 제외
-        from utils.mention import extract_mentions
-        from models.user_models import get_user_by_nickname
-
-        already_notified = {current_user.id}  # 자기 자신 제외
-        # 기존 comment 알림 수신자 추가
-        if comment.parent_id and parent_id is not None:
-            if parent_comment and parent_comment.author_id:
-                already_notified.add(parent_comment.author_id)
-        else:
-            if post.author_id:
-                already_notified.add(post.author_id)
-
-        nicknames = extract_mentions(comment_data.content)
-        for nickname in nicknames:
-            mentioned_user = await get_user_by_nickname(nickname)
-            if mentioned_user and mentioned_user.id not in already_notified:
-                already_notified.add(mentioned_user.id)
-                await notification_models.create_notification(
-                    user_id=mentioned_user.id,
-                    notification_type="mention",
-                    post_id=post_id,
-                    actor_id=current_user.id,
-                    comment_id=comment.id,
-                    actor_nickname=current_user.nickname,
-                )
-    except Exception:
-        import logging
-
-        logging.getLogger(__name__).warning("알림 생성 실패", exc_info=True)
 
     return create_response(
         "COMMENT_CREATED",
@@ -242,13 +78,13 @@ async def update_comment(
     """
     timestamp = get_request_timestamp(request)
 
-    # 공통 검증 로직
-    await _validate_comment_access(post_id, comment_id, current_user, timestamp)
-
-    updated_comment = await comment_models.update_comment(
-        comment_id, comment_data.content
+    updated_comment = await CommentService.update_comment(
+        post_id=post_id,
+        comment_id=comment_id,
+        user_id=current_user.id,
+        content=comment_data.content,
+        timestamp=timestamp,
     )
-    assert updated_comment is not None  # 댓글 존재는 위에서 검증됨
 
     return create_response(
         "COMMENT_UPDATED",
@@ -286,12 +122,12 @@ async def delete_comment(
     """
     timestamp = get_request_timestamp(request)
 
-    # 관리자는 작성자 검증 스킵
-    await _validate_comment_access(
-        post_id, comment_id, current_user, timestamp,
-        require_author=not is_admin,
+    await CommentService.delete_comment(
+        post_id=post_id,
+        comment_id=comment_id,
+        user_id=current_user.id,
+        timestamp=timestamp,
+        is_admin=is_admin,
     )
-
-    await comment_models.delete_comment(comment_id)
 
     return create_response("COMMENT_DELETED", "댓글이 삭제되었습니다.", timestamp=timestamp)

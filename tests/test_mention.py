@@ -64,10 +64,10 @@ class TestMentionNotification:
         comment.parent_id = None
         comment.created_at = "2026-03-05T00:00:00Z"
 
-        with patch("controllers.comment_controller.post_models.get_post_by_id", new_callable=AsyncMock, return_value=post), \
-             patch("controllers.comment_controller.comment_models.create_comment", new_callable=AsyncMock, return_value=comment), \
+        with patch("services.comment_service.post_models.get_post_by_id", new_callable=AsyncMock, return_value=post), \
+             patch("services.comment_service.comment_models.create_comment", new_callable=AsyncMock, return_value=comment), \
              patch("models.notification_models.create_notification", new_callable=AsyncMock) as mock_notify, \
-             patch("models.user_models.get_user_by_nickname", new_callable=AsyncMock, return_value=mentioned_user):
+             patch("services.comment_service.get_user_by_nickname", new_callable=AsyncMock, return_value=mentioned_user):
 
             request = self._make_request()
             current_user = self._make_user(user_id=1)
@@ -93,10 +93,10 @@ class TestMentionNotification:
 
         self_user = self._make_user(user_id=1, nickname="나자신")
 
-        with patch("controllers.comment_controller.post_models.get_post_by_id", new_callable=AsyncMock, return_value=post), \
-             patch("controllers.comment_controller.comment_models.create_comment", new_callable=AsyncMock, return_value=comment), \
+        with patch("services.comment_service.post_models.get_post_by_id", new_callable=AsyncMock, return_value=post), \
+             patch("services.comment_service.comment_models.create_comment", new_callable=AsyncMock, return_value=comment), \
              patch("models.notification_models.create_notification", new_callable=AsyncMock) as mock_notify, \
-             patch("models.user_models.get_user_by_nickname", new_callable=AsyncMock, return_value=self_user):
+             patch("services.comment_service.get_user_by_nickname", new_callable=AsyncMock, return_value=self_user):
 
             request = self._make_request()
             data = CreateCommentRequest(content="@나자신 안녕")
@@ -118,10 +118,10 @@ class TestMentionNotification:
         comment.parent_id = None
         comment.created_at = "2026-03-05T00:00:00Z"
 
-        with patch("controllers.comment_controller.post_models.get_post_by_id", new_callable=AsyncMock, return_value=post), \
-             patch("controllers.comment_controller.comment_models.create_comment", new_callable=AsyncMock, return_value=comment), \
+        with patch("services.comment_service.post_models.get_post_by_id", new_callable=AsyncMock, return_value=post), \
+             patch("services.comment_service.comment_models.create_comment", new_callable=AsyncMock, return_value=comment), \
              patch("models.notification_models.create_notification", new_callable=AsyncMock) as mock_notify, \
-             patch("models.user_models.get_user_by_nickname", new_callable=AsyncMock, return_value=post_author):
+             patch("services.comment_service.get_user_by_nickname", new_callable=AsyncMock, return_value=post_author):
 
             request = self._make_request()
             current_user = self._make_user(user_id=1)
@@ -143,10 +143,10 @@ class TestMentionNotification:
         comment.parent_id = None
         comment.created_at = "2026-03-05T00:00:00Z"
 
-        with patch("controllers.comment_controller.post_models.get_post_by_id", new_callable=AsyncMock, return_value=post), \
-             patch("controllers.comment_controller.comment_models.create_comment", new_callable=AsyncMock, return_value=comment), \
+        with patch("services.comment_service.post_models.get_post_by_id", new_callable=AsyncMock, return_value=post), \
+             patch("services.comment_service.comment_models.create_comment", new_callable=AsyncMock, return_value=comment), \
              patch("models.notification_models.create_notification", new_callable=AsyncMock) as mock_notify, \
-             patch("models.user_models.get_user_by_nickname", new_callable=AsyncMock, return_value=None):
+             patch("services.comment_service.get_user_by_nickname", new_callable=AsyncMock, return_value=None):
 
             request = self._make_request()
             current_user = self._make_user(user_id=1)
