@@ -284,7 +284,7 @@ async def get_user(
 async def update_user(
     update_data: UpdateUserRequest,
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_verified_email),
 ) -> dict:
     """현재 로그인 중인 사용자의 정보를 수정합니다.
 

@@ -206,6 +206,7 @@ class PostService:
         user_id: int,
         post_data: CreatePostRequest,
         is_admin: bool = False,
+        actor_nickname: str | None = None,
     ) -> int:
         """게시글 생성.
 
@@ -260,6 +261,7 @@ class PostService:
                     notification_type="follow",
                     post_id=post.id,
                     actor_id=user_id,
+                    actor_nickname=actor_nickname,
                 )
         except Exception:
             logging.getLogger(__name__).warning(

@@ -81,9 +81,9 @@ RATE_LIMIT_CONFIG = {
     # 계정 찾기 - 브루트포스 방지 (5분 윈도우로 강화)
     "/v1/users/find-email": {"max_requests": 5, "window_seconds": 300},
     "/v1/users/reset-password": {"max_requests": 3, "window_seconds": 300},
-    # 이메일 인증 - 브루트포스 방지
-    "/v1/auth/verify-email": {"max_requests": 10, "window_seconds": 60},
-    "/v1/auth/resend-verification": {"max_requests": 3, "window_seconds": 300},
+    # 이메일 인증 - 브루트포스 방지 (GET 엔드포인트는 GET: 접두사 필수)
+    "GET:/v1/auth/verify-email": {"max_requests": 10, "window_seconds": 60},
+    "POST:/v1/auth/resend-verification": {"max_requests": 3, "window_seconds": 300},
     # 신고 - 스팸 방지
     "/v1/reports": {"max_requests": 10, "window_seconds": 60},
     "/v1/admin/reports": {"max_requests": 30, "window_seconds": 60},
@@ -114,6 +114,7 @@ RATE_LIMIT_CONFIG = {
     "GET:/v1/dms/unread-count": {"max_requests": 60, "window_seconds": 60},
     "GET:/v1/dms/{id}": {"max_requests": 50, "window_seconds": 60},
     "PATCH:/v1/dms/{id}/read": {"max_requests": 30, "window_seconds": 60},
+    "DELETE:/v1/dms/{id}/messages/{id}": {"max_requests": 20, "window_seconds": 60},
     "DELETE:/v1/dms/{id}": {"max_requests": 10, "window_seconds": 60},
 }
 
@@ -201,10 +202,16 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if os.environ.get("TESTING") == "true":
             return await call_next(request)
 
-        # GET, OPTIONS 요청은 Rate Limit 적용 안 함
         # OPTIONS: CORS preflight 요청은 브라우저가 자동 생성하므로 제한 불필요
-        if request.method in ("GET", "OPTIONS"):
+        if request.method == "OPTIONS":
             return await call_next(request)
+
+        # GET 요청: METHOD:path 키가 설정된 엔드포인트만 Rate Limit 적용
+        if request.method == "GET":
+            normalized = _PATH_PARAM_RE.sub("/{id}", request.url.path)
+            method_key = f"GET:{normalized}"
+            if method_key not in RATE_LIMIT_CONFIG:
+                return await call_next(request)
 
         # 정적 파일은 제외
         if request.url.path.startswith("/assets"):

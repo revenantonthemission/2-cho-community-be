@@ -3,6 +3,7 @@
 JWT Bearer Token 기반 사용자 인증 및 권한 확인 기능을 제공합니다.
 """
 
+import hmac
 from datetime import datetime, timezone
 
 from fastapi import Depends, HTTPException, Request, status

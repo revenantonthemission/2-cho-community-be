@@ -159,6 +159,7 @@ async def create_post(
     # Service Layer 호출
     post_id = await PostService.create_post(
         current_user.id, post_data, is_admin=current_user.is_admin,
+        actor_nickname=current_user.nickname,
     )
 
     return create_response(

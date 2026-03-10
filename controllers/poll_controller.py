@@ -38,6 +38,17 @@ async def vote_on_poll(
             },
         )
 
+    # 선택한 옵션이 해당 투표에 속하는지 검증 (cross-poll vote injection 방지)
+    if not await poll_models.option_belongs_to_poll(vote_data.option_id, poll_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "invalid_option",
+                "message": "해당 투표에 속하지 않는 옵션입니다.",
+                "timestamp": timestamp,
+            },
+        )
+
     try:
         await poll_models.vote(poll_id, vote_data.option_id, current_user.id)
     except IntegrityError:

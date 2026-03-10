@@ -113,6 +113,17 @@ async def vote(poll_id: int, option_id: int, user_id: int) -> None:
         )
 
 
+async def option_belongs_to_poll(option_id: int, poll_id: int) -> bool:
+    """옵션이 해당 투표에 속하는지 확인합니다."""
+    async with get_connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "SELECT 1 FROM poll_option WHERE id = %s AND poll_id = %s",
+                (option_id, poll_id),
+            )
+            return await cur.fetchone() is not None
+
+
 async def get_poll_id_by_post_id(post_id: int) -> int | None:
     """게시글의 투표 ID를 조회합니다."""
     async with get_connection() as conn:

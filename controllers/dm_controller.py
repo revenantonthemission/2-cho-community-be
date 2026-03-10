@@ -15,6 +15,7 @@ from schemas.common import create_response, DEFAULT_PROFILE_IMAGE
 from services import dm_service
 from utils.exceptions import bad_request_error, forbidden_error, not_found_error
 from utils.formatters import format_datetime
+from utils.websocket_pusher import push_to_user
 
 logger = logging.getLogger(__name__)
 
@@ -147,14 +148,35 @@ async def get_messages(
     )
     has_more = offset + limit < total_count
 
+    # 상대방 정보
+    other_user_id = dm_service.get_other_user_id(conversation, current_user.id)
+    other_user_raw = await user_models.get_user_by_id(other_user_id)
+    other_user = _build_other_user_dict(other_user_raw)
+
     # 상대방 메시지 자동 읽음 처리
-    await dm_models.mark_as_read(conversation_id, current_user.id)
+    read_count = await dm_models.mark_as_read(conversation_id, current_user.id)
+
+    # 읽음 처리된 메시지가 있으면 상대방에게 WebSocket 푸시 (best-effort)
+    if read_count > 0:
+        try:
+            await push_to_user(other_user_id, {
+                "type": "message_read",
+                "conversation_id": conversation_id,
+                "reader_id": current_user.id,
+            })
+        except Exception:
+            logger.warning(
+                "message_read WebSocket 푸시 실패 (conversation_id=%d, best-effort)",
+                conversation_id,
+                exc_info=True,
+            )
 
     return create_response(
         "MESSAGES_LOADED",
         "메시지 목록을 조회했습니다.",
         data={
             "messages": messages,
+            "other_user": other_user,
             "pagination": {"total_count": total_count, "has_more": has_more},
         },
         timestamp=timestamp,
@@ -215,10 +237,68 @@ async def mark_read(
 
     read_count = await dm_models.mark_as_read(conversation_id, current_user.id)
 
+    # 읽음 처리된 메시지가 있으면 상대방에게 WebSocket 푸시 (best-effort)
+    if read_count > 0:
+        other_user_id = dm_service.get_other_user_id(conversation, current_user.id)
+        try:
+            await push_to_user(other_user_id, {
+                "type": "message_read",
+                "conversation_id": conversation_id,
+                "reader_id": current_user.id,
+            })
+        except Exception:
+            logger.warning(
+                "message_read WebSocket 푸시 실패 (conversation_id=%d, best-effort)",
+                conversation_id,
+                exc_info=True,
+            )
+
     return create_response(
         "MESSAGES_READ",
         "메시지를 읽음 처리했습니다.",
         data={"read_count": read_count},
+        timestamp=timestamp,
+    )
+
+
+async def delete_message(
+    conversation_id: int, message_id: int, current_user: User, request: Request
+) -> dict:
+    """메시지를 삭제합니다 (soft delete)."""
+    timestamp = get_request_timestamp(request)
+
+    conversation = await dm_models.get_conversation_by_id(conversation_id)
+    if not conversation:
+        raise not_found_error("conversation", timestamp)
+
+    _verify_participant(conversation, current_user.id, timestamp)
+
+    result = await dm_models.delete_message(conversation_id, message_id, current_user.id)
+    if result is None:
+        raise not_found_error("message", timestamp)
+    if result.get("forbidden"):
+        raise forbidden_error("delete_message", timestamp, "본인 메시지만 삭제할 수 있습니다.")
+    if result.get("already_deleted"):
+        raise bad_request_error("already_deleted", timestamp, "이미 삭제된 메시지입니다.")
+
+    # 상대방에게 WebSocket 푸시 (best-effort)
+    other_user_id = dm_service.get_other_user_id(conversation, current_user.id)
+    try:
+        await push_to_user(other_user_id, {
+            "type": "message_deleted",
+            "conversation_id": conversation_id,
+            "message_id": message_id,
+        })
+    except Exception:
+        logger.warning(
+            "message_deleted WebSocket 푸시 실패 (message_id=%d, best-effort)",
+            message_id,
+            exc_info=True,
+        )
+
+    return create_response(
+        "MESSAGE_DELETED",
+        "메시지를 삭제했습니다.",
         timestamp=timestamp,
     )
 
