@@ -293,13 +293,14 @@ erDiagram
         int conversation_id FK
         int sender_id FK
         text content
+        datetime deleted_at
         datetime created_at
     }
 ```
 
 ### 주요 설계 결정
 
-- **Soft Delete**: `user`, `post`, `comment` 테이블에 `deleted_at` 컬럼 사용. 물리적 삭제 대신 논리적 삭제로 데이터 보존 및 FK 무결성 유지.
+- **Soft Delete**: `user`, `post`, `comment`, `dm_message` 테이블에 `deleted_at` 컬럼 사용. 물리적 삭제 대신 논리적 삭제로 데이터 보존 및 FK 무결성 유지.
 - **JWT 기반 인증**: Access Token(30분, HS256) + Refresh Token(7일, opaque random). Refresh Token은 SHA-256 해시로 DB 저장. JWT payload에는 `sub`(user_id)만 포함하여 PII 노출 방지. 토큰 회전(rotation)으로 Refresh Token 탈취 시 자동 무효화.
 - **Raw SQL**: ORM 대신 aiomysql parameterized queries를 직접 작성하여 쿼리 최적화 및 성능 제어.
 - **인덱스 전략**:
@@ -320,6 +321,10 @@ erDiagram
   - `idx_user_suspended`: 정지 상태 사용자 조회
   - `idx_tag_name`: 태그 이름 검색
   - `idx_post_tag_tag_id`: 태그별 게시글 조회
+  - `idx_user_follow_follower`, `idx_user_follow_following`: 팔로우 관계 조회
+  - `idx_user_post_score_user_score`: 추천 피드 점수 조회
+  - `idx_dm_conversation_participants`: DM 대화 참가자 조회
+  - `idx_dm_message_conversation`: DM 메시지 목록 조회
 
 ---
 
@@ -360,7 +365,7 @@ erDiagram
 
 | Method | Endpoint | 설명 | 인증 |
 | ------ | -------- | ---- | ---- |
-| GET | `/v1/posts` | 게시글 목록 (페이지네이션, `?search=`, `?sort=latest\|likes\|views\|comments\|hot`, `?category_id=`, `?tag=태그명`, `?following=true`) | X |
+| GET | `/v1/posts` | 게시글 목록 (페이지네이션, `?search=`, `?sort=latest\|likes\|views\|comments\|hot\|for_you`, `?category_id=`, `?tag=태그명`, `?following=true`) | X |
 | POST | `/v1/posts` | 게시글 작성 (`category_id` 필수, `tags[]` 선택, 최대 5개) | O (이메일 인증) |
 | GET | `/v1/posts/{post_id}` | 게시글 상세 조회 | X |
 | PATCH | `/v1/posts/{post_id}` | 게시글 수정 | O (작성자) |
@@ -450,6 +455,13 @@ erDiagram
 | ------ | -------- | ---- | ---- |
 | GET | `/v1/admin/dashboard` | 대시보드 요약 통계 | O (관리자) |
 | GET | `/v1/admin/users` | 사용자 관리 목록 (`?search=&offset=&limit=`) | O (관리자) |
+
+### 내부 API (EventBridge)
+
+| Method | Endpoint | 설명 | 인증 |
+| ------ | -------- | ---- | ---- |
+| POST | `/v1/admin/feed/recompute` | 추천 피드 점수 재계산 (30분 주기) | O (관리자 또는 내부 키) |
+| POST | `/v1/admin/cleanup/tokens` | 만료 Refresh Token + 이메일 인증 토큰 일괄 삭제 (1시간 주기) | O (내부 키) |
 
 ### WebSocket (`wss://`)
 
@@ -551,15 +563,18 @@ async with transactional() as cur:
 
 ### Soft Delete 패턴
 
-`user`, `post`, `comment` 테이블에 `deleted_at` 컬럼 사용. 모든 조회 쿼리에 `WHERE deleted_at IS NULL` 조건 필수. 대댓글이 있는 삭제된 부모 댓글은 플레이스홀더로 표시.
+`user`, `post`, `comment`, `dm_message` 테이블에 `deleted_at` 컬럼 사용. 모든 조회 쿼리에 `WHERE deleted_at IS NULL` 조건 필수. 대댓글이 있는 삭제된 부모 댓글은 플레이스홀더로 표시.
 
 ### Rate Limiting
 
-IP 기반 요청 빈도 제한. `middleware/rate_limiter.py`에서 경로별 설정 관리.
+IP 기반 요청 빈도 제한. 프로토콜 기반 아키텍처로 메모리(로컬)와 DynamoDB(프로덕션) 백엔드를 지원합니다.
 
+- **백엔드 선택**: `RATE_LIMIT_BACKEND` 설정 — `memory`(로컬, 기본) 또는 `dynamodb`(프로덕션)
+- **분산 환경**: DynamoDB Fixed Window Counter로 수평 확장된 Lambda 인스턴스 간 상태 공유
+- **fail-open 정책**: DynamoDB 장애 시 요청 허용 (가용성 우선)
 - 경로 정규화: `_PATH_PARAM_RE`로 `/v1/posts/123` → `/v1/posts/{id}` 변환
 - 키 형식: `"IP:METHOD:/v1/path/{id}/action"` — IP + HTTP 메서드 + 경로 독립
-- 메모리 보호: 최대 10,000개 IP 추적, 초과 시 배치 제거(10%)
+- 메모리 보호 (로컬): 최대 10,000개 IP 추적, 초과 시 배치 제거(10%)
 - OPTIONS(CORS preflight) 요청 제외
 
 ### 정보 열거 방지
@@ -676,6 +691,9 @@ uvicorn main:app --reload --port 8000
 | `SMTP_PORT` | SMTP 서버 포트 | - |
 | `TESTING` | Rate Limit 비활성화 | `false` |
 | `TRUSTED_PROXIES` | 프록시 신뢰 IP | `127.0.0.1,::1` |
+| `RATE_LIMIT_BACKEND` | Rate Limiter 백엔드 | `memory` |
+| `RATE_LIMIT_DYNAMODB_TABLE` | Rate Limit DynamoDB 테이블 | - |
+| `INTERNAL_API_KEY` | EventBridge 내부 API 키 | (SSM) |
 
 ---
 
@@ -702,7 +720,7 @@ ruff check . --fix
 mypy .
 ```
 
-**테스트 현황**: 275+ 테스트, 87% 커버리지
+**테스트 현황**: 300+ 테스트, 87% 커버리지
 
 ### 부하 테스트 (Locust)
 
