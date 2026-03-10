@@ -1,13 +1,11 @@
 """follow_controller: 사용자 팔로우 관련 컨트롤러 모듈."""
 
-from fastapi import HTTPException, Request, status
-from pymysql.err import IntegrityError
+from fastapi import Request
 
-from models import follow_models
-from models.user_models import User, get_user_by_id
+from models.user_models import User
 from schemas.common import create_response
 from dependencies.request_context import get_request_timestamp
-from utils.formatters import format_datetime
+from services.follow_service import FollowService
 
 
 async def follow_user(
@@ -22,34 +20,12 @@ async def follow_user(
     """
     timestamp = get_request_timestamp(request)
 
-    if target_user_id == current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "error": "cannot_follow_self",
-                "message": "자기 자신을 팔로우할 수 없습니다.",
-                "timestamp": timestamp,
-            },
-        )
-
-    target = await get_user_by_id(target_user_id)
-    if not target:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"error": "user_not_found", "timestamp": timestamp},
-        )
-
-    try:
-        await follow_models.add_follow(current_user.id, target_user_id)
-    except IntegrityError:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={
-                "error": "already_following",
-                "message": "이미 팔로우한 사용자입니다.",
-                "timestamp": timestamp,
-            },
-        )
+    await FollowService.follow(
+        user_id=current_user.id,
+        target_id=target_user_id,
+        actor_nickname=current_user.nickname,
+        timestamp=timestamp,
+    )
 
     return create_response(
         "USER_FOLLOWED",
@@ -70,16 +46,11 @@ async def unfollow_user(
     """
     timestamp = get_request_timestamp(request)
 
-    removed = await follow_models.remove_follow(current_user.id, target_user_id)
-    if not removed:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={
-                "error": "follow_not_found",
-                "message": "팔로우하지 않은 사용자입니다.",
-                "timestamp": timestamp,
-            },
-        )
+    await FollowService.unfollow(
+        user_id=current_user.id,
+        target_id=target_user_id,
+        timestamp=timestamp,
+    )
 
     return create_response(
         "USER_UNFOLLOWED",
@@ -97,21 +68,16 @@ async def get_my_following(
     """팔로잉 목록을 조회합니다."""
     timestamp = get_request_timestamp(request)
 
-    following, total_count = await follow_models.get_my_following(
-        current_user.id, offset, limit
+    data = await FollowService.get_following(
+        user_id=current_user.id,
+        offset=offset,
+        limit=limit,
     )
-    has_more = offset + limit < total_count
-
-    for item in following:
-        item["created_at"] = format_datetime(item["created_at"])
 
     return create_response(
         "MY_FOLLOWING_LOADED",
         "팔로잉 목록을 조회했습니다.",
-        data={
-            "following": following,
-            "pagination": {"total_count": total_count, "has_more": has_more},
-        },
+        data=data,
         timestamp=timestamp,
     )
 
@@ -125,20 +91,15 @@ async def get_my_followers(
     """팔로워 목록을 조회합니다."""
     timestamp = get_request_timestamp(request)
 
-    followers, total_count = await follow_models.get_my_followers(
-        current_user.id, offset, limit
+    data = await FollowService.get_followers(
+        user_id=current_user.id,
+        offset=offset,
+        limit=limit,
     )
-    has_more = offset + limit < total_count
-
-    for item in followers:
-        item["created_at"] = format_datetime(item["created_at"])
 
     return create_response(
         "MY_FOLLOWERS_LOADED",
         "팔로워 목록을 조회했습니다.",
-        data={
-            "followers": followers,
-            "pagination": {"total_count": total_count, "has_more": has_more},
-        },
+        data=data,
         timestamp=timestamp,
     )
