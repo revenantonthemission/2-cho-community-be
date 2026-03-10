@@ -4,6 +4,7 @@ from pymysql.err import IntegrityError
 
 from models import follow_models
 from models.user_models import get_user_by_id
+from utils.error_codes import ErrorCode
 from utils.exceptions import (
     bad_request_error,
     conflict_error,
@@ -49,7 +50,7 @@ class FollowService:
         try:
             await follow_models.add_follow(user_id, target_id)
         except IntegrityError:
-            raise conflict_error("already_following", "이미 팔로우한 사용자입니다.")
+            raise conflict_error(ErrorCode.ALREADY_FOLLOWING, "이미 팔로우한 사용자입니다.")
 
         # 팔로우 알림 (자기 자신 제외는 정의상 보장됨)
         await safe_notify(

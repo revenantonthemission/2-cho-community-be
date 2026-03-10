@@ -3,6 +3,7 @@
 from pymysql.err import IntegrityError
 
 from models import post_models, like_models
+from utils.error_codes import ErrorCode
 from utils.exceptions import not_found_error, conflict_error, safe_notify
 
 
@@ -38,7 +39,7 @@ class LikeService:
         try:
             await like_models.add_like(post_id, user_id)
         except IntegrityError:
-            raise conflict_error("already_liked", "이미 좋아요를 누른 게시글입니다.")
+            raise conflict_error(ErrorCode.ALREADY_LIKED, "이미 좋아요를 누른 게시글입니다.")
 
         likes_count = await like_models.get_post_likes_count(post_id)
 

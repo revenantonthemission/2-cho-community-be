@@ -11,6 +11,7 @@ from models.block_models import get_blocked_user_ids
 from models.user_models import User
 from schemas.common import create_response
 from services import dm_service
+from utils.error_codes import ErrorCode
 from utils.exceptions import bad_request_error, forbidden_error, not_found_error
 from utils.formatters import format_datetime
 from utils.websocket_pusher import push_to_user
@@ -177,7 +178,7 @@ async def delete_message(
     if result.get("forbidden"):
         raise forbidden_error("delete_message", timestamp, "본인 메시지만 삭제할 수 있습니다.")
     if result.get("already_deleted"):
-        raise bad_request_error("already_deleted", timestamp, "이미 삭제된 메시지입니다.")
+        raise bad_request_error(ErrorCode.ALREADY_DELETED, timestamp, "이미 삭제된 메시지입니다.")
 
     # 상대방에게 WebSocket 푸시 (best-effort)
     other_user_id = dm_service.get_other_user_id(conversation, current_user.id)

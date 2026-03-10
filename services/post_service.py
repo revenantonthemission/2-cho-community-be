@@ -10,6 +10,7 @@ from models.bookmark_models import get_bookmark
 from models.block_models import get_blocked_user_ids
 from schemas.post_schemas import CreatePostRequest
 from utils.formatters import format_datetime
+from utils.error_codes import ErrorCode
 from utils.exceptions import not_found_error, forbidden_error, bad_request_error
 
 
@@ -296,7 +297,7 @@ class PostService:
 
         # 3. 변경사항 확인
         if all(v is None for v in (title, content, image_url, category_id, image_urls, tags)):
-            raise bad_request_error("no_changes_provided", timestamp)
+            raise bad_request_error(ErrorCode.NO_CHANGES_PROVIDED, timestamp)
 
         # 4. 다중 이미지 처리
         effective_image_url = image_url
