@@ -139,27 +139,5 @@ async def cleanup_tokens(
     request: Request,
     current_user: User | None = Depends(require_admin_or_internal),
 ) -> dict:
-    """만료된 토큰을 정리합니다 (관리자 또는 내부 호출).
-
-    Refresh Token과 이메일 인증 토큰을 일괄 삭제합니다.
-    EventBridge 스케줄로 주기적으로 호출합니다.
-    """
-    from models.token_models import cleanup_expired_tokens
-    from models.verification_models import cleanup_expired_verification_tokens
-
-    refresh_deleted = await cleanup_expired_tokens()
-    verification_deleted = await cleanup_expired_verification_tokens()
-
-    import logging
-    logging.getLogger(__name__).info(
-        "토큰 정리 완료: refresh=%d, verification=%d",
-        refresh_deleted, verification_deleted,
-    )
-
-    return {
-        "status": "success",
-        "data": {
-            "refresh_tokens_deleted": refresh_deleted,
-            "verification_tokens_deleted": verification_deleted,
-        },
-    }
+    """만료된 토큰을 정리합니다 (관리자 또는 내부 호출)."""
+    return await admin_controller.cleanup_tokens(request)
