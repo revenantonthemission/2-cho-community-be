@@ -1,6 +1,5 @@
 from fastapi import HTTPException, Request, UploadFile, status
 from models.post_models import ALLOWED_SORT_OPTIONS
-from models import post_models
 from models.user_models import User
 from schemas.post_schemas import CreatePostRequest, UpdatePostRequest
 from schemas.common import create_response
@@ -323,11 +322,7 @@ async def pin_post(
     """게시글을 고정합니다 (관리자 전용)."""
     timestamp = get_request_timestamp(request)
 
-    post = await post_models.get_post_by_id(post_id)
-    if not post:
-        raise not_found_error("post", timestamp)
-
-    await post_models.pin_post(post_id)
+    await PostService.pin_post(post_id, timestamp)
 
     return create_response(
         "POST_PINNED", "게시글이 고정되었습니다.", timestamp=timestamp
@@ -342,11 +337,7 @@ async def unpin_post(
     """게시글 고정을 해제합니다 (관리자 전용)."""
     timestamp = get_request_timestamp(request)
 
-    post = await post_models.get_post_by_id(post_id)
-    if not post:
-        raise not_found_error("post", timestamp)
-
-    await post_models.unpin_post(post_id)
+    await PostService.unpin_post(post_id, timestamp)
 
     return create_response(
         "POST_UNPINNED", "게시글 고정이 해제되었습니다.", timestamp=timestamp

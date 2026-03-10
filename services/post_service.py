@@ -406,3 +406,19 @@ class PostService:
             p["tags"] = posts_tags.get(p["post_id"], [])
 
         return posts_data
+
+    @staticmethod
+    async def pin_post(post_id: int, timestamp: str) -> None:
+        """게시글 고정."""
+        post = await post_models.get_post_by_id(post_id)
+        if not post:
+            raise not_found_error("post", timestamp)
+        await post_models.pin_post(post_id)
+
+    @staticmethod
+    async def unpin_post(post_id: int, timestamp: str) -> None:
+        """게시글 고정 해제."""
+        post = await post_models.get_post_by_id(post_id)
+        if not post:
+            raise not_found_error("post", timestamp)
+        await post_models.unpin_post(post_id)
