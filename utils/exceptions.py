@@ -80,7 +80,7 @@ def bad_request_error(
 
 
 def conflict_error(error_code: str, message: str) -> HTTPException:
-    """409 Conflict 에러 (중복 좋아요, 북마크 등)"""
+    """409 Conflict 에러"""
     return HTTPException(
         status_code=status.HTTP_409_CONFLICT,
         detail={"error": error_code, "message": message},
