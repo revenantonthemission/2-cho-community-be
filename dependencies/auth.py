@@ -183,8 +183,6 @@ async def require_verified_email(
 
 def _is_valid_internal_key(request: Request) -> bool:
     """X-Internal-Key 헤더가 유효한 내부 API 키인지 확인합니다."""
-    import hmac
-
     if not settings.INTERNAL_API_KEY:
         return False
     key = request.headers.get("X-Internal-Key", "")
