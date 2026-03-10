@@ -29,7 +29,7 @@ async def create_report(
             timestamp=timestamp,
         )
     except IntegrityError:
-        raise conflict_error("report", timestamp, "이미 신고한 콘텐츠입니다.")
+        raise conflict_error("report_already_exists", "이미 신고한 콘텐츠입니다.")
 
     return create_response(
         "REPORT_CREATED",
