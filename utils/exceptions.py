@@ -3,7 +3,10 @@
 자주 사용되는 HTTP 에러 응답을 표준화된 형식으로 생성합니다.
 """
 
+from __future__ import annotations
+
 import logging
+from typing import Literal
 
 from fastapi import HTTPException, status
 
@@ -90,7 +93,7 @@ def conflict_error(error_code: str, message: str) -> HTTPException:
 async def safe_notify(
     *,
     user_id: int,
-    notification_type: str,
+    notification_type: Literal['comment', 'like', 'mention', 'follow', 'bookmark'],
     actor_id: int,
     actor_nickname: str,
     post_id: int | None = None,
