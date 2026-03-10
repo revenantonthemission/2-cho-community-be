@@ -2,14 +2,17 @@
 
 import logging
 
-from typing import List, Dict, Tuple, Optional
+from typing import Dict, List, Optional
+
 from models import post_models, tag_models, poll_models, follow_models, notification_models
+from schemas.responses.post_responses import PostListResult
 from models.user_models import User
 from models.like_models import get_like
 from models.bookmark_models import get_bookmark
 from models.block_models import get_blocked_user_ids
 from schemas.post_schemas import CreatePostRequest
 from utils.formatters import format_datetime
+from utils.error_codes import ErrorCode
 from utils.exceptions import not_found_error, forbidden_error, bad_request_error
 
 
@@ -27,7 +30,7 @@ class PostService:
         current_user: Optional[User] = None,
         tag: Optional[str] = None,
         following: bool = False,
-    ) -> Tuple[List[Dict], int, bool]:
+    ) -> PostListResult:
         """게시글 목록 조회 및 가공."""
         # 차단된 사용자 목록 조회
         blocked_ids: set[int] | None = None
@@ -41,7 +44,7 @@ class PostService:
         if following and current_user:
             author_ids = await follow_models.get_following_ids(current_user.id)
             if not author_ids:
-                return ([], 0, False)
+                return PostListResult(posts=[], total_count=0, has_more=False)
 
         # 추천 피드 cold start 처리
         effective_sort = sort
@@ -100,7 +103,11 @@ class PostService:
             for post in posts_data:
                 post["is_read"] = False
 
-        return posts_data, total_count, has_more
+        return PostListResult(
+            posts=posts_data,  # type: ignore[arg-type]
+            total_count=total_count,
+            has_more=has_more,
+        )
 
     @staticmethod
     def _apply_diversity_cap(
@@ -296,7 +303,7 @@ class PostService:
 
         # 3. 변경사항 확인
         if all(v is None for v in (title, content, image_url, category_id, image_urls, tags)):
-            raise bad_request_error("no_changes_provided", timestamp)
+            raise bad_request_error(ErrorCode.NO_CHANGES_PROVIDED, timestamp)
 
         # 4. 다중 이미지 처리
         effective_image_url = image_url

@@ -72,7 +72,7 @@ async def get_posts(
         sort = "latest"
 
     # Service Layer 호출
-    posts_data, total_count, has_more = await PostService.get_posts(
+    result = await PostService.get_posts(
         offset, limit, search=search, sort=sort,
         author_id=author_id, category_id=category_id,
         current_user=current_user, tag=tag,
@@ -83,12 +83,12 @@ async def get_posts(
         "POSTS_RETRIEVED",
         "게시글 목록 조회에 성공했습니다.",
         data={
-            "posts": posts_data,
+            "posts": [p.model_dump() for p in result.posts],
             "pagination": {
                 "offset": offset,
                 "limit": limit,
-                "total_count": total_count,
-                "has_more": has_more,
+                "total_count": result.total_count,
+                "has_more": result.has_more,
             },
         },
         timestamp=timestamp,

@@ -11,6 +11,7 @@ from schemas.user_schemas import CreateUserRequest
 from utils.email import send_email
 from utils.password import hash_password, verify_password
 from utils.temp_password import generate_temp_password
+from utils.error_codes import ErrorCode
 from utils.exceptions import (
     not_found_error,
     bad_request_error,
@@ -38,11 +39,11 @@ class UserService:
         """사용자 생성 (회원가입)."""
         # 1. 이메일 중복 확인
         if await user_models.get_user_by_email(user_data.email):
-            raise conflict_error("email_already_exists", "이미 사용 중인 이메일입니다")
+            raise conflict_error(ErrorCode.EMAIL_ALREADY_EXISTS, "이미 사용 중인 이메일입니다")
 
         # 2. 닉네임 중복 확인
         if await user_models.get_user_by_nickname(user_data.nickname):
-            raise conflict_error("nickname_already_exists", "이미 사용 중인 닉네임입니다")
+            raise conflict_error(ErrorCode.NICKNAME_ALREADY_EXISTS, "이미 사용 중인 닉네임입니다")
 
         # 3. 비밀번호 해싱
         hashed_password = await asyncio.to_thread(hash_password, user_data.password)
@@ -102,13 +103,13 @@ class UserService:
         """사용자 정보 수정."""
         # 1. 변경 사항 없음 확인
         if nickname is None and profile_image_url is None:
-            raise bad_request_error("no_changes_provided", timestamp)
+            raise bad_request_error(ErrorCode.NO_CHANGES_PROVIDED, timestamp)
 
         # 2. 닉네임 중복 확인
         if nickname is not None:
             existing_user = await user_models.get_user_by_nickname(nickname)
             if existing_user and existing_user.id != user_id:
-                raise conflict_error("nickname_already_exists", "이미 사용 중인 닉네임입니다")
+                raise conflict_error(ErrorCode.NICKNAME_ALREADY_EXISTS, "이미 사용 중인 닉네임입니다")
 
         # 3. 정보 수정
         updated_user = await user_models.update_user(
@@ -137,15 +138,15 @@ class UserService:
         if not await asyncio.to_thread(
             verify_password, current_password, stored_password_hash
         ):
-            raise bad_request_error("invalid_password", timestamp)
+            raise bad_request_error(ErrorCode.INVALID_PASSWORD, timestamp)
 
         # 2. 새 비밀번호 확인
         if new_password != new_password_confirm:
-            raise bad_request_error("password_mismatch", timestamp)
+            raise bad_request_error(ErrorCode.PASSWORD_MISMATCH, timestamp)
 
         # 3. 새 비밀번호가 현재 비밀번호와 같은지 확인 (재사용 방지)
         if await asyncio.to_thread(verify_password, new_password, stored_password_hash):
-            raise bad_request_error("same_password", timestamp)
+            raise bad_request_error(ErrorCode.SAME_PASSWORD, timestamp)
 
         # 4. 해싱 및 업데이트
         hashed_new_password = await asyncio.to_thread(hash_password, new_password)
@@ -161,11 +162,11 @@ class UserService:
         """회원 탈퇴."""
         # 1. 활성 상태 확인
         if not current_user.is_active:
-            raise bad_request_error("inactive_user", timestamp)
+            raise bad_request_error(ErrorCode.INACTIVE_USER, timestamp)
 
         # 2. 비밀번호 확인
         if not await asyncio.to_thread(verify_password, password, current_user.password):
-            raise bad_request_error("invalid_password", timestamp)
+            raise bad_request_error(ErrorCode.INVALID_PASSWORD, timestamp)
 
         # 3. 탈퇴 처리 (익명화 등은 모델의 withdraw_user 위임)
         # models.withdraw_user는 트랜잭션 내에서 연결 끊기, 리프레시 토큰 삭제, 익명화를 수행함

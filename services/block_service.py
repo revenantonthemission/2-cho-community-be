@@ -4,6 +4,7 @@ from pymysql.err import IntegrityError
 
 from models import block_models
 from models.user_models import get_user_by_id
+from utils.error_codes import ErrorCode
 from utils.exceptions import bad_request_error, conflict_error, not_found_error
 from utils.formatters import format_datetime
 
@@ -42,7 +43,7 @@ class BlockService:
         try:
             await block_models.add_block(user_id, target_id)
         except IntegrityError:
-            raise conflict_error("already_blocked", "이미 차단한 사용자입니다.")
+            raise conflict_error(ErrorCode.ALREADY_BLOCKED, "이미 차단한 사용자입니다.")
 
     @staticmethod
     async def unblock_user(

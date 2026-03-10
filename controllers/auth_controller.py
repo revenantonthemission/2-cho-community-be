@@ -18,6 +18,7 @@ from schemas.auth_schemas import LoginRequest
 from schemas.common import create_response, serialize_user
 from services.auth_service import AuthService
 from utils.email import send_email
+from utils.error_codes import ErrorCode
 from utils.exceptions import bad_request_error
 
 logger = logging.getLogger(__name__)
@@ -198,7 +199,7 @@ async def verify_email(token: str, request: Request) -> dict:
 
     user_id = await verification_models.verify_token(token)
     if not user_id:
-        raise bad_request_error("invalid_or_expired_token", timestamp)
+        raise bad_request_error(ErrorCode.INVALID_OR_EXPIRED_TOKEN, timestamp)
 
     return create_response(
         "EMAIL_VERIFIED",
@@ -226,7 +227,7 @@ async def resend_verification(current_user: User, request: Request) -> dict:
     timestamp = get_request_timestamp(request)
 
     if current_user.email_verified:
-        raise bad_request_error("already_verified", timestamp)
+        raise bad_request_error(ErrorCode.ALREADY_VERIFIED, timestamp)
 
     raw_token = await verification_models.create_verification_token(current_user.id)
 

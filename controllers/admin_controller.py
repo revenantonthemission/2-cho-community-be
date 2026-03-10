@@ -1,11 +1,15 @@
 """admin_controller: 관리자 대시보드 컨트롤러 모듈."""
 
+import logging
+
 from fastapi import Request
 
 from models import admin_models
 from models.user_models import User
 from schemas.common import create_response
 from dependencies.request_context import get_request_timestamp
+
+logger = logging.getLogger(__name__)
 
 
 async def get_dashboard(current_user: User, request: Request) -> dict:
@@ -45,3 +49,29 @@ async def get_users(
         },
         timestamp=timestamp,
     )
+
+
+async def cleanup_tokens(request: Request) -> dict:
+    """만료된 토큰을 정리합니다 (관리자 또는 내부 호출).
+
+    Refresh Token과 이메일 인증 토큰을 일괄 삭제합니다.
+    EventBridge 스케줄로 주기적으로 호출합니다.
+    """
+    from models.token_models import cleanup_expired_tokens
+    from models.verification_models import cleanup_expired_verification_tokens
+
+    refresh_deleted = await cleanup_expired_tokens()
+    verification_deleted = await cleanup_expired_verification_tokens()
+
+    logger.info(
+        "토큰 정리 완료: refresh=%d, verification=%d",
+        refresh_deleted, verification_deleted,
+    )
+
+    return {
+        "status": "success",
+        "data": {
+            "refresh_tokens_deleted": refresh_deleted,
+            "verification_tokens_deleted": verification_deleted,
+        },
+    }

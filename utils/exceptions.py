@@ -10,14 +10,16 @@ from typing import Literal
 
 from fastapi import HTTPException, status
 
+from utils.error_codes import ErrorCode
+
 logger = logging.getLogger(__name__)
 
 
-def not_found_error(resource: str, timestamp: str) -> HTTPException:
+def not_found_error(resource: ErrorCode | str, timestamp: str) -> HTTPException:
     """리소스를 찾을 수 없을 때 404 에러를 생성합니다.
 
     Args:
-        resource: 리소스 이름 (예: 'user', 'post', 'comment').
+        resource: 리소스 이름 또는 ErrorCode (예: 'user', ErrorCode.USER_NOT_FOUND).
         timestamp: 요청 타임스탬프.
 
     Returns:
@@ -33,12 +35,12 @@ def not_found_error(resource: str, timestamp: str) -> HTTPException:
 
 
 def forbidden_error(
-    action: str, timestamp: str, message: str | None = None
+    action: ErrorCode | str, timestamp: str, message: str | None = None
 ) -> HTTPException:
     """권한이 없을 때 403 에러를 생성합니다.
 
     Args:
-        action: 수행하려는 동작 (예: 'edit', 'delete').
+        action: 수행하려는 동작 또는 ErrorCode (예: 'edit', 'delete').
         timestamp: 요청 타임스탬프.
         message: 사용자에게 표시할 메시지 (선택).
 
@@ -58,12 +60,12 @@ def forbidden_error(
 
 
 def bad_request_error(
-    error_code: str, timestamp: str, message: str | None = None
+    error_code: ErrorCode | str, timestamp: str, message: str | None = None
 ) -> HTTPException:
     """잘못된 요청에 대한 400 에러를 생성합니다.
 
     Args:
-        error_code: 에러 코드 (예: 'invalid_input', 'no_changes_provided').
+        error_code: 에러 코드 또는 ErrorCode (예: ErrorCode.NO_CHANGES_PROVIDED).
         timestamp: 요청 타임스탬프.
         message: 사용자에게 표시할 메시지 (선택).
 
@@ -82,7 +84,7 @@ def bad_request_error(
     )
 
 
-def conflict_error(error_code: str, message: str) -> HTTPException:
+def conflict_error(error_code: ErrorCode | str, message: str) -> HTTPException:
     """409 Conflict 에러"""
     return HTTPException(
         status_code=status.HTTP_409_CONFLICT,
