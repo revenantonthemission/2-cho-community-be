@@ -722,6 +722,80 @@ mypy .
 
 **테스트 현황**: 300+ 테스트, 87% 커버리지
 
+### 대규모 시드 데이터 (`seed_data_large.py`)
+
+RDS에 영구 보존할 대규모 시드 데이터를 생성합니다. 추천 피드 테스트와 부하 테스트에 활용.
+
+```bash
+# SSH 터널 열기
+ssh -i ~/.ssh/키파일 -L 3307:<RDS_ENDPOINT>:3306 ec2-user@<BASTION_IP> -N
+
+# 설정 확인 (DB 접속 없이)
+python database/seed_data_large.py --db-user admin --db-password SECRET --dry-run
+
+# 시딩 실행
+python database/seed_data_large.py \
+    --db-host 127.0.0.1 --db-port 3307 \
+    --db-user admin --db-password SECRET --no-confirm
+
+# 기존 데이터 삭제 후 재시딩
+python database/seed_data_large.py \
+    --db-host 127.0.0.1 --db-port 3307 \
+    --db-user admin --db-password SECRET --no-confirm --clean
+
+# 추천 점수 재계산 포함
+python database/seed_data_large.py \
+    --db-host 127.0.0.1 --db-port 3307 \
+    --db-user admin --db-password SECRET --no-confirm \
+    --recompute-url https://api.my-community.shop
+```
+
+| 항목 | 규모 |
+| --- | --- |
+| 사용자 | 50,000명 (Power 5% / Regular 25% / Reader 70%) |
+| 게시글 | ~250,000개 (성장 곡선 시간 분포) |
+| 댓글 | ~750,000개 (80% 루트 + 20% 대댓글) |
+| 좋아요/북마크/조회 | ~950,000건 (인기 편중 분포) |
+| 팔로우/차단/알림/신고/DM | ~680,000건 |
+| **총 행 수** | **~300만** |
+
+**실행 흐름 (5-Phase)**
+
+```mermaid
+flowchart LR
+    subgraph P1["Phase 1: 기반 (순차)"]
+        U[users 50K] --> C[categories 4] --> T[tags 50]
+    end
+    subgraph P2["Phase 2: 콘텐츠 (순차)"]
+        PO[posts 250K] --> PT[post_tags] --> PI[post_images] --> PL[polls]
+    end
+    subgraph P3["Phase 3: 상호작용 (병렬)"]
+        direction TB
+        CM[comments 750K]
+        LK[likes 500K]
+        BK[bookmarks 150K]
+        VW[views 500K]
+        PV[poll_votes]
+    end
+    subgraph P4["Phase 4: 소셜 (병렬)"]
+        direction TB
+        FL[follows 100K]
+        BL[blocks 2.5K]
+        NF[notifications 500K]
+        RP[reports 2.5K]
+        DM[DMs 80K]
+    end
+    subgraph P5["Phase 5: 검증"]
+        VR[행 수 + 무결성 검증]
+        RC[피드 점수 재계산]
+    end
+    P1 --> P2 --> P3 --> P4 --> P5
+```
+
+- **배치 INSERT**: 5,000행씩 `INSERT IGNORE` (UNIQUE 테이블) / `INSERT` (일반 테이블)
+- **asyncio.gather**: Phase 3, 4에서 독립 테이블 병렬 처리
+- **소요 시간**: SSH 터널 경유 ~5-10분
+
 ### 부하 테스트 (Locust)
 
 ```bash
