@@ -194,6 +194,51 @@ async def mark_read(
     return read_count
 
 
+async def send_message_with_validation(
+    conversation_id: int, user_id: int, content: str, sender: User, timestamp: str
+) -> dict:
+    """메시지를 전송합니다 (검증 포함).
+
+    대화 존재 확인, 참여자 검증, 양방향 차단 확인, 상대방 탈퇴 확인 후 메시지 전송.
+
+    Args:
+        conversation_id: 대화 ID.
+        user_id: 전송자 ID.
+        content: 메시지 내용.
+        sender: 전송자 User 객체.
+        timestamp: 요청 타임스탬프.
+
+    Returns:
+        메시지 dict.
+
+    Raises:
+        HTTPException: 대화 없음(404), 권한 없음(403), 차단(403), 탈퇴(400).
+    """
+    conversation = await dm_models.get_conversation_by_id(conversation_id)
+    if not conversation:
+        raise not_found_error("conversation", timestamp)
+
+    _verify_participant(conversation, user_id, timestamp)
+
+    # 양방향 차단 확인
+    other_user_id = get_other_user_id(conversation, user_id)
+    my_blocked = await get_blocked_user_ids(user_id)
+    their_blocked = await get_blocked_user_ids(other_user_id)
+    if other_user_id in my_blocked or user_id in their_blocked:
+        raise forbidden_error(
+            "send_message", timestamp, "차단 관계에서는 쪽지를 보낼 수 없습니다."
+        )
+
+    # 상대방 탈퇴 여부 확인
+    recipient = await user_models.get_user_by_id(other_user_id)
+    if not recipient or not recipient.is_active:
+        raise bad_request_error(
+            ErrorCode.RECIPIENT_NOT_FOUND, timestamp, "탈퇴한 사용자에게 메시지를 보낼 수 없습니다."
+        )
+
+    return await send_message_and_push(conversation, sender, content)
+
+
 async def send_message_and_push(
     conversation: Conversation, sender: User, content: str
 ) -> dict:
@@ -223,3 +268,69 @@ async def send_message_and_push(
         )
 
     return message
+
+
+async def delete_message_with_push(
+    conversation_id: int, message_id: int, user_id: int, timestamp: str
+) -> None:
+    """메시지를 삭제하고 상대방에게 WebSocket 푸시를 전송합니다.
+
+    Args:
+        conversation_id: 대화 ID.
+        message_id: 삭제할 메시지 ID.
+        user_id: 요청 사용자 ID.
+        timestamp: 요청 타임스탬프.
+
+    Raises:
+        HTTPException: 대화 없음(404), 메시지 없음(404), 권한 없음(403), 이미 삭제(400).
+    """
+    conversation = await dm_models.get_conversation_by_id(conversation_id)
+    if not conversation:
+        raise not_found_error("conversation", timestamp)
+
+    _verify_participant(conversation, user_id, timestamp)
+
+    result = await dm_models.delete_message(conversation_id, message_id, user_id)
+    if result is None:
+        raise not_found_error("message", timestamp)
+    if result.get("forbidden"):
+        raise forbidden_error("delete_message", timestamp, "본인 메시지만 삭제할 수 있습니다.")
+    if result.get("already_deleted"):
+        raise bad_request_error(ErrorCode.ALREADY_DELETED, timestamp, "이미 삭제된 메시지입니다.")
+
+    # 상대방에게 WebSocket 푸시 (best-effort)
+    other_user_id = get_other_user_id(conversation, user_id)
+    try:
+        await push_to_user(other_user_id, {
+            "type": "message_deleted",
+            "conversation_id": conversation_id,
+            "message_id": message_id,
+        })
+    except Exception:
+        logger.warning(
+            "message_deleted WebSocket 푸시 실패 (message_id=%d, best-effort)",
+            message_id,
+            exc_info=True,
+        )
+
+
+async def delete_conversation_with_validation(
+    conversation_id: int, user_id: int, timestamp: str
+) -> None:
+    """대화를 삭제합니다.
+
+    Args:
+        conversation_id: 삭제할 대화 ID.
+        user_id: 요청 사용자 ID.
+        timestamp: 요청 타임스탬프.
+
+    Raises:
+        HTTPException: 대화 없음(404), 권한 없음(403).
+    """
+    conversation = await dm_models.get_conversation_by_id(conversation_id)
+    if not conversation:
+        raise not_found_error("conversation", timestamp)
+
+    _verify_participant(conversation, user_id, timestamp)
+
+    await dm_models.delete_conversation(conversation_id)

@@ -1,22 +1,14 @@
 """dm_controller: DM(쪽지) 관련 컨트롤러."""
 
-import logging
-
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
 from dependencies.request_context import get_request_timestamp
-from models import dm_models, user_models
-from models.block_models import get_blocked_user_ids
+from models import dm_models
 from models.user_models import User
 from schemas.common import create_response
 from services import dm_service
-from utils.error_codes import ErrorCode
-from utils.exceptions import bad_request_error, forbidden_error, not_found_error
 from utils.formatters import format_datetime
-from utils.websocket_pusher import push_to_user
-
-logger = logging.getLogger(__name__)
 
 
 async def create_conversation(
@@ -108,30 +100,8 @@ async def send_message(
     """메시지를 전송합니다."""
     timestamp = get_request_timestamp(request)
 
-    conversation = await dm_models.get_conversation_by_id(conversation_id)
-    if not conversation:
-        raise not_found_error("conversation", timestamp)
-
-    dm_service._verify_participant(conversation, current_user.id, timestamp)
-
-    # 양방향 차단 확인
-    other_user_id = dm_service.get_other_user_id(conversation, current_user.id)
-    my_blocked = await get_blocked_user_ids(current_user.id)
-    their_blocked = await get_blocked_user_ids(other_user_id)
-    if other_user_id in my_blocked or current_user.id in their_blocked:
-        raise forbidden_error(
-            "send_message", timestamp, "차단 관계에서는 쪽지를 보낼 수 없습니다."
-        )
-
-    # 상대방 탈퇴 여부 확인
-    recipient = await user_models.get_user_by_id(other_user_id)
-    if not recipient or not recipient.is_active:
-        raise bad_request_error(
-            "recipient_deleted", timestamp, "탈퇴한 사용자에게 메시지를 보낼 수 없습니다."
-        )
-
-    message = await dm_service.send_message_and_push(
-        conversation, current_user, content
+    message = await dm_service.send_message_with_validation(
+        conversation_id, current_user.id, content, current_user, timestamp
     )
 
     return create_response(
@@ -166,34 +136,9 @@ async def delete_message(
     """메시지를 삭제합니다 (soft delete)."""
     timestamp = get_request_timestamp(request)
 
-    conversation = await dm_models.get_conversation_by_id(conversation_id)
-    if not conversation:
-        raise not_found_error("conversation", timestamp)
-
-    dm_service._verify_participant(conversation, current_user.id, timestamp)
-
-    result = await dm_models.delete_message(conversation_id, message_id, current_user.id)
-    if result is None:
-        raise not_found_error("message", timestamp)
-    if result.get("forbidden"):
-        raise forbidden_error("delete_message", timestamp, "본인 메시지만 삭제할 수 있습니다.")
-    if result.get("already_deleted"):
-        raise bad_request_error(ErrorCode.ALREADY_DELETED, timestamp, "이미 삭제된 메시지입니다.")
-
-    # 상대방에게 WebSocket 푸시 (best-effort)
-    other_user_id = dm_service.get_other_user_id(conversation, current_user.id)
-    try:
-        await push_to_user(other_user_id, {
-            "type": "message_deleted",
-            "conversation_id": conversation_id,
-            "message_id": message_id,
-        })
-    except Exception:
-        logger.warning(
-            "message_deleted WebSocket 푸시 실패 (message_id=%d, best-effort)",
-            message_id,
-            exc_info=True,
-        )
+    await dm_service.delete_message_with_push(
+        conversation_id, message_id, current_user.id, timestamp
+    )
 
     return create_response(
         "MESSAGE_DELETED",
@@ -220,13 +165,9 @@ async def delete_conversation(
     """대화를 삭제합니다."""
     timestamp = get_request_timestamp(request)
 
-    conversation = await dm_models.get_conversation_by_id(conversation_id)
-    if not conversation:
-        raise not_found_error("conversation", timestamp)
-
-    dm_service._verify_participant(conversation, current_user.id, timestamp)
-
-    await dm_models.delete_conversation(conversation_id)
+    await dm_service.delete_conversation_with_validation(
+        conversation_id, current_user.id, timestamp
+    )
 
     return create_response(
         "CONVERSATION_DELETED",
