@@ -471,6 +471,14 @@ TOTAL_COMMENT_LIKES = 300_000
 TOTAL_VIEW_LOGS = 500_000
 TOTAL_POLL_VOTES = 50_000
 
+TOTAL_FOLLOWS = 100_000
+TOTAL_BLOCKS = 2_500
+TOTAL_NOTIFICATIONS = 500_000
+TOTAL_REPORTS = 2_500
+TOTAL_DM_CONVERSATIONS = 5_000
+DM_MESSAGES_PER_CONV = 15
+REPORT_REASONS = ["spam", "abuse", "inappropriate", "other"]
+
 COMMENT_TEMPLATES = [
     "좋은 글 감사합니다!", "도움이 됐어요.", "저도 같은 생각이에요.",
     "공감합니다.", "더 자세히 알려주세요.", "좋은 정보 감사합니다.",
@@ -997,28 +1005,237 @@ async def seed_poll_votes(pool: aiomysql.Pool) -> None:
 
 
 async def seed_follows(pool: aiomysql.Pool) -> None:
-    """팔로우 관계 생성."""
-    pass
+    """팔로우 ~100,000개 (파워유저 간 높은 상호 팔로우)."""
+    print(f"  팔로우 {TOTAL_FOLLOWS:,}개 생성 중...")
+    seen: set[tuple[int, int]] = set()
+    data = []
+
+    # 파워유저 간 상호 팔로우 (~2% of pairs)
+    power_list = list(POWER_IDS)
+    for i in range(len(power_list)):
+        if len(data) >= TOTAL_FOLLOWS // 3:
+            break
+        for j in range(i + 1, len(power_list)):
+            if len(data) >= TOTAL_FOLLOWS // 3:
+                break
+            if random.random() < 0.02:
+                a, b = power_list[i], power_list[j]
+                if (a, b) not in seen:
+                    seen.add((a, b))
+                    data.append((a, b, growth_curve_timestamp(180)))
+                if (b, a) not in seen:
+                    seen.add((b, a))
+                    data.append((b, a, growth_curve_timestamp(180)))
+
+    # 나머지: 일반/읽기 → 파워유저 팔로우
+    attempts = 0
+    while len(data) < TOTAL_FOLLOWS and attempts < TOTAL_FOLLOWS * 3:
+        follower = weighted_user_id(0.1, 0.4)
+        following = weighted_user_id(0.7, 0.2)
+        if follower != following and (follower, following) not in seen:
+            seen.add((follower, following))
+            data.append((follower, following, growth_curve_timestamp(180)))
+        attempts += 1
+
+    count = await batch_insert_raw(
+        pool, "user_follow", ["follower_id", "following_id", "created_at"],
+        data[:TOTAL_FOLLOWS], ignore=True,
+    )
+    print(f"  ✓ 팔로우 {count:,}개")
 
 
 async def seed_blocks(pool: aiomysql.Pool) -> None:
-    """사용자 차단 생성."""
-    pass
+    """사용자 차단 ~2,500개 생성."""
+    print(f"  사용자 차단 {TOTAL_BLOCKS:,}개 생성 중...")
+    seen: set[tuple[int, int]] = set()
+    data: list[tuple] = []
+    attempts = 0
+
+    while len(data) < TOTAL_BLOCKS and attempts < TOTAL_BLOCKS * 3:
+        blocker = random.randint(1, TOTAL_USERS)
+        blocked = random.randint(1, TOTAL_USERS)
+        if blocker != blocked and (blocker, blocked) not in seen:
+            seen.add((blocker, blocked))
+            data.append((blocker, blocked, growth_curve_timestamp(90)))
+        attempts += 1
+
+    count = await batch_insert_raw(
+        pool, "user_block", ["blocker_id", "blocked_id", "created_at"],
+        data, ignore=True,
+    )
+    print(f"  ✓ 사용자 차단 {count:,}개")
 
 
 async def seed_notifications(pool: aiomysql.Pool) -> None:
-    """알림 데이터 생성."""
-    pass
+    """알림 ~500,000개 생성."""
+    print(f"  알림 {TOTAL_NOTIFICATIONS:,}개 생성 중...")
+    # 타입 가중치: comment 25%, like 37.5%, mention 12.5%, follow 25%
+    type_pool = ["comment", "comment", "like", "like", "like", "mention", "follow", "follow"]
+    data: list[tuple] = []
+
+    for i in range(TOTAL_NOTIFICATIONS):
+        ntype = random.choice(type_pool)
+        user_id = weighted_user_id(0.5, 0.3)
+        actor_id = weighted_user_id(0.4, 0.35)
+        # actor와 user가 같으면 다시 선택
+        while actor_id == user_id:
+            actor_id = weighted_user_id(0.4, 0.35)
+        post_id = random.randint(1, TOTAL_POSTS)
+        comment_id = random.randint(1, TOTAL_COMMENTS) if ntype in ("comment", "mention") else None
+        is_read = 1 if random.random() < 0.7 else 0
+        created_at = growth_curve_timestamp(90)
+        data.append((user_id, ntype, post_id, comment_id, actor_id, is_read, created_at))
+
+        if (i + 1) % 100_000 == 0:
+            progress(i + 1, TOTAL_NOTIFICATIONS, "알림 데이터 생성")
+
+    progress(TOTAL_NOTIFICATIONS, TOTAL_NOTIFICATIONS, "알림 데이터 생성")
+
+    count = await batch_insert_raw(
+        pool, "notification",
+        ["user_id", "type", "post_id", "comment_id", "actor_id", "is_read", "created_at"],
+        data, ignore=False,
+    )
+    print(f"  ✓ 알림 {count:,}개")
 
 
 async def seed_reports(pool: aiomysql.Pool) -> None:
-    """신고 데이터 생성."""
-    pass
+    """신고 ~2,500개 생성."""
+    print(f"  신고 {TOTAL_REPORTS:,}개 생성 중...")
+    seen: set[tuple[int, str, int]] = set()
+    data: list[tuple] = []
+    attempts = 0
+
+    while len(data) < TOTAL_REPORTS and attempts < TOTAL_REPORTS * 3:
+        attempts += 1
+        reporter_id = weighted_user_id(0.3, 0.4)
+        target_type = random.choice(["post", "comment"])
+        if target_type == "post":
+            target_id = random.randint(1, TOTAL_POSTS)
+        else:
+            target_id = random.randint(1, TOTAL_COMMENTS)
+
+        key = (reporter_id, target_type, target_id)
+        if key in seen:
+            continue
+        seen.add(key)
+
+        reason = random.choice(REPORT_REASONS)
+        description = fake.sentence() if reason == "other" else None
+
+        # 상태 분포: ~60% pending, 20% resolved, 20% dismissed
+        r = random.random()
+        if r < 0.6:
+            status = "pending"
+            resolved_by = None
+        elif r < 0.8:
+            status = "resolved"
+            resolved_by = 1  # admin
+        else:
+            status = "dismissed"
+            resolved_by = 1  # admin
+
+        created_at = growth_curve_timestamp(180)
+        data.append((reporter_id, target_type, target_id, reason, description, status, resolved_by, created_at))
+
+    count = await batch_insert_raw(
+        pool, "report",
+        ["reporter_id", "target_type", "target_id", "reason", "description", "status", "resolved_by", "created_at"],
+        data, ignore=True,
+    )
+    print(f"  ✓ 신고 {count:,}개")
 
 
 async def seed_dms(pool: aiomysql.Pool) -> None:
-    """DM 대화 + 메시지 생성."""
-    pass
+    """DM 대화 ~5,000개 + 메시지 ~75,000개."""
+    print(f"  DM 대화 {TOTAL_DM_CONVERSATIONS:,}개 생성 중...")
+
+    # 팔로우 관계에서 대화 쌍 우선 생성 (80%)
+    follow_based = int(TOTAL_DM_CONVERSATIONS * 0.8)
+    seen_pairs: set[tuple[int, int]] = set()
+    conv_pairs: list[tuple[int, int]] = []
+
+    # 팔로우 기반 쌍
+    async with pool.acquire() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "SELECT follower_id, following_id FROM user_follow ORDER BY RAND() LIMIT %s",
+                (follow_based * 2,),
+            )
+            follow_rows = await cur.fetchall()
+
+    for a, b in follow_rows:
+        if len(conv_pairs) >= follow_based:
+            break
+        p1, p2 = min(a, b), max(a, b)
+        if (p1, p2) not in seen_pairs:
+            seen_pairs.add((p1, p2))
+            conv_pairs.append((p1, p2))
+
+    # 랜덤 쌍으로 나머지 채우기
+    attempts = 0
+    while len(conv_pairs) < TOTAL_DM_CONVERSATIONS and attempts < TOTAL_DM_CONVERSATIONS * 5:
+        a = random.randint(1, TOTAL_USERS)
+        b = random.randint(1, TOTAL_USERS)
+        if a != b:
+            p1, p2 = min(a, b), max(a, b)
+            if (p1, p2) not in seen_pairs:
+                seen_pairs.add((p1, p2))
+                conv_pairs.append((p1, p2))
+        attempts += 1
+
+    # 대화 + 메시지 삽입 (배치 500 대화씩)
+    total_messages = 0
+    CONV_BATCH = 500
+    for batch_start in range(0, len(conv_pairs), CONV_BATCH):
+        batch = conv_pairs[batch_start:batch_start + CONV_BATCH]
+        async with pool.acquire() as conn:
+            await conn.begin()
+            try:
+                async with conn.cursor() as cur:
+                    for p1, p2 in batch:
+                        created_at = growth_curve_timestamp(60)
+                        await cur.execute(
+                            "INSERT IGNORE INTO dm_conversation "
+                            "(participant1_id, participant2_id, last_message_at, created_at) "
+                            "VALUES (%s, %s, %s, %s)",
+                            (p1, p2, None, created_at),
+                        )
+                        conv_id = cur.lastrowid
+                        if not conv_id:
+                            continue
+
+                        msg_count = random.randint(
+                            max(1, DM_MESSAGES_PER_CONV - 5),
+                            DM_MESSAGES_PER_CONV + 5,
+                        )
+                        last_msg_at = created_at
+                        for j in range(msg_count):
+                            sender = p1 if j % 2 == 0 else p2
+                            content = fake.sentence()
+                            msg_at = last_msg_at + timedelta(minutes=random.randint(1, 120))
+                            is_read = 1 if j < msg_count - 1 else (1 if random.random() < 0.8 else 0)
+                            await cur.execute(
+                                "INSERT INTO dm_message "
+                                "(conversation_id, sender_id, content, is_read, created_at) "
+                                "VALUES (%s, %s, %s, %s, %s)",
+                                (conv_id, sender, content, is_read, msg_at),
+                            )
+                            last_msg_at = msg_at
+                            total_messages += 1
+
+                        await cur.execute(
+                            "UPDATE dm_conversation SET last_message_at = %s WHERE id = %s",
+                            (last_msg_at, conv_id),
+                        )
+                await conn.commit()
+            except Exception:
+                await conn.rollback()
+                raise
+
+        progress(min(batch_start + CONV_BATCH, len(conv_pairs)), len(conv_pairs), "DM 대화")
+
+    print(f"  ✓ DM 대화 {len(conv_pairs):,}개, 메시지 {total_messages:,}개")
 
 
 async def verify_data(pool: aiomysql.Pool) -> None:
