@@ -2,6 +2,12 @@
 
 ## 2026-03 (Mar)
 
+- **03-11: 대규모 시드 데이터 스크립트 (`seed_data_large.py`)**
+  - 5만 유저(3-tier), 25만 게시글, 75만 댓글 등 총 ~300만 행 생성
+  - 성장 곡선 시간 분포 (최근 50%), 인기 편중 분포 (멱법칙 태그, 상위 5% 좋아요 40%)
+  - asyncio.gather 병렬 처리 + 5,000행 배치 INSERT로 ~5-10분 내 시딩
+  - CLI 기반 독립 실행: `--dry-run`, `--clean`, `--recompute-url` 지원
+
 - **03-10: DM 기능 개선**
   - 메시지 삭제 API 추가 (`DELETE /v1/dms/{id}/messages/{msg_id}`, soft delete)
   - 삭제된 메시지 플레이스홀더 표시, 대화 목록 프리뷰 반영, unread count 제외

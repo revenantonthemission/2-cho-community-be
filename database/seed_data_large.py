@@ -1,6 +1,6 @@
 """seed_data_large.py: 대규모 시드 데이터 생성 스크립트.
 
-5만 사용자, 15만 게시글, 50만 댓글 등 대규모 데이터를 생성하여
+5만 사용자, 25만 게시글, 75만 댓글 등 대규모 데이터를 생성하여
 추천 피드, 검색, 페이지네이션 등의 성능을 검증합니다.
 
 사용법:
@@ -524,10 +524,12 @@ async def clean_all_data(pool: aiomysql.Pool) -> None:
     async with pool.acquire() as conn:
         async with conn.cursor() as cur:
             await cur.execute("SET FOREIGN_KEY_CHECKS = 0")
-            for table in tables:
-                await cur.execute(f"TRUNCATE TABLE {table}")
-                print(f"  TRUNCATE {table}")
-            await cur.execute("SET FOREIGN_KEY_CHECKS = 1")
+            try:
+                for table in tables:
+                    await cur.execute(f"TRUNCATE TABLE {table}")
+                    print(f"  TRUNCATE {table}")
+            finally:
+                await cur.execute("SET FOREIGN_KEY_CHECKS = 1")
 
             # 카테고리 시드 재삽입
             await cur.execute("""
@@ -774,20 +776,25 @@ async def seed_comments(pool: aiomysql.Pool) -> None:
     reply_count = TOTAL_COMMENTS - root_count
     print(f"  댓글 {TOTAL_COMMENTS:,}개 생성 중 (루트 {root_count:,}, 대댓글 {reply_count:,})...")
 
-    # 루트 댓글
-    root_data = []
-    for i in range(root_count):
-        content = random.choice(COMMENT_TEMPLATES) + " " + fake.sentence()
-        author_id = weighted_user_id(0.4, 0.35)
-        post_id = random.randint(1, TOTAL_POSTS)
-        created_at = growth_curve_timestamp(180)
-        root_data.append((content, author_id, post_id, None, created_at))
+    # 루트 댓글 — 메모리 절약을 위해 50,000개씩 배치 생성/삽입
+    ROOT_GEN_BATCH = 50_000
+    count1 = 0
+    for batch_start in range(0, root_count, ROOT_GEN_BATCH):
+        batch_end = min(batch_start + ROOT_GEN_BATCH, root_count)
+        root_data = []
+        for _ in range(batch_end - batch_start):
+            content = random.choice(COMMENT_TEMPLATES) + " " + fake.sentence()
+            author_id = weighted_user_id(0.4, 0.35)
+            post_id = random.randint(1, TOTAL_POSTS)
+            created_at = growth_curve_timestamp(180)
+            root_data.append((content, author_id, post_id, None, created_at))
 
-    count1 = await batch_insert_raw(
-        pool, "comment",
-        ["content", "author_id", "post_id", "parent_id", "created_at"],
-        root_data, ignore=False,
-    )
+        count1 += await batch_insert_raw(
+            pool, "comment",
+            ["content", "author_id", "post_id", "parent_id", "created_at"],
+            root_data, ignore=False,
+        )
+        progress(batch_end, root_count, "루트 댓글")
 
     # 대댓글 — parent_id의 post_id를 배치 조회
     async with pool.acquire() as conn:
@@ -1069,6 +1076,14 @@ async def seed_blocks(pool: aiomysql.Pool) -> None:
 async def seed_notifications(pool: aiomysql.Pool) -> None:
     """알림 ~500,000개 생성."""
     print(f"  알림 {TOTAL_NOTIFICATIONS:,}개 생성 중...")
+
+    # 실제 댓글 MAX(id) 조회 — 대댓글 스킵으로 TOTAL_COMMENTS보다 작을 수 있음
+    async with pool.acquire() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute("SELECT MAX(id) FROM comment")
+            (max_comment_id,) = await cur.fetchone()
+    max_comment_id = max_comment_id or TOTAL_COMMENTS
+
     # 타입 가중치: comment 25%, like 37.5%, mention 12.5%, follow 25%
     type_pool = ["comment", "comment", "like", "like", "like", "mention", "follow", "follow"]
     data: list[tuple] = []
@@ -1081,7 +1096,7 @@ async def seed_notifications(pool: aiomysql.Pool) -> None:
         while actor_id == user_id:
             actor_id = weighted_user_id(0.4, 0.35)
         post_id = random.randint(1, TOTAL_POSTS)
-        comment_id = random.randint(1, TOTAL_COMMENTS) if ntype in ("comment", "mention") else None
+        comment_id = random.randint(1, max_comment_id) if ntype in ("comment", "mention") else None
         is_read = 1 if random.random() < 0.7 else 0
         created_at = growth_curve_timestamp(90)
         data.append((user_id, ntype, post_id, comment_id, actor_id, is_read, created_at))
@@ -1125,22 +1140,25 @@ async def seed_reports(pool: aiomysql.Pool) -> None:
 
         # 상태 분포: ~60% pending, 20% resolved, 20% dismissed
         r = random.random()
+        created_at = growth_curve_timestamp(180)
         if r < 0.6:
             status = "pending"
             resolved_by = None
+            resolved_at = None
         elif r < 0.8:
             status = "resolved"
             resolved_by = 1  # admin
+            resolved_at = created_at + timedelta(days=random.randint(1, 7))
         else:
             status = "dismissed"
             resolved_by = 1  # admin
+            resolved_at = created_at + timedelta(days=random.randint(1, 7))
 
-        created_at = growth_curve_timestamp(180)
-        data.append((reporter_id, target_type, target_id, reason, description, status, resolved_by, created_at))
+        data.append((reporter_id, target_type, target_id, reason, description, status, resolved_by, resolved_at, created_at))
 
     count = await batch_insert_raw(
         pool, "report",
-        ["reporter_id", "target_type", "target_id", "reason", "description", "status", "resolved_by", "created_at"],
+        ["reporter_id", "target_type", "target_id", "reason", "description", "status", "resolved_by", "resolved_at", "created_at"],
         data, ignore=True,
     )
     print(f"  ✓ 신고 {count:,}개")
