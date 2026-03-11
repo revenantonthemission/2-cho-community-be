@@ -351,6 +351,44 @@ PLAIN_CONTENTS = [
 # 게시글 헬퍼
 # ─────────────────────────────────────────────
 
+TOTAL_POLLS = 2_500
+
+POLL_QUESTIONS = [
+    ("가장 선호하는 프로그래밍 언어는?", ["Python", "JavaScript", "TypeScript", "Java", "Go"]),
+    ("개발 시 가장 중요한 것은?", ["코드 품질", "속도", "테스트 커버리지", "문서화"]),
+    ("주로 사용하는 에디터는?", ["VS Code", "IntelliJ", "Vim/Neovim", "기타"]),
+    ("프론트엔드 프레임워크 선호도", ["React", "Vue", "Svelte", "Angular", "Vanilla JS"]),
+    ("백엔드 프레임워크 선호도", ["FastAPI", "Django", "Express", "Spring Boot", "NestJS"]),
+    ("DB 선호도", ["MySQL", "PostgreSQL", "MongoDB", "SQLite"]),
+    ("개발 경력은?", ["학생/취준", "1~2년차", "3~5년차", "5년 이상"]),
+    ("재택 vs 출근?", ["완전 재택", "하이브리드", "완전 출근", "상관없음"]),
+    ("주 몇 시간 코딩하시나요?", ["20시간 이하", "20~40시간", "40~60시간", "60시간 이상"]),
+    ("사이드 프로젝트 하시나요?", ["현재 진행 중", "계획 중", "과거에 했음", "안 함"]),
+    ("가장 어려운 CS 과목은?", ["운영체제", "네트워크", "데이터베이스", "알고리즘"]),
+    ("코딩 테스트 준비 기간은?", ["1개월 이하", "1~3개월", "3~6개월", "6개월 이상"]),
+    ("선호하는 학습 방법은?", ["강의", "책", "프로젝트", "문서 읽기"]),
+    ("가장 많이 쓰는 OS는?", ["macOS", "Windows", "Linux", "ChromeOS"]),
+    ("코드 리뷰 경험이 있나요?", ["적극 활용 중", "가끔", "없음", "혼자 개발"]),
+    ("Git 브랜치 전략은?", ["Git Flow", "GitHub Flow", "Trunk-Based", "기타"]),
+    ("테스트 코드 작성 빈도는?", ["항상", "중요한 기능만", "거의 안 함", "TDD"]),
+    ("선호하는 배포 방식은?", ["Docker", "서버리스", "PaaS", "직접 서버"]),
+    ("AI 코딩 도구 사용하나요?", ["매일 사용", "가끔", "안 써봄", "회의적"]),
+    ("개발 블로그 운영하나요?", ["운영 중", "계획 중", "중단", "안 함"]),
+    ("가장 좋아하는 IDE 테마는?", ["다크", "라이트", "Solarized", "상관없음"]),
+    ("팀 협업 도구 선호도", ["Slack", "Discord", "Teams", "카카오톡"]),
+    ("개발 서적 추천해주세요", ["클린 코드", "리팩토링", "DDIA", "기타"]),
+    ("가장 관심 있는 분야는?", ["웹", "앱", "인프라", "AI/ML", "보안"]),
+    ("개발자 컨퍼런스 참석하나요?", ["자주", "가끔", "온라인만", "안 감"]),
+    ("코딩할 때 음악 듣나요?", ["항상", "집중할 때만", "안 들음", "백색 소음"]),
+    ("모니터 몇 대 사용하나요?", ["1대", "2대", "3대 이상", "노트북만"]),
+    ("키보드 축 선호도", ["적축", "갈축", "청축", "무접점"]),
+    ("회사 선택 시 가장 중요한 것은?", ["연봉", "성장", "워라밸", "기술 스택"]),
+    ("가장 싫어하는 업무는?", ["문서 작성", "회의", "레거시 유지보수", "야근"]),
+]
+
+# 전역 변수: poll_votes에서 사용
+_poll_options_map: dict[int, list[int]] = {}
+
 POSTS_POWER_AVG = 40    # 파워유저 평균 게시글
 POSTS_REGULAR_AVG = 10  # 일반유저 평균
 POSTS_READER_AVG = 0.7  # 읽기전용 평균
@@ -409,6 +447,17 @@ def _assign_author_for_posts() -> list[int]:
         authors.append(weighted_user_id(0.5, 0.35))
 
     return authors
+
+
+def _tag_id_powerlaw() -> int:
+    """멱법칙 분포로 태그 ID 반환. 인기 태그 10개가 50% 차지."""
+    r = random.random()
+    if r < 0.50:
+        return random.randint(1, 10)
+    elif r < 0.80:
+        return random.randint(11, 25)
+    else:
+        return random.randint(26, len(TAG_NAMES))
 
 
 # ─────────────────────────────────────────────
@@ -570,18 +619,114 @@ async def seed_posts(pool: aiomysql.Pool) -> None:
 
 
 async def seed_post_tags(pool: aiomysql.Pool) -> None:
-    """게시글-태그 연결 생성."""
-    pass
+    """게시글-태그 연결 생성 (70%의 게시글에 1~3개 태그)."""
+    print("  게시글-태그 데이터 생성 중...")
+    data: list[tuple] = []
+
+    for post_id in range(1, TOTAL_POSTS + 1):
+        if random.random() >= 0.70:
+            continue
+        tag_count = random.randint(1, 3)
+        used_tags: set[int] = set()
+        for _ in range(tag_count):
+            tag_id = _tag_id_powerlaw()
+            if tag_id not in used_tags:
+                used_tags.add(tag_id)
+                data.append((post_id, tag_id))
+
+    count = await batch_insert_raw(
+        pool, "post_tag", ["post_id", "tag_id"], data, ignore=True,
+    )
+    print(f"  게시글-태그: {count:,}개 삽입 완료")
 
 
 async def seed_post_images(pool: aiomysql.Pool) -> None:
-    """게시글 이미지 연결 생성."""
-    pass
+    """게시글 이미지 연결 생성 (20%의 게시글에 1~3개 이미지)."""
+    print("  게시글 이미지 데이터 생성 중...")
+    data: list[tuple] = []
+
+    for post_id in range(1, TOTAL_POSTS + 1):
+        if random.random() >= 0.20:
+            continue
+        img_count = random.randint(1, 3)
+        for order in range(img_count):
+            image_url = f"/uploads/posts/{post_id}_{order + 1}.jpg"
+            data.append((post_id, image_url, order))
+
+    count = await batch_insert_raw(
+        pool, "post_image", ["post_id", "image_url", "sort_order"], data, ignore=False,
+    )
+    print(f"  게시글 이미지: {count:,}개 삽입 완료")
 
 
 async def seed_polls(pool: aiomysql.Pool) -> None:
-    """투표 데이터 생성."""
-    pass
+    """투표 데이터 생성 (2,500개 투표 + 선택지)."""
+    global _poll_options_map
+    print(f"  투표 데이터 생성 중 ({TOTAL_POLLS:,}개)...")
+
+    poll_post_ids = random.sample(range(1, TOTAL_POSTS + 1), TOTAL_POLLS)
+    poll_count = 0
+    option_count = 0
+
+    conn = await pool.acquire()
+    try:
+        async with conn.cursor() as cur:
+            await cur.execute("BEGIN")
+            try:
+                for i, post_id in enumerate(poll_post_ids):
+                    question, options = random.choice(POLL_QUESTIONS)
+
+                    # 50%는 만료일 설정
+                    if random.random() < 0.50:
+                        expires_at = datetime.now(timezone.utc) + timedelta(
+                            days=random.randint(1, 30),
+                        )
+                    else:
+                        expires_at = None
+
+                    created_at = growth_curve_timestamp(365)
+
+                    await cur.execute(
+                        "INSERT IGNORE INTO poll (post_id, question, expires_at, created_at) "
+                        "VALUES (%s, %s, %s, %s)",
+                        (post_id, question, expires_at, created_at),
+                    )
+                    poll_id = cur.lastrowid
+
+                    if poll_id == 0:
+                        # INSERT IGNORE로 중복 스킵된 경우
+                        continue
+
+                    poll_count += 1
+                    option_ids: list[int] = []
+
+                    for opt_text in options:
+                        await cur.execute(
+                            "INSERT INTO poll_option (poll_id, option_text) "
+                            "VALUES (%s, %s)",
+                            (poll_id, opt_text),
+                        )
+                        option_ids.append(cur.lastrowid)
+                        option_count += 1
+
+                    _poll_options_map[poll_id] = option_ids
+
+                    # 500건마다 커밋
+                    if (i + 1) % 500 == 0:
+                        await cur.execute("COMMIT")
+                        await cur.execute("BEGIN")
+                        progress(i + 1, TOTAL_POLLS, "투표 생성")
+
+                await cur.execute("COMMIT")
+            except Exception:
+                await cur.execute("ROLLBACK")
+                raise
+
+    finally:
+        pool.release(conn)
+
+    progress(TOTAL_POLLS, TOTAL_POLLS, "투표 생성")
+    print(f"  투표: {poll_count:,}개, 선택지: {option_count:,}개 삽입 완료")
 
 
 async def seed_comments(pool: aiomysql.Pool) -> None:
