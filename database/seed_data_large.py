@@ -161,7 +161,7 @@ async def batch_insert_raw(
         sql = f"INSERT{ignore_str} INTO {table} ({cols_str}) VALUES {values_str}"
 
         # 튜플 리스트를 평탄화
-        flat_params = []
+        flat_params: list[object] = []
         for row in batch:
             flat_params.extend(row)
 
@@ -823,13 +823,13 @@ async def seed_comments(pool: aiomysql.Pool) -> None:
                 parent_map = {r[0]: r[1] for r in await cur.fetchall()}
 
         for parent_id in batch_parent_ids:
-            post_id = parent_map.get(parent_id)
-            if not post_id:
+            mapped_post_id = parent_map.get(parent_id)
+            if not mapped_post_id:
                 continue
             content = random.choice(COMMENT_TEMPLATES) + " " + fake.sentence()
             author_id = weighted_user_id(0.4, 0.35)
             created_at = growth_curve_timestamp(90)
-            reply_data.append((content, author_id, post_id, parent_id, created_at))
+            reply_data.append((content, author_id, mapped_post_id, parent_id, created_at))
 
     count2 = 0
     if reply_data:
@@ -1015,7 +1015,7 @@ async def seed_follows(pool: aiomysql.Pool) -> None:
     """팔로우 ~100,000개 (파워유저 간 높은 상호 팔로우)."""
     print(f"  팔로우 {TOTAL_FOLLOWS:,}개 생성 중...")
     seen: set[tuple[int, int]] = set()
-    data = []
+    data: list[tuple] = []
 
     # 파워유저 간 상호 팔로우 (~2% of pairs)
     power_list = list(POWER_IDS)
