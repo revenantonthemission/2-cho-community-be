@@ -461,6 +461,37 @@ def _tag_id_powerlaw() -> int:
 
 
 # ─────────────────────────────────────────────
+# 인터랙션 상수
+# ─────────────────────────────────────────────
+
+TOTAL_COMMENTS = 750_000
+TOTAL_POST_LIKES = 500_000
+TOTAL_BOOKMARKS = 150_000
+TOTAL_COMMENT_LIKES = 300_000
+TOTAL_VIEW_LOGS = 500_000
+TOTAL_POLL_VOTES = 50_000
+
+COMMENT_TEMPLATES = [
+    "좋은 글 감사합니다!", "도움이 됐어요.", "저도 같은 생각이에요.",
+    "공감합니다.", "더 자세히 알려주세요.", "좋은 정보 감사합니다.",
+    "저도 비슷한 경험이 있어요.", "참고하겠습니다!", "응원합니다!",
+    "질문이 있는데요...", "좋은 글이네요.", "감사합니다!",
+    "이런 방법도 있군요!", "저는 좀 다르게 생각합니다.", "실무에서도 이렇게 하시나요?",
+    "정리가 잘 되어 있네요.", "혹시 관련 자료 추천해주실 수 있나요?",
+    "저도 같은 실수를 한 적이 있어요.", "깔끔한 정리 감사합니다.",
+    "이 부분은 조금 다르게 접근해볼 수 있을 것 같아요.",
+]
+
+
+def _popular_post_id() -> int:
+    """인기 편중 게시글 ID: 상위 5%가 좋아요 40% 수신."""
+    top_5_pct = max(1, int(TOTAL_POSTS * 0.05))
+    if random.random() < 0.4:
+        return random.randint(1, top_5_pct)
+    return random.randint(1, TOTAL_POSTS)
+
+
+# ─────────────────────────────────────────────
 # 스텁 함수 (후속 Task에서 구현)
 # ─────────────────────────────────────────────
 
@@ -730,33 +761,239 @@ async def seed_polls(pool: aiomysql.Pool) -> None:
 
 
 async def seed_comments(pool: aiomysql.Pool) -> None:
-    """댓글 50만 개 생성."""
-    pass
+    """댓글 ~750,000개 생성 (80% 루트 + 20% 대댓글)."""
+    root_count = int(TOTAL_COMMENTS * 0.8)
+    reply_count = TOTAL_COMMENTS - root_count
+    print(f"  댓글 {TOTAL_COMMENTS:,}개 생성 중 (루트 {root_count:,}, 대댓글 {reply_count:,})...")
+
+    # 루트 댓글
+    root_data = []
+    for i in range(root_count):
+        content = random.choice(COMMENT_TEMPLATES) + " " + fake.sentence()
+        author_id = weighted_user_id(0.4, 0.35)
+        post_id = random.randint(1, TOTAL_POSTS)
+        created_at = growth_curve_timestamp(180)
+        root_data.append((content, author_id, post_id, None, created_at))
+
+    count1 = await batch_insert_raw(
+        pool, "comment",
+        ["content", "author_id", "post_id", "parent_id", "created_at"],
+        root_data, ignore=False,
+    )
+
+    # 대댓글 — parent_id의 post_id를 배치 조회
+    async with pool.acquire() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute("SELECT MIN(id), MAX(id) FROM comment WHERE parent_id IS NULL")
+            row = await cur.fetchone()
+            if not row or not row[0]:
+                print(f"  ✓ 댓글 {count1:,}개 (루트만)")
+                return
+            min_root_id, max_root_id = row
+
+    # 대댓글을 배치로 생성: parent_id들의 post_id를 한번에 조회
+    REPLY_BATCH = 10_000
+    reply_data: list[tuple] = []
+    for batch_start in range(0, reply_count, REPLY_BATCH):
+        batch_end = min(batch_start + REPLY_BATCH, reply_count)
+        batch_parent_ids = [random.randint(min_root_id, max_root_id) for _ in range(batch_end - batch_start)]
+
+        placeholders = ",".join(["%s"] * len(batch_parent_ids))
+        async with pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    f"SELECT id, post_id FROM comment WHERE id IN ({placeholders})",
+                    batch_parent_ids,
+                )
+                parent_map = {r[0]: r[1] for r in await cur.fetchall()}
+
+        for parent_id in batch_parent_ids:
+            post_id = parent_map.get(parent_id)
+            if not post_id:
+                continue
+            content = random.choice(COMMENT_TEMPLATES) + " " + fake.sentence()
+            author_id = weighted_user_id(0.4, 0.35)
+            created_at = growth_curve_timestamp(90)
+            reply_data.append((content, author_id, post_id, parent_id, created_at))
+
+    count2 = 0
+    if reply_data:
+        count2 = await batch_insert_raw(
+            pool, "comment",
+            ["content", "author_id", "post_id", "parent_id", "created_at"],
+            reply_data, ignore=False,
+        )
+    print(f"  ✓ 댓글 {count1 + count2:,}개 (루트 {count1:,}, 대댓글 {count2:,})")
 
 
 async def seed_post_likes(pool: aiomysql.Pool) -> None:
-    """게시글 좋아요 생성."""
-    pass
+    """게시글 좋아요 ~500,000개 생성 (인기 편중 분포)."""
+    print(f"  게시글 좋아요 {TOTAL_POST_LIKES:,}개 생성 중...")
+    seen: set[tuple[int, int]] = set()
+    data: list[tuple] = []
+    max_attempts = TOTAL_POST_LIKES * 3
+    attempts = 0
+
+    while len(data) < TOTAL_POST_LIKES and attempts < max_attempts:
+        attempts += 1
+        user_id = weighted_user_id(0.3, 0.4)
+        post_id = _popular_post_id()
+        key = (user_id, post_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        created_at = growth_curve_timestamp(180)
+        data.append((user_id, post_id, created_at))
+
+    count = await batch_insert_raw(
+        pool, "post_like",
+        ["user_id", "post_id", "created_at"],
+        data, ignore=True,
+    )
+    print(f"  ✓ 게시글 좋아요 {count:,}개 삽입 완료")
 
 
 async def seed_bookmarks(pool: aiomysql.Pool) -> None:
-    """북마크 생성."""
-    pass
+    """북마크 ~150,000개 생성."""
+    print(f"  북마크 {TOTAL_BOOKMARKS:,}개 생성 중...")
+    seen: set[tuple[int, int]] = set()
+    data: list[tuple] = []
+    max_attempts = TOTAL_BOOKMARKS * 3
+    attempts = 0
+
+    while len(data) < TOTAL_BOOKMARKS and attempts < max_attempts:
+        attempts += 1
+        user_id = weighted_user_id(0.4, 0.4)
+        post_id = _popular_post_id()
+        key = (user_id, post_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        created_at = growth_curve_timestamp(180)
+        data.append((user_id, post_id, created_at))
+
+    count = await batch_insert_raw(
+        pool, "post_bookmark",
+        ["user_id", "post_id", "created_at"],
+        data, ignore=True,
+    )
+    print(f"  ✓ 북마크 {count:,}개 삽입 완료")
 
 
 async def seed_comment_likes(pool: aiomysql.Pool) -> None:
-    """댓글 좋아요 생성."""
-    pass
+    """댓글 좋아요 ~300,000개 생성."""
+    print(f"  댓글 좋아요 {TOTAL_COMMENT_LIKES:,}개 생성 중...")
+
+    # 댓글 ID 범위 조회
+    async with pool.acquire() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute("SELECT MAX(id) FROM comment")
+            row = await cur.fetchone()
+            if not row or not row[0]:
+                print("  ✓ 댓글 좋아요 0개 (댓글 없음)")
+                return
+            max_comment_id = row[0]
+
+    seen: set[tuple[int, int]] = set()
+    data: list[tuple] = []
+    max_attempts = TOTAL_COMMENT_LIKES * 3
+    attempts = 0
+
+    while len(data) < TOTAL_COMMENT_LIKES and attempts < max_attempts:
+        attempts += 1
+        user_id = weighted_user_id(0.4, 0.35)
+        comment_id = random.randint(1, max_comment_id)
+        key = (user_id, comment_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        created_at = growth_curve_timestamp(180)
+        data.append((user_id, comment_id, created_at))
+
+    count = await batch_insert_raw(
+        pool, "comment_like",
+        ["user_id", "comment_id", "created_at"],
+        data, ignore=True,
+    )
+    print(f"  ✓ 댓글 좋아요 {count:,}개 삽입 완료")
 
 
 async def seed_view_logs(pool: aiomysql.Pool) -> None:
-    """조회 로그 생성."""
-    pass
+    """조회 로그 ~500,000개 생성 (UNIQUE(user_id, post_id, view_date))."""
+    print(f"  조회 로그 {TOTAL_VIEW_LOGS:,}개 생성 중...")
+    seen: set[tuple[int, int, str]] = set()
+    data: list[tuple] = []
+    max_attempts = TOTAL_VIEW_LOGS * 3
+    attempts = 0
+
+    while len(data) < TOTAL_VIEW_LOGS and attempts < max_attempts:
+        attempts += 1
+        user_id = weighted_user_id(0.2, 0.3)
+        post_id = _popular_post_id()
+        created_at = growth_curve_timestamp(30)
+        # view_date는 GENERATED 컬럼이므로 직접 삽입하지 않지만
+        # 유니크 제약 충돌 방지를 위해 날짜 문자열로 추적
+        date_str = created_at.strftime("%Y-%m-%d")
+        key = (user_id, post_id, date_str)
+        if key in seen:
+            continue
+        seen.add(key)
+        data.append((user_id, post_id, created_at))
+
+    count = await batch_insert_raw(
+        pool, "post_view_log",
+        ["user_id", "post_id", "created_at"],
+        data, ignore=True,
+    )
+    print(f"  ✓ 조회 로그 {count:,}개 삽입 완료")
 
 
 async def seed_poll_votes(pool: aiomysql.Pool) -> None:
-    """투표 참여 데이터 생성."""
-    pass
+    """투표 참여 데이터 ~50,000개 생성."""
+    if not _poll_options_map:
+        print("  ✓ 투표 참여 0개 (투표 데이터 없음)")
+        return
+
+    print(f"  투표 참여 {TOTAL_POLL_VOTES:,}개 생성 중...")
+    poll_ids = list(_poll_options_map.keys())
+    votes_per_poll = max(1, TOTAL_POLL_VOTES // len(poll_ids))
+
+    seen: set[tuple[int, int]] = set()
+    data: list[tuple] = []
+
+    for poll_id in poll_ids:
+        option_ids = _poll_options_map[poll_id]
+        if not option_ids:
+            continue
+
+        # 각 투표당 랜덤 수의 참여자
+        num_voters = random.randint(
+            max(1, votes_per_poll // 2),
+            votes_per_poll * 2,
+        )
+
+        for _ in range(num_voters):
+            user_id = weighted_user_id(0.3, 0.35)
+            key = (poll_id, user_id)
+            if key in seen:
+                continue
+            seen.add(key)
+            option_id = random.choice(option_ids)
+            created_at = growth_curve_timestamp(180)
+            data.append((poll_id, option_id, user_id, created_at))
+
+            if len(data) >= TOTAL_POLL_VOTES:
+                break
+
+        if len(data) >= TOTAL_POLL_VOTES:
+            break
+
+    count = await batch_insert_raw(
+        pool, "poll_vote",
+        ["poll_id", "option_id", "user_id", "created_at"],
+        data, ignore=True,
+    )
+    print(f"  ✓ 투표 참여 {count:,}개 삽입 완료")
 
 
 async def seed_follows(pool: aiomysql.Pool) -> None:
