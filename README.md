@@ -131,7 +131,7 @@ erDiagram
 
     email_verification {
         int id PK
-        int user_id FK_UK
+        int user_id FK "UNIQUE"
         varchar token_hash UK
         timestamp expires_at
         timestamp created_at
@@ -261,13 +261,13 @@ erDiagram
     }
 
     post_tag {
-        int post_id PK_FK
-        bigint tag_id PK_FK
+        int post_id PK
+        bigint tag_id PK
     }
 
     poll {
         int id PK
-        int post_id FK_UK
+        int post_id FK "UNIQUE"
         varchar question
         timestamp expires_at
         timestamp created_at
@@ -308,8 +308,8 @@ erDiagram
     }
 
     user_post_score {
-        int user_id PK_FK
-        int post_id PK_FK
+        int user_id PK
+        int post_id PK
         float affinity_score
         float hot_score
         float combined_score
