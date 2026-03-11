@@ -12,8 +12,12 @@ from database.connection import get_connection, init_db, close_db
 from faker import Faker
 
 
+# ---------------------------------------------------------------------------
+# 데이터 초기화
+# ---------------------------------------------------------------------------
+
 async def clear_all_data() -> None:
-    """테스트용 헬퍼: 모든 데이터를 삭제합니다."""
+    """테스트용 헬퍼: 24개 테이블 전체 TRUNCATE + 카테고리 시드 재삽입."""
     async with get_connection() as conn:
         async with conn.cursor() as cur:
             await cur.execute("SET FOREIGN_KEY_CHECKS = 0")
@@ -55,9 +59,13 @@ async def clear_all_data() -> None:
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
+# ---------------------------------------------------------------------------
+# 핵심 픽스처 (db, client, fake)
+# ---------------------------------------------------------------------------
+
 @pytest_asyncio.fixture(scope="function")
 async def db():
-    """각 테스트 함수 실행 전 데이터 초기화 및 DB 연결 관리"""
+    """각 테스트 함수 실행 전 데이터 초기화 및 DB 연결 관리."""
     await init_db()
     try:
         await clear_all_data()
@@ -68,7 +76,7 @@ async def db():
 
 @pytest_asyncio.fixture
 async def client(db):
-    """API 테스트를 위한 Async Client"""
+    """API 테스트를 위한 Async Client."""
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
@@ -79,22 +87,148 @@ def fake():
     return Faker("ko_KR")
 
 
-@pytest.fixture
-def user_payload(fake):
-    """회원가입용 페이로드 생성"""
-    return {
+# ---------------------------------------------------------------------------
+# 페이로드 생성 헬퍼
+# ---------------------------------------------------------------------------
+
+def _make_user_payload(fake: Faker, **overrides) -> dict:
+    """회원가입용 페이로드를 생성한다. overrides로 개별 필드 덮어쓰기 가능."""
+    payload = {
         "email": fake.email(),
         "password": "Password123!",
         # 닉네임 길이 5~10자 보장
         "nickname": fake.lexify(text="?????") + str(fake.random_int(10, 99)),
     }
+    payload.update(overrides)
+    return payload
+
+
+# ---------------------------------------------------------------------------
+# 공통 헬퍼 함수 (픽스처가 아닌 async 함수)
+# ---------------------------------------------------------------------------
+
+async def create_verified_user(client: AsyncClient, fake: Faker, **overrides) -> dict:
+    """회원가입 → 이메일 인증 → 로그인까지 완료된 사용자 dict를 반환한다.
+
+    반환 dict 키:
+        client, user_id, email, nickname, token, headers, payload
+    """
+    payload = _make_user_payload(fake, **overrides)
+
+    # 회원가입 (Form)
+    signup_res = await client.post("/v1/users/", data=payload)
+    assert signup_res.status_code == 201, (
+        f"회원가입 실패: {signup_res.status_code}, {signup_res.text}"
+    )
+
+    # 이메일 인증 — DB 직접 업데이트
+    async with get_connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "UPDATE user SET email_verified = 1 WHERE email = %s",
+                (payload["email"],),
+            )
+
+    # 로그인 (JSON)
+    login_res = await client.post(
+        "/v1/auth/session",
+        json={"email": payload["email"], "password": payload["password"]},
+    )
+    assert login_res.status_code == 200, (
+        f"로그인 실패: {login_res.status_code}, {login_res.text}"
+    )
+
+    login_data = login_res.json()
+    access_token = login_data["data"]["access_token"]
+    user_info = login_data["data"]["user"]
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    # Bearer Token이 설정된 새 클라이언트 생성
+    transport = ASGITransport(app=app)
+    auth_client = AsyncClient(
+        transport=transport,
+        base_url="http://test",
+        headers=headers,
+        cookies=login_res.cookies,
+    )
+
+    return {
+        "client": auth_client,
+        "user_id": user_info["id"],
+        "email": payload["email"],
+        "nickname": user_info["nickname"],
+        "token": access_token,
+        "headers": headers,
+        "payload": payload,
+    }
+
+
+async def create_admin_user(client: AsyncClient, fake: Faker) -> dict:
+    """인증 완료 + admin 역할이 부여된 사용자 dict를 반환한다."""
+    user = await create_verified_user(client, fake)
+
+    # DB에서 역할을 admin으로 변경
+    async with get_connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "UPDATE user SET role = 'admin' WHERE id = %s",
+                (user["user_id"],),
+            )
+
+    return user
+
+
+async def create_test_post(
+    client: AsyncClient, headers: dict, **overrides
+) -> dict:
+    """게시글을 생성하고 응답 데이터를 반환한다."""
+    post_data = {
+        "title": overrides.pop("title", "테스트 게시글"),
+        "content": overrides.pop("content", "테스트 내용입니다."),
+        "category_id": overrides.pop("category_id", 1),
+    }
+    post_data.update(overrides)
+
+    res = await client.post("/v1/posts/", json=post_data, headers=headers)
+    assert res.status_code == 201, (
+        f"게시글 생성 실패: {res.status_code}, {res.text}"
+    )
+    return res.json()["data"]
+
+
+async def create_test_comment(
+    client: AsyncClient, headers: dict, post_id: int, **overrides
+) -> dict:
+    """댓글을 생성하고 응답 데이터를 반환한다."""
+    comment_data = {
+        "content": overrides.pop("content", "테스트 댓글입니다."),
+    }
+    comment_data.update(overrides)
+
+    res = await client.post(
+        f"/v1/posts/{post_id}/comments", json=comment_data, headers=headers
+    )
+    assert res.status_code == 201, (
+        f"댓글 생성 실패: {res.status_code}, {res.text}"
+    )
+    return res.json()["data"]
+
+
+# ---------------------------------------------------------------------------
+# 레거시 호환 픽스처 (기존 테스트의 tuple 언패킹 유지)
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def user_payload(fake):
+    """회원가입용 페이로드 생성."""
+    return _make_user_payload(fake)
 
 
 @pytest_asyncio.fixture
 async def authorized_user(client, user_payload):
     """회원가입 및 로그인이 완료된 클라이언트와 유저 정보 반환.
 
-    JWT Bearer Token을 Authorization 헤더에 설정한 새 클라이언트를 반환합니다.
+    기존 테스트 호환을 위해 (client, user_info, user_payload) 튜플을 yield한다.
     """
     # 회원가입 (Form)
     signup_res = await client.post("/v1/users/", data=user_payload)
@@ -129,7 +263,7 @@ async def authorized_user(client, user_payload):
         transport=transport,
         base_url="http://test",
         headers={"Authorization": f"Bearer {access_token}"},
-        cookies=login_res.cookies,  # refresh_token 쿠키 전달
+        cookies=login_res.cookies,
     )
 
     async with auth_client as ac:
@@ -139,18 +273,15 @@ async def authorized_user(client, user_payload):
 @pytest.fixture
 def second_user_payload(fake):
     """두 번째 사용자용 페이로드 생성 (unverified_user 등에서 사용)."""
-    return {
-        "email": fake.email(),
-        "password": "Password123!",
-        "nickname": fake.lexify(text="?????") + str(fake.random_int(10, 99)),
-    }
+    return _make_user_payload(fake)
 
 
 @pytest_asyncio.fixture
 async def unverified_user(client, second_user_payload):
     """회원가입 및 로그인이 완료되었지만 이메일 미인증 상태인 클라이언트와 유저 정보 반환.
 
-    authorized_user와 별도의 user_payload를 사용하여 동시 사용 시 충돌을 방지합니다.
+    authorized_user와 별도의 user_payload를 사용하여 동시 사용 시 충돌을 방지한다.
+    기존 테스트 호환을 위해 (client, user_info, user_payload) 튜플을 yield한다.
     """
     user_payload = second_user_payload
 
@@ -179,7 +310,7 @@ async def unverified_user(client, second_user_payload):
         transport=transport,
         base_url="http://test",
         headers={"Authorization": f"Bearer {access_token}"},
-        cookies=login_res.cookies,  # refresh_token 쿠키 전달
+        cookies=login_res.cookies,
     )
 
     async with auth_client as ac:
