@@ -37,7 +37,7 @@ class FollowService:
         """
         if target_id == user_id:
             raise bad_request_error(
-                "cannot_follow_self",
+                ErrorCode.CANNOT_FOLLOW_SELF,
                 timestamp,
                 "자기 자신을 팔로우할 수 없습니다.",
             )
@@ -50,7 +50,7 @@ class FollowService:
         try:
             await follow_models.add_follow(user_id, target_id)
         except IntegrityError:
-            raise conflict_error(ErrorCode.ALREADY_FOLLOWING, "이미 팔로우한 사용자입니다.")
+            raise conflict_error(ErrorCode.ALREADY_FOLLOWING, timestamp, "이미 팔로우한 사용자입니다.")
 
         # 팔로우 알림 (자기 자신 제외는 정의상 보장됨)
         await safe_notify(

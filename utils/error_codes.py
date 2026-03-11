@@ -73,6 +73,7 @@ class ErrorCode(StrEnum):
     ALREADY_VOTED = "already_voted"
     POLL_EXPIRED = "poll_expired"
     POLL_NOT_FOUND = "poll_not_found"
+    INVALID_OPTION = "invalid_option"
 
     # 관리자
     CANNOT_SUSPEND_SELF = "cannot_suspend_self"

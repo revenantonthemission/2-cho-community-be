@@ -9,6 +9,7 @@ from models.block_models import get_blocked_user_ids
 from models.dm_models import Conversation
 from models.user_models import User
 from schemas.common import DEFAULT_PROFILE_IMAGE
+from utils.error_codes import ErrorCode
 from utils.exceptions import bad_request_error, forbidden_error, not_found_error
 from utils.websocket_pusher import push_to_user
 
@@ -61,14 +62,14 @@ async def create_or_get_conversation(
     # 자기 자신에게 대화 생성 방지
     if user_id == target_id:
         raise bad_request_error(
-            "self_conversation", timestamp, "자기 자신에게 쪽지를 보낼 수 없습니다."
+            ErrorCode.SELF_CONVERSATION, timestamp, "자기 자신에게 쪽지를 보낼 수 없습니다."
         )
 
     # 상대방 존재 확인
     recipient = await user_models.get_user_by_id(target_id)
     if not recipient or not recipient.is_active:
         raise bad_request_error(
-            "recipient_not_found", timestamp, "대화 상대를 찾을 수 없습니다."
+            ErrorCode.RECIPIENT_NOT_FOUND, timestamp, "대화 상대를 찾을 수 없습니다."
         )
 
     # 양방향 차단 확인 (내가 상대를 차단 OR 상대가 나를 차단)

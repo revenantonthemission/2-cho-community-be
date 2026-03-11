@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Tuple
 
 from models import report_models, post_models, comment_models, suspension_models
 from utils.formatters import format_datetime
+from utils.error_codes import ErrorCode
 from utils.exceptions import not_found_error, bad_request_error
 
 logger = logging.getLogger(__name__)
@@ -30,7 +31,7 @@ class ReportService:
                 raise not_found_error("post", timestamp)
             if post_target.author_id is not None and post_target.author_id == reporter_id:
                 raise bad_request_error(
-                    "cannot_report_own_content",
+                    ErrorCode.CANNOT_REPORT_OWN_CONTENT,
                     timestamp,
                     "자신의 게시글은 신고할 수 없습니다.",
                 )
@@ -40,7 +41,7 @@ class ReportService:
                 raise not_found_error("comment", timestamp)
             if comment_target.author_id is not None and comment_target.author_id == reporter_id:
                 raise bad_request_error(
-                    "cannot_report_own_content",
+                    ErrorCode.CANNOT_REPORT_OWN_CONTENT,
                     timestamp,
                     "자신의 댓글은 신고할 수 없습니다.",
                 )
@@ -101,7 +102,7 @@ class ReportService:
 
         if report.status != "pending":
             raise bad_request_error(
-                "already_processed",
+                ErrorCode.ALREADY_PROCESSED,
                 timestamp,
                 "이미 처리된 신고입니다.",
             )

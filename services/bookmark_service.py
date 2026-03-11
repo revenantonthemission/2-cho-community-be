@@ -39,7 +39,7 @@ class BookmarkService:
         try:
             await bookmark_models.add_bookmark(post_id, user_id)
         except IntegrityError:
-            raise conflict_error(ErrorCode.ALREADY_BOOKMARKED, "이미 북마크한 게시글입니다.")
+            raise conflict_error(ErrorCode.ALREADY_BOOKMARKED, timestamp, "이미 북마크한 게시글입니다.")
 
         bookmarks_count = await bookmark_models.get_post_bookmarks_count(post_id)
 

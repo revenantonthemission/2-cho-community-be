@@ -1,6 +1,7 @@
 """suspension_service: 계정 정지 관련 비즈니스 로직을 처리하는 서비스."""
 
 from models import suspension_models, user_models
+from utils.error_codes import ErrorCode
 from utils.exceptions import bad_request_error, not_found_error
 from utils.formatters import format_datetime
 
@@ -34,7 +35,7 @@ class SuspensionService:
         # 자기 자신 정지 방지
         if user_id == admin_user_id:
             raise bad_request_error(
-                "cannot_suspend_self",
+                ErrorCode.CANNOT_SUSPEND_SELF,
                 timestamp,
                 "자기 자신을 정지할 수 없습니다.",
             )
@@ -46,7 +47,7 @@ class SuspensionService:
         # 다른 관리자 정지 방지
         if target_user.is_admin:
             raise bad_request_error(
-                "cannot_suspend_admin",
+                ErrorCode.CANNOT_SUSPEND_ADMIN,
                 timestamp,
                 "관리자를 정지할 수 없습니다.",
             )
@@ -91,7 +92,7 @@ class SuspensionService:
         # 정지 상태가 아닌 사용자는 해제 불필요
         if not target_user.is_suspended:
             raise bad_request_error(
-                "user_not_suspended",
+                ErrorCode.USER_NOT_SUSPENDED,
                 timestamp,
                 "정지 상태가 아닌 사용자입니다.",
             )

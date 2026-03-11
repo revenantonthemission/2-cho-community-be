@@ -39,11 +39,11 @@ class UserService:
         """사용자 생성 (회원가입)."""
         # 1. 이메일 중복 확인
         if await user_models.get_user_by_email(user_data.email):
-            raise conflict_error(ErrorCode.EMAIL_ALREADY_EXISTS, "이미 사용 중인 이메일입니다")
+            raise conflict_error(ErrorCode.EMAIL_ALREADY_EXISTS, timestamp, "이미 사용 중인 이메일입니다")
 
         # 2. 닉네임 중복 확인
         if await user_models.get_user_by_nickname(user_data.nickname):
-            raise conflict_error(ErrorCode.NICKNAME_ALREADY_EXISTS, "이미 사용 중인 닉네임입니다")
+            raise conflict_error(ErrorCode.NICKNAME_ALREADY_EXISTS, timestamp, "이미 사용 중인 닉네임입니다")
 
         # 3. 비밀번호 해싱
         hashed_password = await asyncio.to_thread(hash_password, user_data.password)
@@ -109,7 +109,7 @@ class UserService:
         if nickname is not None:
             existing_user = await user_models.get_user_by_nickname(nickname)
             if existing_user and existing_user.id != user_id:
-                raise conflict_error(ErrorCode.NICKNAME_ALREADY_EXISTS, "이미 사용 중인 닉네임입니다")
+                raise conflict_error(ErrorCode.NICKNAME_ALREADY_EXISTS, timestamp, "이미 사용 중인 닉네임입니다")
 
         # 3. 정보 수정
         updated_user = await user_models.update_user(

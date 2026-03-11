@@ -84,11 +84,22 @@ def bad_request_error(
     )
 
 
-def conflict_error(error_code: ErrorCode | str, message: str) -> HTTPException:
-    """409 Conflict 에러"""
+def conflict_error(
+    error_code: ErrorCode | str, timestamp: str, message: str
+) -> HTTPException:
+    """409 Conflict 에러 (중복 좋아요, 북마크, 팔로우 등)
+
+    Args:
+        error_code: 에러 코드 또는 ErrorCode.
+        timestamp: 요청 타임스탬프.
+        message: 사용자에게 표시할 메시지.
+
+    Returns:
+        HTTPException: 409 Conflict 예외.
+    """
     return HTTPException(
         status_code=status.HTTP_409_CONFLICT,
-        detail={"error": error_code, "message": message},
+        detail={"error": error_code, "message": message, "timestamp": timestamp},
     )
 
 

@@ -4,6 +4,7 @@ import logging
 
 from models import post_models, comment_models
 from models.user_models import get_user_by_nickname
+from utils.error_codes import ErrorCode
 from utils.exceptions import not_found_error, bad_request_error, forbidden_error, safe_notify
 from utils.mention import extract_mentions
 
@@ -42,7 +43,7 @@ class CommentService:
 
         if comment.post_id != post_id:
             raise bad_request_error(
-                "comment_not_in_post", timestamp,
+                ErrorCode.COMMENT_NOT_IN_POST, timestamp,
             )
 
         return post, comment
@@ -83,20 +84,20 @@ class CommentService:
 
             if not parent_comment:
                 raise bad_request_error(
-                    "parent_comment_not_found", timestamp,
+                    ErrorCode.PARENT_COMMENT_NOT_FOUND, timestamp,
                     message="삭제된 댓글에 답글을 달 수 없습니다.",
                 )
 
             if parent_comment.post_id != post_id:
                 raise bad_request_error(
-                    "parent_comment_not_in_post", timestamp,
+                    ErrorCode.PARENT_COMMENT_NOT_IN_POST, timestamp,
                     message="해당 게시글의 댓글이 아닙니다.",
                 )
 
             # 1단계 제한: 부모가 이미 대댓글이면 거부
             if parent_comment.parent_id is not None:
                 raise bad_request_error(
-                    "nested_reply_not_allowed", timestamp,
+                    ErrorCode.NESTED_REPLY_NOT_ALLOWED, timestamp,
                     message="1단계 대댓글만 가능합니다.",
                 )
 

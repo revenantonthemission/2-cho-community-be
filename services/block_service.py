@@ -30,7 +30,7 @@ class BlockService:
         """
         if target_id == user_id:
             raise bad_request_error(
-                "cannot_block_self",
+                ErrorCode.CANNOT_BLOCK_SELF,
                 timestamp,
                 "자기 자신을 차단할 수 없습니다.",
             )
@@ -43,7 +43,7 @@ class BlockService:
         try:
             await block_models.add_block(user_id, target_id)
         except IntegrityError:
-            raise conflict_error(ErrorCode.ALREADY_BLOCKED, "이미 차단한 사용자입니다.")
+            raise conflict_error(ErrorCode.ALREADY_BLOCKED, timestamp, "이미 차단한 사용자입니다.")
 
     @staticmethod
     async def unblock_user(
