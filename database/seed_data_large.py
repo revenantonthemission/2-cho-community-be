@@ -40,6 +40,26 @@ fake = Faker("ko_KR")
 Faker.seed(42)  # 재현 가능한 데이터
 random.seed(42)
 
+# ─────────────────────────────────────────────
+# 태그 상수
+# ─────────────────────────────────────────────
+
+TAG_NAMES = [
+    # 인기 태그 (상위 10개 — post_tag의 50% 차지)
+    "python", "javascript", "react", "typescript", "docker",
+    "aws", "mysql", "알고리즘", "취업", "사이드프로젝트",
+    # 중간 인기 (11~25)
+    "fastapi", "django", "nodejs", "nextjs", "flask",
+    "kubernetes", "terraform", "postgresql", "redis", "git",
+    "cicd", "자료구조", "면접준비", "코드리뷰", "성능최적화",
+    # 일반 (26~50)
+    "보안", "테스트", "tdd", "디자인패턴", "아키텍처",
+    "linux", "네트워크", "운영체제", "데이터베이스", "api설계",
+    "클린코드", "리팩토링", "모니터링", "로깅", "배포",
+    "마이크로서비스", "메시지큐", "캐싱", "인증인가", "graphql",
+    "rust", "go", "java", "kotlin", "swift",
+]
+
 # 미리 해시된 비밀번호 (Test1234!)
 HASHED_PASSWORD = hash_password("Test1234!")
 
@@ -285,23 +305,105 @@ def parse_args() -> argparse.Namespace:
 
 
 async def clean_all_data(pool: aiomysql.Pool) -> None:
-    """기존 데이터 전체 삭제 (TRUNCATE)."""
-    pass
+    """기존 데이터 전체 삭제 (TRUNCATE).
+
+    FK 안전 순서로 모든 테이블을 TRUNCATE한 뒤 카테고리 시드를 재삽입합니다.
+    """
+    # FK 자식 → 부모 순서
+    tables = [
+        "user_post_score", "dm_message", "dm_conversation",
+        "poll_vote", "poll_option", "poll",
+        "post_tag", "tag", "user_follow", "user_block",
+        "comment_like", "post_bookmark", "post_image",
+        "notification", "report", "post_view_log",
+        "post_like", "comment", "post",
+        "email_verification", "refresh_token", "image",
+        "category", "user",
+    ]
+
+    async with pool.acquire() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute("SET FOREIGN_KEY_CHECKS = 0")
+            for table in tables:
+                await cur.execute(f"TRUNCATE TABLE {table}")
+                print(f"  TRUNCATE {table}")
+            await cur.execute("SET FOREIGN_KEY_CHECKS = 1")
+
+            # 카테고리 시드 재삽입
+            await cur.execute("""
+                INSERT INTO category (name, slug, description, sort_order) VALUES
+                    ('자유게시판', 'free', '자유롭게 이야기하는 공간입니다.', 1),
+                    ('질문답변', 'qna', '궁금한 것을 질문하고 답변합니다.', 2),
+                    ('정보공유', 'info', '유용한 정보를 공유합니다.', 3),
+                    ('공지사항', 'notice', '관리자 공지사항입니다.', 4)
+            """)
+            print("  카테고리 시드 재삽입 완료 (4개)")
+    print("  전체 TRUNCATE 완료")
 
 
 async def seed_categories(pool: aiomysql.Pool) -> None:
-    """카테고리 시드 데이터 삽입."""
-    pass
+    """카테고리 시드 데이터 삽입.
+
+    이미 4개 이상 존재하면 스킵합니다.
+    """
+    async with pool.acquire() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute("SELECT COUNT(*) FROM category")
+            (count,) = await cur.fetchone()
+
+    if count >= 4:
+        print(f"  카테고리: 이미 {count}개 존재 — 스킵")
+        return
+
+    data = [
+        ("자유게시판", "free", "자유롭게 이야기하는 공간입니다.", 1),
+        ("질문답변", "qna", "궁금한 것을 질문하고 답변합니다.", 2),
+        ("정보공유", "info", "유용한 정보를 공유합니다.", 3),
+        ("공지사항", "notice", "관리자 공지사항입니다.", 4),
+    ]
+    inserted = await batch_insert_raw(
+        pool, "category",
+        ["name", "slug", "description", "sort_order"],
+        data, ignore=True,
+    )
+    print(f"  카테고리: {inserted}개 삽입")
 
 
 async def seed_tags(pool: aiomysql.Pool) -> None:
-    """태그 시드 데이터 삽입."""
-    pass
+    """태그 50개 삽입 (INSERT IGNORE)."""
+    data = [(name,) for name in TAG_NAMES]
+    inserted = await batch_insert_raw(
+        pool, "tag", ["name"], data, ignore=True,
+    )
+    print(f"  태그: {inserted}개 삽입 (총 {len(TAG_NAMES)}개 시도)")
 
 
 async def seed_users(pool: aiomysql.Pool) -> None:
-    """사용자 5만 명 생성."""
-    pass
+    """사용자 5만 명 생성.
+
+    user 1은 admin 역할, 나머지는 일반 사용자.
+    전원 이메일 인증 완료 상태.
+    """
+    print(f"  사용자 데이터 생성 중 ({TOTAL_USERS:,}명)...")
+    data: list[tuple] = []
+    for i in range(1, TOTAL_USERS + 1):
+        email = f"user{i}@example.com"
+        nickname = f"user_{i:05d}"
+        role = "admin" if i == 1 else "user"
+        created_at = growth_curve_timestamp(365)
+        data.append((email, HASHED_PASSWORD, nickname, role, 1, created_at))
+
+        # 생성 진행률 표시 (1만 명마다)
+        if i % 10_000 == 0:
+            print(f"    생성: {i:>6,} / {TOTAL_USERS:,}")
+
+    print(f"  사용자 INSERT 시작...")
+    inserted = await batch_insert_raw(
+        pool, "user",
+        ["email", "password", "nickname", "role", "email_verified", "created_at"],
+        data, ignore=True,
+    )
+    print(f"  사용자: {inserted:,}명 삽입 완료")
 
 
 async def seed_posts(pool: aiomysql.Pool) -> None:
