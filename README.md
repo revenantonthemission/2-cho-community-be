@@ -84,44 +84,66 @@ erDiagram
     user ||--o{ post_bookmark : "bookmarks"
     user ||--o{ comment_like : "likes comments"
     user ||--o{ user_block : "blocks"
+    user ||--o{ user_follow : "follows"
+    user ||--o{ dm_conversation : "participates"
+    user ||--o{ dm_message : "sends"
+    user ||--o{ poll_vote : "votes"
+    user ||--o{ user_post_score : "has scores"
     post ||--o{ comment : "has"
     comment ||--o{ comment : "replies (1-level)"
     post ||--o{ post_like : "receives"
     post ||--o{ post_bookmark : "bookmarked"
     post ||--o{ post_image : "has images"
     post ||--o{ post_view_log : "tracks"
+    post ||--o{ user_post_score : "scored"
     comment ||--o{ comment_like : "receives likes"
     category ||--o{ post : "classifies"
     tag ||--o{ post_tag : "tagged"
     post ||--o{ post_tag : "has tags"
-    user ||--o{ user_follow : "follows"
-    user ||--o{ dm_conversation : "participates"
-    user ||--o{ poll_vote : "votes"
     post ||--o{ poll : "has poll"
     poll ||--o{ poll_option : "has options"
+    poll ||--o{ poll_vote : "has votes"
     poll_option ||--o{ poll_vote : "receives"
     dm_conversation ||--o{ dm_message : "contains"
 
     user {
         int id PK
         varchar email UK
-        varchar password_hash
+        varchar password "bcrypt 해시"
         varchar nickname UK
-        varchar profile_image
+        varchar profile_img
         enum role "user, admin"
+        tinyint email_verified "default 0"
         timestamp suspended_until "NULL = 미정지"
         varchar suspended_reason "정지 사유 (최대 500자)"
-        boolean email_verified "default FALSE"
-        datetime deleted_at
-        datetime created_at
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
     }
 
     refresh_token {
         int id PK
         int user_id FK
         varchar token_hash UK
-        datetime expires_at
-        datetime created_at
+        timestamp expires_at
+        timestamp created_at
+    }
+
+    email_verification {
+        int id PK
+        int user_id FK_UK
+        varchar token_hash UK
+        timestamp expires_at
+        timestamp created_at
+    }
+
+    category {
+        int id PK
+        varchar name UK
+        varchar slug UK
+        varchar description
+        int sort_order
+        timestamp created_at
     }
 
     post {
@@ -131,19 +153,78 @@ erDiagram
         varchar title
         text content
         varchar image_url
-        boolean is_pinned "default FALSE"
-        int view_count
-        datetime deleted_at
-        datetime created_at
+        tinyint is_pinned "default 0"
+        int views "default 0"
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
     }
 
-    category {
+    comment {
         int id PK
-        varchar name UK
-        varchar slug UK
-        varchar description
-        int sort_order
-        datetime created_at
+        int post_id FK
+        int author_id FK
+        int parent_id FK "self-ref (1단계 대댓글)"
+        text content
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+
+    post_like {
+        int id PK
+        int user_id FK
+        int post_id FK
+        timestamp created_at
+    }
+
+    post_bookmark {
+        int id PK
+        int user_id FK
+        int post_id FK
+        timestamp created_at
+    }
+
+    comment_like {
+        int id PK
+        int user_id FK
+        int comment_id FK
+        timestamp created_at
+    }
+
+    post_image {
+        int id PK
+        int post_id FK
+        varchar image_url
+        tinyint sort_order
+        timestamp created_at
+    }
+
+    image {
+        int id PK
+        varchar image_url
+        enum type "profile, post"
+        int uploader_id FK
+        timestamp uploaded_at
+    }
+
+    post_view_log {
+        bigint id PK
+        int user_id FK
+        int post_id FK
+        date view_date "GENERATED STORED"
+        timestamp created_at
+    }
+
+    notification {
+        int id PK
+        int user_id FK "수신자"
+        int actor_id FK "발신자"
+        int post_id FK
+        int comment_id "NULL 허용"
+        enum type "comment, like, mention, follow"
+        tinyint is_read "default 0"
+        timestamp created_at
     }
 
     report {
@@ -155,137 +236,65 @@ erDiagram
         text description
         enum status "pending, resolved, dismissed"
         int resolved_by FK
-        datetime resolved_at
-        datetime created_at
-    }
-
-    comment {
-        int id PK
-        int post_id FK
-        int author_id FK
-        int parent_id FK "self-ref (1단계 대댓글)"
-        text content
-        datetime deleted_at
-        datetime created_at
-    }
-
-    post_like {
-        int id PK
-        int post_id FK
-        int user_id FK
-        datetime created_at
-    }
-
-    image {
-        int id PK
-        varchar image_url
-        enum type
-        int uploader_id FK
-        datetime uploaded_at
-    }
-
-    post_view_log {
-        int id PK
-        int user_id FK
-        int post_id FK
-        date view_date
-        datetime created_at
-    }
-
-    email_verification {
-        int id PK
-        int user_id FK
-        varchar token UK
-        datetime expires_at
-        boolean used "default FALSE"
-        datetime created_at
-    }
-
-    notification {
-        int id PK
-        int user_id FK "수신자"
-        int actor_id FK "발신자"
-        int post_id FK
-        enum type "like, comment, reply, mention, follow"
-        boolean is_read "default FALSE"
-        datetime created_at
-    }
-
-    post_bookmark {
-        int id PK
-        int user_id FK
-        int post_id FK
-        datetime created_at
-    }
-
-    comment_like {
-        int id PK
-        int user_id FK
-        int comment_id FK
-        datetime created_at
+        timestamp resolved_at
+        timestamp created_at
     }
 
     user_block {
         int id PK
         int blocker_id FK
         int blocked_id FK
-        datetime created_at
-    }
-
-    post_image {
-        int id PK
-        int post_id FK
-        varchar image_url
-        tinyint sort_order
-        datetime created_at
-    }
-
-    tag {
-        int id PK
-        varchar name UK "1~30자"
-        datetime created_at
-    }
-
-    post_tag {
-        int post_id PK_FK
-        int tag_id PK_FK
+        timestamp created_at
     }
 
     user_follow {
         int id PK
         int follower_id FK
         int following_id FK
-        datetime created_at
+        timestamp created_at
+    }
+
+    tag {
+        bigint id PK
+        varchar name UK "1~30자"
+        timestamp created_at
+    }
+
+    post_tag {
+        int post_id PK_FK
+        bigint tag_id PK_FK
     }
 
     poll {
         int id PK
-        int post_id FK
+        int post_id FK_UK
         varchar question
-        datetime expires_at
-        datetime created_at
+        timestamp expires_at
+        timestamp created_at
     }
 
     poll_option {
         int id PK
         int poll_id FK
-        varchar text
-        int sort_order
+        varchar option_text
+        tinyint sort_order
     }
 
     poll_vote {
         int id PK
-        int poll_option_id FK
+        int poll_id FK
+        int option_id FK
         int user_id FK
-        datetime created_at
+        timestamp created_at
     }
 
     dm_conversation {
         int id PK
         int participant1_id FK
         int participant2_id FK
-        datetime last_message_at
-        datetime created_at
+        timestamp last_message_at
+        timestamp created_at
+        timestamp deleted_at
     }
 
     dm_message {
@@ -293,8 +302,18 @@ erDiagram
         int conversation_id FK
         int sender_id FK
         text content
-        datetime deleted_at
-        datetime created_at
+        tinyint is_read "default 0"
+        timestamp created_at
+        timestamp deleted_at
+    }
+
+    user_post_score {
+        int user_id PK_FK
+        int post_id PK_FK
+        float affinity_score
+        float hot_score
+        float combined_score
+        timestamp computed_at
     }
 ```
 
@@ -303,28 +322,27 @@ erDiagram
 - **Soft Delete**: `user`, `post`, `comment`, `dm_message` 테이블에 `deleted_at` 컬럼 사용. 물리적 삭제 대신 논리적 삭제로 데이터 보존 및 FK 무결성 유지.
 - **JWT 기반 인증**: Access Token(30분, HS256) + Refresh Token(7일, opaque random). Refresh Token은 SHA-256 해시로 DB 저장. JWT payload에는 `sub`(user_id)만 포함하여 PII 노출 방지. 토큰 회전(rotation)으로 Refresh Token 탈취 시 자동 무효화.
 - **Raw SQL**: ORM 대신 aiomysql parameterized queries를 직접 작성하여 쿼리 최적화 및 성능 제어.
-- **인덱스 전략**:
-  - `idx_refresh_token_hash`: Refresh Token 해시 조회
-  - `idx_post_created_deleted`: 최신순 게시글 목록 조회
-  - `idx_comment_post_deleted`: 게시글별 댓글 목록 조회
-  - `ft_post_title_content`: FULLTEXT INDEX (ngram parser) — 제목+내용 한국어 검색
-  - `idx_notification_user_read`: 사용자별 읽지 않은 알림 조회
-  - `idx_email_verification_token`: 이메일 인증 토큰 조회
-  - `idx_post_category`: 카테고리별 게시글 목록 조회
+- **인덱스 전략** (30+ 인덱스):
+  - `idx_refresh_token_hash`, `idx_refresh_token_user_id`: 인증 토큰 조회
+  - `idx_post_list_optimized`: 최신순 게시글 목록 (deleted_at, created_at)
+  - `idx_comment_list_optimized`: 게시글별 댓글 목록 (post_id, deleted_at, created_at)
+  - `ft_post_search`: FULLTEXT INDEX (ngram parser) — 제목+내용 한국어 검색
+  - `idx_notification_user_unread`: 사용자별 읽지 않은 알림 조회
+  - `idx_email_verification_token`, `idx_email_verification_expires`: 이메일 인증 토큰 조회
+  - `idx_post_category`: 카테고리별 게시글 목록
   - `idx_post_pinned`: 고정 게시글 우선 정렬
-  - `idx_report_status`: 신고 상태별 목록 조회
-  - `idx_report_target`: 대상별 신고 조회
+  - `idx_report_status`, `idx_report_target`: 신고 상태별/대상별 조회
   - `idx_post_bookmark_post_id`, `idx_post_bookmark_user`: 북마크 조회
   - `idx_comment_like_comment_id`, `idx_comment_like_user`: 댓글 좋아요 조회
   - `idx_user_block_blocker`, `idx_user_block_blocked`: 차단 조회
+  - `idx_user_follow_follower`, `idx_user_follow_following`: 팔로우 관계 조회
   - `idx_post_image_post`: 게시글 이미지 정렬 조회
   - `idx_user_suspended`: 정지 상태 사용자 조회
-  - `idx_tag_name`: 태그 이름 검색
-  - `idx_post_tag_tag_id`: 태그별 게시글 조회
-  - `idx_user_follow_follower`, `idx_user_follow_following`: 팔로우 관계 조회
-  - `idx_user_post_score_user_score`: 추천 피드 점수 조회
-  - `idx_dm_conversation_participants`: DM 대화 참가자 조회
-  - `idx_dm_message_conversation`: DM 메시지 목록 조회
+  - `idx_tag_name`, `idx_post_tag_tag_id`: 태그 검색/조회
+  - `idx_poll_post`, `idx_poll_option_poll`, `idx_poll_vote_poll`, `idx_poll_vote_user`: 투표 관련
+  - `idx_ups_user_combined`: 추천 피드 점수 조회 (user_id, combined_score DESC)
+  - `idx_conv_participant1`, `idx_conv_participant2`: DM 대화 참가자 조회
+  - `idx_msg_conversation`, `idx_msg_unread`: DM 메시지 목록/안읽음 조회
 
 ---
 
@@ -605,6 +623,26 @@ score = (likes * 3 + comments * 2 + views * 0.5) / POW(hours_since_creation + 2,
 
 시간 감쇠 가중치 수식으로 최근 인기 게시글이 상위에 노출됩니다.
 
+### 추천 피드 (For You Feed)
+
+`user_post_score` 테이블에 사전 계산된 점수를 저장하고 30분 주기로 배치 재계산합니다.
+
+```mermaid
+flowchart LR
+    subgraph 배치["배치 재계산 (30분 주기)"]
+        A["affinity_score<br/>팔로우·좋아요·댓글 기반"] --> C["combined_score"]
+        H["hot_score<br/>시간 감쇠 인기도"] --> C
+    end
+    subgraph 조회["GET /v1/posts?sort=for_you"]
+        C --> UPS["user_post_score<br/>LEFT JOIN + COALESCE"]
+        UPS --> CAP["diversity_cap<br/>작성자당 최대 3개"]
+        CAP --> FEED["피드 결과"]
+    end
+```
+
+- `user_has_scores()` False이면 `latest` 폴백
+- `_apply_diversity_cap()`: 동일 작성자 게시글 최대 3개까지만 노출
+
 ### 연관 게시글 추천
 
 `LEFT JOIN post_tag`으로 현재 게시글과 태그 매칭 수를 계산하고, 동일 카테고리 보너스 + hot score를 가산하여 정렬. 태그 없는 게시글은 카테고리 + hot score로 폴백. 차단 사용자의 게시글 제외.
@@ -721,6 +759,80 @@ mypy .
 ```
 
 **테스트 현황**: 300+ 테스트, 87% 커버리지
+
+### 대규모 시드 데이터 (`seed_data_large.py`)
+
+RDS에 영구 보존할 대규모 시드 데이터를 생성합니다. 추천 피드 테스트와 부하 테스트에 활용.
+
+```bash
+# SSH 터널 열기
+ssh -i ~/.ssh/키파일 -L 3307:<RDS_ENDPOINT>:3306 ec2-user@<BASTION_IP> -N
+
+# 설정 확인 (DB 접속 없이)
+python database/seed_data_large.py --db-user admin --db-password SECRET --dry-run
+
+# 시딩 실행
+python database/seed_data_large.py \
+    --db-host 127.0.0.1 --db-port 3307 \
+    --db-user admin --db-password SECRET --no-confirm
+
+# 기존 데이터 삭제 후 재시딩
+python database/seed_data_large.py \
+    --db-host 127.0.0.1 --db-port 3307 \
+    --db-user admin --db-password SECRET --no-confirm --clean
+
+# 추천 점수 재계산 포함
+python database/seed_data_large.py \
+    --db-host 127.0.0.1 --db-port 3307 \
+    --db-user admin --db-password SECRET --no-confirm \
+    --recompute-url https://api.my-community.shop
+```
+
+| 항목 | 규모 |
+| --- | --- |
+| 사용자 | 50,000명 (Power 5% / Regular 25% / Reader 70%) |
+| 게시글 | ~250,000개 (성장 곡선 시간 분포) |
+| 댓글 | ~750,000개 (80% 루트 + 20% 대댓글) |
+| 좋아요/북마크/조회 | ~950,000건 (인기 편중 분포) |
+| 팔로우/차단/알림/신고/DM | ~680,000건 |
+| **총 행 수** | **~300만** |
+
+**실행 흐름 (5-Phase)**
+
+```mermaid
+flowchart LR
+    subgraph P1["Phase 1: 기반 (순차)"]
+        U[users 50K] --> C[categories 4] --> T[tags 50]
+    end
+    subgraph P2["Phase 2: 콘텐츠 (순차)"]
+        PO[posts 250K] --> PT[post_tags] --> PI[post_images] --> PL[polls]
+    end
+    subgraph P3["Phase 3: 상호작용 (병렬)"]
+        direction TB
+        CM[comments 750K]
+        LK[likes 500K]
+        BK[bookmarks 150K]
+        VW[views 500K]
+        PV[poll_votes]
+    end
+    subgraph P4["Phase 4: 소셜 (병렬)"]
+        direction TB
+        FL[follows 100K]
+        BL[blocks 2.5K]
+        NF[notifications 500K]
+        RP[reports 2.5K]
+        DM[DMs 80K]
+    end
+    subgraph P5["Phase 5: 검증"]
+        VR[행 수 + 무결성 검증]
+        RC[피드 점수 재계산]
+    end
+    P1 --> P2 --> P3 --> P4 --> P5
+```
+
+- **배치 INSERT**: 5,000행씩 `INSERT IGNORE` (UNIQUE 테이블) / `INSERT` (일반 테이블)
+- **asyncio.gather**: Phase 3, 4에서 독립 테이블 병렬 처리
+- **소요 시간**: SSH 터널 경유 ~5-10분
 
 ### 부하 테스트 (Locust)
 
