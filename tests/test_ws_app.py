@@ -1,4 +1,8 @@
 # tests/test_ws_app.py
+import pytest
+
+pytest.importorskip("redis", reason="redis는 K8s optional dependency")
+
 from fastapi.testclient import TestClient
 
 from ws_app import app
