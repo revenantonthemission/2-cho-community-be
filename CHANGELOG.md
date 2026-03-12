@@ -2,6 +2,11 @@
 
 ## 2026-03 (Mar)
 
+- **03-12: E2E 테스트 전용 API (`/v1/test/*`)**
+  - `TESTING=true` 환경 변수 게이트: 프로덕션에서 엔드포인트 미존재
+  - 이메일 인증 바이패스, 역할 변경, 사용자 정지/해제, DB 정리 5개 엔드포인트
+  - 프론트엔드 E2E 헬퍼에 래퍼 함수 추가, `test.fixme()` 테스트 활성화
+
 - **03-11: QA 테스트 코드 전면 재구성**
   - 기존 35개 플랫 테스트 파일(~250 케이스) → 10개 도메인별 디렉토리 구조(231 케이스)로 클린 리라이트
   - 도메인: auth, users, posts, comments, engagement, feed, dm, notifications, admin, security
