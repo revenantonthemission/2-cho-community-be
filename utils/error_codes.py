@@ -71,6 +71,7 @@ class ErrorCode(StrEnum):
 
     # 투표
     ALREADY_VOTED = "already_voted"
+    VOTE_NOT_FOUND = "vote_not_found"
     POLL_EXPIRED = "poll_expired"
     POLL_NOT_FOUND = "poll_not_found"
     INVALID_OPTION = "invalid_option"

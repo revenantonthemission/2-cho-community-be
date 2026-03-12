@@ -4,7 +4,11 @@ from pymysql.err import IntegrityError
 
 from models import poll_models
 from utils.error_codes import ErrorCode
-from utils.exceptions import bad_request_error, conflict_error, not_found_error
+from utils.exceptions import (
+    bad_request_error,
+    conflict_error,
+    not_found_error,
+)
 
 
 class PollService:
@@ -56,3 +60,65 @@ class PollService:
             raise conflict_error(
                 ErrorCode.ALREADY_VOTED, timestamp, "이미 투표한 투표입니다."
             )
+
+    @staticmethod
+    async def cancel_vote(
+        post_id: int,
+        user_id: int,
+        timestamp: str,
+    ) -> None:
+        """투표를 취소합니다.
+
+        Raises:
+            HTTPException: 투표 없음(404), 만료(400), 투표 기록 없음(404).
+        """
+        poll_id = await poll_models.get_poll_id_by_post_id(post_id)
+        if not poll_id:
+            raise not_found_error(ErrorCode.POLL_NOT_FOUND, timestamp)
+
+        poll_data = await poll_models.get_poll_by_post_id(post_id)
+        if poll_data and poll_data["is_expired"]:
+            raise bad_request_error(
+                ErrorCode.POLL_EXPIRED,
+                timestamp,
+                "만료된 투표는 취소할 수 없습니다.",
+            )
+
+        deleted = await poll_models.delete_vote(poll_id, user_id)
+        if not deleted:
+            raise not_found_error(ErrorCode.VOTE_NOT_FOUND, timestamp)
+
+    @staticmethod
+    async def change_vote(
+        post_id: int,
+        option_id: int,
+        user_id: int,
+        timestamp: str,
+    ) -> None:
+        """투표를 변경합니다.
+
+        Raises:
+            HTTPException: 투표 없음(404), 만료(400), 옵션 불일치(400), 투표 기록 없음(404).
+        """
+        poll_id = await poll_models.get_poll_id_by_post_id(post_id)
+        if not poll_id:
+            raise not_found_error(ErrorCode.POLL_NOT_FOUND, timestamp)
+
+        poll_data = await poll_models.get_poll_by_post_id(post_id)
+        if poll_data and poll_data["is_expired"]:
+            raise bad_request_error(
+                ErrorCode.POLL_EXPIRED,
+                timestamp,
+                "만료된 투표는 변경할 수 없습니다.",
+            )
+
+        if not await poll_models.option_belongs_to_poll(option_id, poll_id):
+            raise bad_request_error(
+                ErrorCode.INVALID_OPTION,
+                timestamp,
+                "해당 투표에 속하지 않는 옵션입니다.",
+            )
+
+        changed = await poll_models.change_vote(poll_id, option_id, user_id)
+        if not changed:
+            raise not_found_error(ErrorCode.VOTE_NOT_FOUND, timestamp)

@@ -27,3 +27,40 @@ async def vote_on_poll(
         "투표가 완료되었습니다.",
         timestamp=timestamp,
     )
+
+
+async def cancel_vote(
+    post_id: int,
+    current_user: User,
+    request: Request,
+) -> dict:
+    """투표를 취소합니다."""
+    timestamp = get_request_timestamp(request)
+
+    await PollService.cancel_vote(post_id, current_user.id, timestamp)
+
+    return create_response(
+        "POLL_VOTE_CANCELLED",
+        "투표가 취소되었습니다.",
+        timestamp=timestamp,
+    )
+
+
+async def change_vote(
+    post_id: int,
+    vote_data: PollVoteRequest,
+    current_user: User,
+    request: Request,
+) -> dict:
+    """투표를 변경합니다."""
+    timestamp = get_request_timestamp(request)
+
+    await PollService.change_vote(
+        post_id, vote_data.option_id, current_user.id, timestamp
+    )
+
+    return create_response(
+        "POLL_VOTE_CHANGED",
+        "투표가 변경되었습니다.",
+        timestamp=timestamp,
+    )

@@ -404,3 +404,24 @@ async def vote_on_poll(
 ) -> dict:
     """게시글의 투표에 참여합니다."""
     return await poll_controller.vote_on_poll(post_id, vote_data, current_user, request)
+
+
+@post_router.delete("/{post_id}/poll/vote", status_code=status.HTTP_200_OK)
+async def cancel_poll_vote(
+    post_id: int,
+    request: Request,
+    current_user: User = Depends(require_verified_email),
+) -> dict:
+    """투표를 취소합니다."""
+    return await poll_controller.cancel_vote(post_id, current_user, request)
+
+
+@post_router.put("/{post_id}/poll/vote", status_code=status.HTTP_200_OK)
+async def change_poll_vote(
+    post_id: int,
+    vote_data: PollVoteRequest,
+    request: Request,
+    current_user: User = Depends(require_verified_email),
+) -> dict:
+    """투표를 변경합니다."""
+    return await poll_controller.change_vote(post_id, vote_data, current_user, request)

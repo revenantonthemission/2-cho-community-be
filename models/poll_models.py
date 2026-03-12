@@ -113,6 +113,26 @@ async def vote(poll_id: int, option_id: int, user_id: int) -> None:
         )
 
 
+async def delete_vote(poll_id: int, user_id: int) -> bool:
+    """투표를 취소합니다. 삭제된 행이 있으면 True 반환."""
+    async with transactional() as cur:
+        await cur.execute(
+            "DELETE FROM poll_vote WHERE poll_id = %s AND user_id = %s",
+            (poll_id, user_id),
+        )
+        return cur.rowcount > 0
+
+
+async def change_vote(poll_id: int, option_id: int, user_id: int) -> bool:
+    """투표를 변경합니다. 변경된 행이 있으면 True 반환."""
+    async with transactional() as cur:
+        await cur.execute(
+            "UPDATE poll_vote SET option_id = %s WHERE poll_id = %s AND user_id = %s",
+            (option_id, poll_id, user_id),
+        )
+        return cur.rowcount > 0
+
+
 async def option_belongs_to_poll(option_id: int, poll_id: int) -> bool:
     """옵션이 해당 투표에 속하는지 확인합니다."""
     async with get_connection() as conn:
