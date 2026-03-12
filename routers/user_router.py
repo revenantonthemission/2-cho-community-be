@@ -382,6 +382,28 @@ async def unblock_user(
 # ============ 사용자 팔로우 라우터 ============
 
 
+@user_router.get("/{user_id}/following", status_code=status.HTTP_200_OK)
+async def get_user_following(
+    user_id: int,
+    request: Request,
+    offset: int = 0,
+    limit: int = 10,
+) -> dict:
+    """특정 사용자의 팔로잉 목록을 조회합니다."""
+    return await follow_controller.get_user_following(user_id, request, offset, limit)
+
+
+@user_router.get("/{user_id}/followers", status_code=status.HTTP_200_OK)
+async def get_user_followers(
+    user_id: int,
+    request: Request,
+    offset: int = 0,
+    limit: int = 10,
+) -> dict:
+    """특정 사용자의 팔로워 목록을 조회합니다."""
+    return await follow_controller.get_user_followers(user_id, request, offset, limit)
+
+
 @user_router.post("/{user_id}/follow", status_code=status.HTTP_201_CREATED)
 async def follow_user(
     user_id: int,

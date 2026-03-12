@@ -59,6 +59,52 @@ async def unfollow_user(
     )
 
 
+async def get_user_following(
+    user_id: int,
+    request: Request,
+    offset: int = 0,
+    limit: int = 10,
+) -> dict:
+    """특정 사용자의 팔로잉 목록을 조회합니다."""
+    timestamp = get_request_timestamp(request)
+
+    data = await FollowService.get_following(
+        user_id=user_id,
+        offset=offset,
+        limit=limit,
+    )
+
+    return create_response(
+        "USER_FOLLOWING_LOADED",
+        "팔로잉 목록을 조회했습니다.",
+        data=data,
+        timestamp=timestamp,
+    )
+
+
+async def get_user_followers(
+    user_id: int,
+    request: Request,
+    offset: int = 0,
+    limit: int = 10,
+) -> dict:
+    """특정 사용자의 팔로워 목록을 조회합니다."""
+    timestamp = get_request_timestamp(request)
+
+    data = await FollowService.get_followers(
+        user_id=user_id,
+        offset=offset,
+        limit=limit,
+    )
+
+    return create_response(
+        "USER_FOLLOWERS_LOADED",
+        "팔로워 목록을 조회했습니다.",
+        data=data,
+        timestamp=timestamp,
+    )
+
+
 async def get_my_following(
     current_user: User,
     request: Request,
