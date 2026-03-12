@@ -2,6 +2,17 @@
 
 ## 2026-03 (Mar)
 
+- **03-12: E2E 테스트 전용 API (`/v1/test/*`)**
+  - `TESTING=true` 환경 변수 게이트: 프로덕션에서 엔드포인트 미존재
+  - 이메일 인증 바이패스, 역할 변경, 사용자 정지/해제, DB 정리 5개 엔드포인트
+  - 프론트엔드 E2E 헬퍼에 래퍼 함수 추가, `test.fixme()` 테스트 활성화
+
+- **03-11: QA 테스트 코드 전면 재구성**
+  - 기존 35개 플랫 테스트 파일(~250 케이스) → 10개 도메인별 디렉토리 구조(231 케이스)로 클린 리라이트
+  - 도메인: auth, users, posts, comments, engagement, feed, dm, notifications, admin, security
+  - 공통 conftest.py 헬퍼 함수 통일 (`create_verified_user()`, `create_admin_user()`, `create_test_post()`, `create_test_comment()`)
+  - 기존 빈 테스트 파일 8개(for_you_feed, rate_limiter 등)를 실제 테스트로 구현
+
 - **03-11: 대규모 시드 데이터 스크립트 (`seed_data_large.py`)**
   - 5만 유저(3-tier), 25만 게시글, 75만 댓글 등 총 ~300만 행 생성
   - 성장 곡선 시간 분포 (최근 50%), 인기 편중 분포 (멱법칙 태그, 상위 5% 좋아요 40%)

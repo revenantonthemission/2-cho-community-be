@@ -1,6 +1,6 @@
 # 커뮤니티 서비스 "아무 말 대잔치" — 시스템 아키텍처 보고서
 
-> **작성일**: 2026-03-10
+> **작성일**: 2026-03-11
 > **프로젝트**: AWS AI School 2기 개인 프로젝트
 > **도메인**: my-community.shop
 > **리전**: ap-northeast-2 (서울)
@@ -126,6 +126,7 @@ flowchart TD
     Lambda -- "비동기 DB 커넥션 풀<br/>5~50개" --> RDS
     Lambda -- "파일 시스템 마운트" --> EFS
     Lambda -. "콜드 스타트 시<br/>시크릿 조회" .-> SSM
+    Lambda -- "이메일 발송<br/>(인증·비밀번호)" --> SES["SES<br/>noreply@my-community.shop"]
     Lambda -- "알림 푸시<br/>ManageConnections" --> APIGW_WS
     Lambda -- "연결 조회" --> DDB
     EB -. "토큰 정리 · 피드 재계산<br/>(1시간 · 30분 주기)" .-> Lambda
@@ -158,6 +159,7 @@ flowchart TD
 | **RDS** | MySQL 8.0 관계형 데이터 저장 | FULLTEXT 검색(ngram), 트랜잭션 ACID 보장, Private Subnet 격리 |
 | **EFS** | 사용자 업로드 파일 저장 | Lambda의 읽기 전용 파일시스템 제약 해결, 3-AZ 자동 복제 |
 | **SSM** | DB 비밀번호, JWT 시크릿 키 관리 | Lambda 환경변수에 평문 저장 방지, SecureString 암호화 |
+| **SES** | 이메일 인증, 임시 비밀번호 발송 | 도메인 인증(DKIM), Lambda IAM 연동, 프로덕션 이메일 배달 |
 | **CloudWatch** | 메트릭 알람, 대시보드, 로그 집계 | Lambda 에러, RDS CPU, 스토리지, 커넥션 수 실시간 모니터링 |
 | **CloudTrail** | AWS API 호출 감사 로그 | 멀티리전 추적으로 us-east-1(CloudFront/ACM) 이벤트 포함 |
 | **EventBridge** | 스케줄 기반 배치 작업 트리거 | API Destination + Connection으로 Lambda 내부 API 호출, 토큰 정리(1시간)·피드 재계산(30분) |
@@ -453,6 +455,7 @@ flowchart LR
 | **데이터베이스** | RDS MySQL 8.0 (gp3) | 관계형 데이터, FULLTEXT 검색 |
 | **파일 스토리지** | EFS (범용 모드) | 사용자 업로드 이미지 |
 | **시크릿 관리** | SSM Parameter Store | DB 비밀번호, JWT 시크릿 (암호화 저장) |
+| **이메일** | SES (Simple Email Service) | 이메일 인증, 임시 비밀번호 발급 (도메인 DKIM 인증) |
 | **모니터링** | CloudWatch | 6개 알람, 4개 위젯 대시보드 |
 | **감사** | CloudTrail (멀티리전) | AWS API 호출 로그 |
 | **접근 관리** | IAM (MFA 강제) | 최소 권한 원칙, OIDC 역할 |

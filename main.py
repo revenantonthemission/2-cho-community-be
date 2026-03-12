@@ -92,6 +92,12 @@ if settings.DEBUG:
 
     app.include_router(ws_router)
 
+# E2E 테스트 전용 API (TESTING=true일 때만 등록)
+if settings.TESTING:
+    from routers.test_router import test_router
+
+    app.include_router(test_router)
+
 # Lambda 환경에서는 /var/task가 읽기 전용
 # Docker 이미지에 assets/profiles/default_profile.jpg가 포함됨
 if os.environ.get("AWS_LAMBDA_EXEC") != "true":

@@ -40,19 +40,19 @@ async def get_daily_stats(days: int = 30) -> list[dict]:
     async with get_connection() as conn:
         async with conn.cursor() as cur:
             query = """
+                WITH RECURSIVE dates AS (
+                    SELECT CURDATE() AS d, 0 AS seq
+                    UNION ALL
+                    SELECT d - INTERVAL 1 DAY, seq + 1
+                    FROM dates
+                    WHERE seq < %s - 1
+                )
                 SELECT
                     dates.d AS date,
                     COALESCE(s.cnt, 0) AS signups,
                     COALESCE(p.cnt, 0) AS posts,
                     COALESCE(c.cnt, 0) AS comments
-                FROM (
-                    SELECT CURDATE() - INTERVAL seq DAY AS d
-                    FROM (
-                        SELECT @rownum := @rownum + 1 AS seq
-                        FROM information_schema.columns, (SELECT @rownum := -1) r
-                        LIMIT %s
-                    ) nums
-                ) dates
+                FROM dates
                 LEFT JOIN (
                     SELECT DATE(created_at) AS d, COUNT(*) AS cnt
                     FROM user WHERE deleted_at IS NULL
