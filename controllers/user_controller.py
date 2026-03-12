@@ -31,7 +31,7 @@ def _serialize_public_user(user) -> dict:
 async def search_users(q: str, limit: int, current_user, request) -> dict:
     """닉네임 접두어로 사용자 검색."""
     if not q or not q.strip():
-        return {"data": [], "request_timestamp": request.state.request_timestamp}
+        return {"data": [], "request_timestamp": get_request_timestamp(request)}
 
     limit = min(max(limit, 1), 20)
 
@@ -42,7 +42,7 @@ async def search_users(q: str, limit: int, current_user, request) -> dict:
         query=q.strip(), exclude_user_ids=exclude_ids, limit=limit
     )
 
-    return {"data": results, "request_timestamp": request.state.request_timestamp}
+    return {"data": results, "request_timestamp": get_request_timestamp(request)}
 
 
 async def get_user(user_id: int, request: Request) -> dict:

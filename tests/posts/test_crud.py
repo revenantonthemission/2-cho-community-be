@@ -92,18 +92,19 @@ async def test_create_post_without_auth_returns_401(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_get_post_increments_view_count(client: AsyncClient, fake):
-    """게시글을 조회할 때마다 조회수가 증가한다."""
+    """다른 사용자가 게시글을 조회하면 조회수가 증가한다."""
     user = await create_verified_user(client, fake)
+    user2 = await create_verified_user(client, fake)
     post = await create_test_post(client, user["headers"])
     post_id = post["post_id"]
 
-    # 첫 번째 조회
+    # 첫 번째 조회 (user)
     res1 = await client.get(f"/v1/posts/{post_id}", headers=user["headers"])
     assert res1.status_code == 200
     views_1 = res1.json()["data"]["post"]["views_count"]
 
-    # 두 번째 조회
-    res2 = await client.get(f"/v1/posts/{post_id}", headers=user["headers"])
+    # 두 번째 조회 (user2 — 다른 사용자여야 조회수 증가)
+    res2 = await client.get(f"/v1/posts/{post_id}", headers=user2["headers"])
     assert res2.status_code == 200
     views_2 = res2.json()["data"]["post"]["views_count"]
 
