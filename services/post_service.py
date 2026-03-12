@@ -292,7 +292,7 @@ class PostService:
                     user_id=mentioned_user.id,
                     notification_type="mention",
                     actor_id=user_id,
-                    actor_nickname=actor_nickname,
+                    actor_nickname=actor_nickname or "",
                     post_id=post.id,
                 )
 
