@@ -1,6 +1,6 @@
 # 커뮤니티 서비스 "아무 말 대잔치" — 시스템 아키텍처 보고서
 
-> **작성일**: 2026-03-11
+> **작성일**: 2026-03-12
 > **프로젝트**: AWS AI School 2기 개인 프로젝트
 > **도메인**: my-community.shop
 > **리전**: ap-northeast-2 (서울)
@@ -40,6 +40,7 @@
 | **인증** | JWT (Access 30분 + Refresh 7일) | Stateless 인증, XSS 방어 | 토큰 저장소 DB 의존, 만료 토큰 주기적 정리 |
 | **인프라** | AWS (Terraform 19개 모듈) | 서버리스 아키텍처, IaC 재현성 | 3개 환경(Dev/Staging/Prod) 차등 설계 |
 | **CI/CD** | GitHub Actions + OIDC | 장기 자격 증명 없는 배포 | Blue/Green 배포 (Lambda Alias), Health check 게이트, 롤백 워크플로우 |
+| **테스트** | pytest-asyncio + Playwright | 백엔드 242개 단위/통합 테스트, 프론트엔드 90개 E2E 테스트 | 테스트 환경 bcrypt 최적화 (rounds 4), 82%+ 커버리지 |
 | **부하 테스트** | Locust (gevent 기반) | 3종 사용자 시나리오 | 병목 사전 식별, 50~200 동시 사용자 검증 완료 |
 
 ### 1.3 서비스 특성과 인프라 요구사항

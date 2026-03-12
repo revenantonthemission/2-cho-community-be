@@ -6,7 +6,7 @@
 
 ### 주요 기능
 
-- **게시글 CRUD** — 카테고리, 태그(최대 5개), 다중 이미지(최대 5개), 마크다운, 투표(Poll), 인기순(Hot) 정렬, FULLTEXT 검색(ngram)
+- **게시글 CRUD** — 카테고리, 태그(최대 5개), 다중 이미지(최대 5개), 마크다운, 투표(Poll, 변경/취소), 인기순(Hot) 정렬, FULLTEXT 검색(ngram)
 - **댓글 시스템** — 1단계 대댓글, 댓글 좋아요, @멘션 알림
 - **인증/보안** — JWT 이중 토큰(Access 30분 + Refresh 7일), 이메일 인증, 계정 정지, 정보 열거 방지
 - **소셜 기능** — 팔로우/팔로잉, 팔로잉 피드, DM 쪽지, 사용자 차단, 북마크
@@ -447,6 +447,8 @@ erDiagram
 | DELETE | `/v1/users/{user_id}/follow` | 언팔로우 | O (이메일 인증) |
 | GET | `/v1/users/me/followers` | 내 팔로워 목록 | O |
 | GET | `/v1/users/me/following` | 내 팔로잉 목록 | O |
+| GET | `/v1/users/{user_id}/followers` | 특정 사용자 팔로워 목록 (공개) | X |
+| GET | `/v1/users/{user_id}/following` | 특정 사용자 팔로잉 목록 (공개, 페이지네이션) | X |
 
 ### DM API (`/v1/dms`)
 
@@ -466,6 +468,8 @@ erDiagram
 | Method | Endpoint | 설명 | 인증 |
 | ------ | -------- | ---- | ---- |
 | POST | `/v1/posts/{post_id}/poll/vote` | 투표 참여 (option_id) | O (이메일 인증) |
+| PUT | `/v1/posts/{post_id}/poll/vote` | 투표 변경 (다른 option_id) | O (이메일 인증) |
+| DELETE | `/v1/posts/{post_id}/poll/vote` | 투표 취소 | O (이메일 인증) |
 
 ### 관리자 대시보드 API
 
@@ -745,7 +749,7 @@ cd 2-cho-community-be && source .venv/bin/activate
 pytest
 
 # 단일 테스트
-pytest tests/test_qa_full.py::test_name
+pytest tests/engagement/test_poll.py::test_cancel_vote_returns_200
 
 # 커버리지 리포트
 pytest --cov
@@ -758,7 +762,7 @@ ruff check . --fix
 mypy .
 ```
 
-**테스트 현황**: 300+ 테스트, 87% 커버리지
+**테스트 현황**: 242개 테스트, 82% 커버리지 (bcrypt rounds 최적화로 ~30초 실행)
 
 ### 대규모 시드 데이터 (`seed_data_large.py`)
 
