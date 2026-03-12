@@ -1,5 +1,4 @@
 # tests/test_ws_app.py
-import pytest
 from fastapi.testclient import TestClient
 
 from ws_app import app
