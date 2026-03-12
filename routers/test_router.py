@@ -115,8 +115,11 @@ async def cleanup_database():
                 await cur.execute(f"TRUNCATE TABLE {table}")
             await cur.execute("SET FOREIGN_KEY_CHECKS = 1")
             await cur.execute(
-                "INSERT INTO category (name) VALUES "
-                "('자유게시판'), ('질문답변'), ('정보공유'), ('공지사항')"
+                "INSERT INTO category (name, slug, description, sort_order) VALUES "
+                "('자유게시판', 'free', '자유롭게 이야기하는 공간입니다.', 1), "
+                "('질문답변', 'qna', '궁금한 것을 질문하고 답변합니다.', 2), "
+                "('정보공유', 'info', '유용한 정보를 공유합니다.', 3), "
+                "('공지사항', 'notice', '관리자 공지사항입니다.', 4)"
             )
             await conn.commit()
     return {"code": "DATABASE_CLEANED"}
