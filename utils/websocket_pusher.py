@@ -75,6 +75,17 @@ async def push_to_user(user_id: int, event: dict[str, Any]) -> None:
     - 로컬 (DEBUG=True): 인메모리 연결에 직접 전송
     - 환경변수 미설정 시: 무시
     """
+    # K8s: Redis PUBLISH
+    if settings.WS_BACKEND == "redis":
+        try:
+            from utils.redis_client import get_redis
+            redis = await get_redis(settings.REDIS_URL)
+            payload = json.dumps(event, ensure_ascii=False)
+            await redis.publish(f"notify:{user_id}", payload)
+        except Exception:
+            logger.warning("Redis push 실패 (best-effort)", exc_info=True)
+        return
+
     # 로컬 개발 모드: 인메모리 연결 사용
     if settings.DEBUG and not settings.WS_DYNAMODB_TABLE:
         try:
@@ -87,7 +98,7 @@ async def push_to_user(user_id: int, event: dict[str, Any]) -> None:
             logger.warning("로컬 WebSocket 푸시 실패", exc_info=True)
         return
 
-    # 프로덕션: DynamoDB + API GW Management API
+    # Lambda 프로덕션: DynamoDB + API GW Management API
     if not settings.WS_DYNAMODB_TABLE or not settings.WS_API_GW_ENDPOINT:
         return
 

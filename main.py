@@ -126,5 +126,14 @@ async def health_check():
 app.add_exception_handler(Exception, global_exception_handler)
 app.add_exception_handler(RequestValidationError, request_validation_exception_handler)  # type: ignore[arg-type]
 
-# AWS 핸들러 설정
-handler = Mangum(app)
+# K8s: Prometheus 메트릭 엔드포인트
+if os.environ.get("AWS_LAMBDA_EXEC") != "true":
+    try:
+        from prometheus_fastapi_instrumentator import Instrumentator
+        Instrumentator().instrument(app).expose(app)
+    except ImportError:
+        pass  # K8s 의존성 미설치 시 무시 (로컬 개발)
+
+# AWS Lambda 핸들러 (K8s에서는 불필요)
+if os.environ.get("AWS_LAMBDA_EXEC") == "true":
+    handler = Mangum(app)

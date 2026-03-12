@@ -97,10 +97,13 @@ class Settings(BaseSettings):
     IMAGE_UPLOAD_DIR: str = "assets/posts"
     PROFILE_IMAGE_UPLOAD_DIR: str = "assets/profiles"
 
-    RATE_LIMIT_BACKEND: str = "memory"  # "memory" (로컬) | "dynamodb" (프로덕션)
+    RATE_LIMIT_BACKEND: str = "memory"  # "memory" (로컬) | "dynamodb" (프로덕션) | "redis" (K8s)
     RATE_LIMIT_DYNAMODB_TABLE: str = ""  # DynamoDB 테이블 이름 (RATE_LIMIT_BACKEND=dynamodb 시 필수)
     RATE_LIMIT_MAX_IPS: int = 10000  # 메모리 보호를 위한 최대 추적 IP 수
     TRUSTED_PROXIES: set[str] = set()  # 프로덕션에서 nginx 등의 프록시 IP 설정 필요
+
+    # Redis (K8s 환경)
+    REDIS_URL: str = ""
 
     # 이메일 발송 설정
     EMAIL_BACKEND: str = "smtp"  # "ses" (프로덕션) | "smtp" (로컬)
@@ -120,6 +123,9 @@ class Settings(BaseSettings):
     # WebSocket 푸시 설정 (Lambda 환경에서만 설정, 로컬에서는 빈 문자열)
     WS_DYNAMODB_TABLE: str = ""
     WS_API_GW_ENDPOINT: str = ""
+
+    # WebSocket 백엔드 (K8s: "redis", Lambda: "dynamodb")
+    WS_BACKEND: str = "dynamodb"
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"

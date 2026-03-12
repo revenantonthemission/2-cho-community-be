@@ -1,0 +1,140 @@
+###############################################################################
+# K8s CD — Docker Build → ECR Push → kubectl rollout
+#
+# 수동 트리거: workflow_dispatch로 컴포넌트 선택 후 배포
+# 인증: GitHub Actions OIDC → AWS IAM Role (ECR push만)
+# kubectl: Master 노드에서 직접 실행 (SSH)
+#
+# 사전 설정:
+#   - Repository variable: AWS_ACCOUNT_ID
+#   - Environment secrets: K8S_MASTER_SSH_KEY, K8S_MASTER_HOST
+###############################################################################
+
+name: K8s CD — ECR + kubectl rollout
+
+on:
+  workflow_dispatch:
+    inputs:
+      component:
+        description: "배포 컴포넌트"
+        required: true
+        type: choice
+        options:
+          - api
+          - ws
+          - fe
+          - all
+      environment:
+        description: "배포 환경"
+        required: true
+        type: choice
+        options:
+          - dev
+
+concurrency:
+  group: k8s-deploy-${{ inputs.environment }}-${{ inputs.component }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-and-push:
+    name: "Build & Push (${{ inputs.component }})"
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tag }}
+
+    steps:
+      - name: Checkout backend
+        uses: actions/checkout@v4
+
+      - name: Checkout frontend
+        if: inputs.component == 'fe' || inputs.component == 'all'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/2-cho-community-fe
+          path: frontend
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/my-community-${{ inputs.environment }}-github-actions
+          aws-region: ap-northeast-2
+
+      - name: Login to ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image tag
+        id: meta
+        run: echo "tag=sha-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
+
+      # ── Backend API + WS (같은 이미지) ──
+      - name: Build & push backend-k8s
+        if: inputs.component == 'api' || inputs.component == 'ws' || inputs.component == 'all'
+        run: |
+          IMAGE="${{ steps.ecr-login.outputs.registry }}/my-community-${{ inputs.environment }}-backend-k8s"
+          TAG="${{ steps.meta.outputs.tag }}"
+          docker build --provenance=false -f Dockerfile.k8s -t "${IMAGE}:${TAG}" -t "${IMAGE}:latest" .
+          docker push "${IMAGE}:${TAG}"
+          docker push "${IMAGE}:latest"
+
+      # ── Frontend ──
+      - name: Build & push frontend-k8s
+        if: inputs.component == 'fe' || inputs.component == 'all'
+        run: |
+          IMAGE="${{ steps.ecr-login.outputs.registry }}/my-community-${{ inputs.environment }}-frontend-k8s"
+          TAG="${{ steps.meta.outputs.tag }}"
+          docker build --provenance=false -f frontend/Dockerfile.fe.k8s -t "${IMAGE}:${TAG}" -t "${IMAGE}:latest" frontend
+          docker push "${IMAGE}:${TAG}"
+          docker push "${IMAGE}:latest"
+
+  deploy:
+    name: "Deploy (${{ inputs.component }})"
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.K8S_MASTER_HOST }}
+          username: ec2-user
+          key: ${{ secrets.K8S_MASTER_SSH_KEY }}
+          script: |
+            TAG="${{ needs.build-and-push.outputs.image_tag }}"
+            REGISTRY="${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.ap-northeast-2.amazonaws.com"
+            COMPONENT="${{ inputs.component }}"
+            ENV="${{ inputs.environment }}"
+
+            if [ "${COMPONENT}" = "api" ] || [ "${COMPONENT}" = "all" ]; then
+              sudo kubectl set image deployment/community-api \
+                api="${REGISTRY}/my-community-${ENV}-backend-k8s:${TAG}" -n app
+              sudo kubectl rollout status deployment/community-api -n app --timeout=120s
+            fi
+
+            if [ "${COMPONENT}" = "ws" ] || [ "${COMPONENT}" = "all" ]; then
+              sudo kubectl set image deployment/community-ws \
+                ws="${REGISTRY}/my-community-${ENV}-backend-k8s:${TAG}" -n app
+              sudo kubectl rollout status deployment/community-ws -n app --timeout=120s
+            fi
+
+            if [ "${COMPONENT}" = "fe" ] || [ "${COMPONENT}" = "all" ]; then
+              sudo kubectl set image deployment/community-fe \
+                fe="${REGISTRY}/my-community-${ENV}-frontend-k8s:${TAG}" -n app
+              sudo kubectl rollout status deployment/community-fe -n app --timeout=120s
+            fi
+
+      - name: Health check
+        run: |
+          sleep 10
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://api.k8s.my-community.shop/health" || true)
+          if [ "${STATUS}" = "200" ]; then
+            echo "Health check passed"
+          else
+            echo "Warning: Health check returned ${STATUS}"
+          fi
