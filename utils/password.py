@@ -5,6 +5,11 @@ bcrypt를 사용하여 비밀번호를 안전하게 해싱하고 검증합니다
 
 import bcrypt
 
+from core.config import settings
+
+# 테스트 환경에서는 최소 라운드로 해싱 (rounds 12 → 4, ~250배 빠름)
+_BCRYPT_ROUNDS = 4 if settings.TESTING else 12
+
 
 def hash_password(password: str) -> str:
     """비밀번호를 해싱합니다.
@@ -18,7 +23,7 @@ def hash_password(password: str) -> str:
         해싱된 비밀번호 문자열.
     """
     password_bytes = password.encode("utf-8")
-    salt = bcrypt.gensalt()
+    salt = bcrypt.gensalt(rounds=_BCRYPT_ROUNDS)
     hashed = bcrypt.hashpw(password_bytes, salt)
     return hashed.decode("utf-8")
 
