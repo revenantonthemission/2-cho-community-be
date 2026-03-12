@@ -14,6 +14,10 @@ from database.connection import get_connection, transactional
 test_router = APIRouter(prefix="/v1/test", tags=["test"])
 
 
+class FindUserRequest(BaseModel):
+    email: str
+
+
 class VerifyEmailRequest(BaseModel):
     user_id: int
 
@@ -31,6 +35,21 @@ class SuspendRequest(BaseModel):
 
 class UnsuspendRequest(BaseModel):
     user_id: int
+
+
+@test_router.post("/users/find")
+async def find_user(req: FindUserRequest):
+    """이메일로 사용자 ID 조회"""
+    async with get_connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "SELECT id FROM user WHERE email = %s AND deleted_at IS NULL",
+                (req.email,),
+            )
+            row = await cur.fetchone()
+    if not row:
+        return {"code": "USER_NOT_FOUND", "data": None}
+    return {"code": "USER_FOUND", "data": {"user_id": row[0]}}
 
 
 @test_router.post("/users/verify-email")
