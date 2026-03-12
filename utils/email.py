@@ -63,6 +63,10 @@ async def send_email(to: str, subject: str, body: str) -> None:
     Raises:
         RuntimeError: 이메일 발송 실패 시.
     """
+    if settings.TESTING:
+        logger.info("테스트 환경: 이메일 발송 스킵 (%s)", to)
+        return
+
     backend = settings.EMAIL_BACKEND.lower()
     try:
         if backend == "ses":

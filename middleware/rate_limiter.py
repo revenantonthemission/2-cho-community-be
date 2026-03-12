@@ -196,10 +196,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     """
 
     async def dispatch(self, request: Request, call_next):
-        import os
+        from core.config import settings
 
         # 테스트 환경에서는 Rate Limit 적용 안 함
-        if os.environ.get("TESTING") == "true":
+        if settings.TESTING:
             return await call_next(request)
 
         # OPTIONS: CORS preflight 요청은 브라우저가 자동 생성하므로 제한 불필요
