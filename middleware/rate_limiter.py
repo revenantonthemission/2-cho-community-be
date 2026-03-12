@@ -60,6 +60,10 @@ def _create_rate_limiter() -> RateLimiterProtocol:
         from middleware.rate_limiter_dynamodb import DynamoDBRateLimiter
         return DynamoDBRateLimiter()
 
+    if backend == "redis":
+        from middleware.rate_limiter_redis import RedisRateLimiter
+        return RedisRateLimiter(redis_url=settings.REDIS_URL)
+
     raise ValueError(f"지원하지 않는 Rate Limiter 백엔드: {backend}")
 
 
