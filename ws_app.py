@@ -19,6 +19,12 @@ AUTH_TIMEOUT = 5  # 인증 타임아웃 (초)
 _redis: aioredis.Redis | None = None
 
 
+def _get_redis() -> aioredis.Redis:
+    """lifespan 이후 초기화 보장된 Redis 클라이언트 반환"""
+    assert _redis is not None, "Redis not initialized — lifespan not started"
+    return _redis
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _redis
@@ -39,12 +45,13 @@ async def health():
 async def _register_connection(conn_id: str, user_id: int):
     """Redis에 연결 등록"""
     try:
-        await _redis.hset(f"ws:conn:{conn_id}", mapping={
+        r = _get_redis()
+        await r.hset(f"ws:conn:{conn_id}", mapping={  # type: ignore[misc]
             "user_id": str(user_id),
         })
-        await _redis.expire(f"ws:conn:{conn_id}", 3600)
-        await _redis.sadd(f"ws:user:{user_id}", conn_id)
-        await _redis.expire(f"ws:user:{user_id}", 3600)
+        await r.expire(f"ws:conn:{conn_id}", 3600)
+        await r.sadd(f"ws:user:{user_id}", conn_id)  # type: ignore[misc]
+        await r.expire(f"ws:user:{user_id}", 3600)
     except Exception:
         logger.exception("Redis 연결 등록 실패")
 
@@ -52,16 +59,17 @@ async def _register_connection(conn_id: str, user_id: int):
 async def _unregister_connection(conn_id: str, user_id: int | None):
     """Redis에서 연결 제거"""
     try:
-        await _redis.delete(f"ws:conn:{conn_id}")
+        r = _get_redis()
+        await r.delete(f"ws:conn:{conn_id}")
         if user_id:
-            await _redis.srem(f"ws:user:{user_id}", conn_id)
+            await r.srem(f"ws:user:{user_id}", conn_id)  # type: ignore[misc]
     except Exception:
         logger.exception("Redis 연결 해제 실패")
 
 
 async def _listen_notifications(ws: WebSocket, user_id: int):
     """Redis SUBSCRIBE → WebSocket push"""
-    pubsub = _redis.pubsub()
+    pubsub = _get_redis().pubsub()
     await pubsub.subscribe(f"notify:{user_id}")
     try:
         async for message in pubsub.listen():
@@ -89,7 +97,7 @@ async def _handle_message(ws: WebSocket, data: dict, conn_id: str, user_id: int)
                 "sender_id": user_id,
                 "conversation_id": data.get("conversation_id"),
             })
-            await _redis.publish(f"notify:{recipient_id}", payload)
+            await _get_redis().publish(f"notify:{recipient_id}", payload)
 
     elif msg_type in ("message_deleted", "message_read"):
         recipient_id = data.get("recipient_id")
@@ -99,7 +107,7 @@ async def _handle_message(ws: WebSocket, data: dict, conn_id: str, user_id: int)
                 "sender_id": user_id,
                 **{k: v for k, v in data.items() if k not in ("type", "recipient_id")},
             })
-            await _redis.publish(f"notify:{recipient_id}", payload)
+            await _get_redis().publish(f"notify:{recipient_id}", payload)
 
 
 @app.websocket("/ws")
