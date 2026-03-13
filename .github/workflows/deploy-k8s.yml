@@ -30,6 +30,8 @@ on:
         type: choice
         options:
           - dev
+          - staging
+          - prod
 
 concurrency:
   group: k8s-deploy-${{ inputs.environment }}-${{ inputs.component }}
@@ -124,10 +126,19 @@ jobs:
               kubectl rollout status deployment/community-ws -n app --timeout=120s
             fi
 
+      - name: Set health check URL
+        id: health
+        run: |
+          case "${{ inputs.environment }}" in
+            dev)     echo "url=https://api.my-community.shop/health" >> "$GITHUB_OUTPUT" ;;
+            staging) echo "url=https://api-staging.my-community.shop/health" >> "$GITHUB_OUTPUT" ;;
+            prod)    echo "url=https://api.my-community.shop/health" >> "$GITHUB_OUTPUT" ;;
+          esac
+
       - name: Health check
         run: |
           sleep 10
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://api.my-community.shop/health" || true)
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ steps.health.outputs.url }}" || true)
           if [ "${STATUS}" = "200" ]; then
             echo "Health check passed"
           else
