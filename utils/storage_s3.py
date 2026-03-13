@@ -136,8 +136,6 @@ def delete_file_s3(url: str) -> bool:
     Returns:
         True if deleted, False otherwise.
     """
-    import asyncio
-
     key = _url_to_key(url)
     if not key:
         return False
