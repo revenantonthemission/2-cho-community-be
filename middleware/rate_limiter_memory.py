@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class MemoryRateLimiter:
     """메모리 기반 Rate Limiter (LRU 메모리 보호 적용).
 
-    로컬 개발 전용. 프로덕션에서는 DynamoDBRateLimiter를 사용한다.
+    로컬 개발 및 단일 프로세스 환경 전용. 분산 환경에서는 RedisRateLimiter를 사용한다.
     """
 
     def __init__(self, max_tracked_ips: int | None = None):

@@ -47,7 +47,7 @@ def _create_rate_limiter() -> RateLimiterProtocol:
 
     settings.RATE_LIMIT_BACKEND 값에 따라 적절한 구현체를 반환합니다.
     - "memory": 인메모리 Rate Limiter (로컬 개발, 단일 프로세스)
-    - "dynamodb": DynamoDB 기반 Rate Limiter (프로덕션, 분산 환경)
+    - "redis": Redis 기반 Rate Limiter (K8s 프로덕션, 분산 환경)
     """
     backend = settings.RATE_LIMIT_BACKEND
 
@@ -55,10 +55,6 @@ def _create_rate_limiter() -> RateLimiterProtocol:
         from middleware.rate_limiter_memory import MemoryRateLimiter
 
         return MemoryRateLimiter()
-
-    if backend == "dynamodb":
-        from middleware.rate_limiter_dynamodb import DynamoDBRateLimiter
-        return DynamoDBRateLimiter()
 
     if backend == "redis":
         from middleware.rate_limiter_redis import RedisRateLimiter

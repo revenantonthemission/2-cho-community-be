@@ -589,11 +589,9 @@ async with transactional() as cur:
 
 ### Rate Limiting
 
-IP 기반 요청 빈도 제한. 프로토콜 기반 아키텍처로 메모리(로컬)와 DynamoDB(프로덕션) 백엔드를 지원합니다.
+IP 기반 요청 빈도 제한. 프로토콜 기반 아키텍처로 메모리(로컬)와 Redis(K8s 프로덕션) 백엔드를 지원합니다.
 
-- **백엔드 선택**: `RATE_LIMIT_BACKEND` 설정 — `memory`(로컬, 기본) 또는 `dynamodb`(프로덕션)
-- **분산 환경**: DynamoDB Fixed Window Counter로 수평 확장된 Lambda 인스턴스 간 상태 공유
-- **fail-open 정책**: DynamoDB 장애 시 요청 허용 (가용성 우선)
+- **백엔드 선택**: `RATE_LIMIT_BACKEND` 설정 — `memory`(로컬, 기본) 또는 `redis`(K8s 프로덕션)
 - 경로 정규화: `_PATH_PARAM_RE`로 `/v1/posts/123` → `/v1/posts/{id}` 변환
 - 키 형식: `"IP:METHOD:/v1/path/{id}/action"` — IP + HTTP 메서드 + 경로 독립
 - 메모리 보호 (로컬): 최대 10,000개 IP 추적, 초과 시 배치 제거(10%)
@@ -733,8 +731,7 @@ uvicorn main:app --reload --port 8000
 | `SMTP_PORT` | SMTP 서버 포트 | - |
 | `TESTING` | Rate Limit 비활성화 | `false` |
 | `TRUSTED_PROXIES` | 프록시 신뢰 IP | `127.0.0.1,::1` |
-| `RATE_LIMIT_BACKEND` | Rate Limiter 백엔드 | `memory` |
-| `RATE_LIMIT_DYNAMODB_TABLE` | Rate Limit DynamoDB 테이블 | - |
+| `RATE_LIMIT_BACKEND` | Rate Limiter 백엔드 (`memory` / `redis`) | `memory` |
 | `INTERNAL_API_KEY` | EventBridge 내부 API 키 | (SSM) |
 
 ---
