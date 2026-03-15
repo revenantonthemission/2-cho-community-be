@@ -312,6 +312,7 @@ class PostService:
         category_id: Optional[int] = None,
         image_urls: Optional[list[str]] = None,
         tags: Optional[list[str]] = None,
+        actor_nickname: str | None = None,
     ) -> Dict:
         """게시글 수정."""
         # 1. 존재 확인
@@ -328,6 +329,9 @@ class PostService:
         # 3. 변경사항 확인
         if all(v is None for v in (title, content, image_url, category_id, image_urls, tags)):
             raise bad_request_error(ErrorCode.NO_CHANGES_PROVIDED, timestamp)
+
+        # 수정 전 멘션 추출 (새로 추가된 멘션만 알림 발송용)
+        old_mentions = set(extract_mentions(post.content)) if content else set()
 
         # 4. 다중 이미지 처리
         effective_image_url = image_url
@@ -349,6 +353,26 @@ class PostService:
             category_id=category_id,
         )
         assert updated_post is not None  # 게시글 존재는 위에서 검증됨
+
+        # 6. 새로 추가된 멘션 알림
+        if content:
+            new_mentions = set(extract_mentions(content)) - old_mentions
+            for nickname in new_mentions:
+                try:
+                    mentioned_user = await get_user_by_nickname(nickname)
+                except Exception:
+                    logging.getLogger(__name__).warning(
+                        "멘션 사용자 조회 실패: %s", nickname, exc_info=True
+                    )
+                    continue
+                if mentioned_user:
+                    await safe_notify(
+                        user_id=mentioned_user.id,
+                        notification_type="mention",
+                        actor_id=user_id,
+                        actor_nickname=actor_nickname or "",
+                        post_id=post_id,
+                    )
 
         return {
             "post_id": updated_post.id,

@@ -159,6 +159,7 @@ class CommentService:
         user_id: int,
         content: str,
         timestamp: str,
+        actor_nickname: str | None = None,
     ) -> comment_models.Comment:
         """댓글 수정.
 
@@ -168,6 +169,7 @@ class CommentService:
             user_id: 요청 사용자 ID.
             content: 수정할 내용.
             timestamp: 요청 타임스탬프.
+            actor_nickname: 수정자 닉네임 (멘션 알림용).
 
         Returns:
             수정된 댓글 객체.
@@ -185,10 +187,31 @@ class CommentService:
                 message="댓글 작성자만 수정/삭제할 수 있습니다.",
             )
 
+        # 수정 전 멘션 추출 (새로 추가된 멘션만 알림 발송용)
+        old_mentions = set(extract_mentions(comment.content))
+
         updated_comment = await comment_models.update_comment(
             comment_id, content,
         )
         assert updated_comment is not None  # 댓글 존재는 위에서 검증됨
+
+        # 새로 추가된 멘션에 대해서만 알림
+        new_mentions = set(extract_mentions(content)) - old_mentions
+        for nickname in new_mentions:
+            try:
+                mentioned_user = await get_user_by_nickname(nickname)
+            except Exception:
+                logger.warning("멘션 사용자 조회 실패: %s", nickname, exc_info=True)
+                continue
+            if mentioned_user:
+                await safe_notify(
+                    user_id=mentioned_user.id,
+                    notification_type="mention",
+                    actor_id=user_id,
+                    actor_nickname=actor_nickname,
+                    post_id=post_id,
+                    comment_id=comment_id,
+                )
 
         return updated_comment
 

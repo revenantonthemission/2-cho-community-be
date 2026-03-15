@@ -2,7 +2,7 @@
 
 import re
 
-MENTION_PATTERN = re.compile(r"@(\S+)")
+MENTION_PATTERN = re.compile(r"@([a-zA-Z0-9_]{3,10})")
 
 
 def extract_mentions(content: str) -> list[str]:

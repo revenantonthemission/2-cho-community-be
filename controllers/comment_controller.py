@@ -84,6 +84,7 @@ async def update_comment(
         user_id=current_user.id,
         content=comment_data.content,
         timestamp=timestamp,
+        actor_nickname=current_user.nickname,
     )
 
     return create_response(

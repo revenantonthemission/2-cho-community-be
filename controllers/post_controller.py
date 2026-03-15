@@ -209,6 +209,7 @@ async def update_post(
         category_id=post_data.category_id,
         image_urls=post_data.image_urls,
         tags=post_data.tags,
+        actor_nickname=current_user.nickname,
     )
 
     return create_response(
