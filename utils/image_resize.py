@@ -36,7 +36,7 @@ def resize_image(
         리사이징된 이미지 바이트. 이미 작으면 원본 반환.
     """
     try:
-        img = Image.open(io.BytesIO(content))
+        img: Image.Image = Image.open(io.BytesIO(content))
     except Exception:
         logger.warning("이미지 열기 실패 — 원본 반환")
         return content
@@ -50,13 +50,13 @@ def resize_image(
 
     if max_size:
         if original_width > max_size[0] or original_height > max_size[1]:
-            img.thumbnail(max_size, Image.LANCZOS)
+            img.thumbnail(max_size, Image.Resampling.LANCZOS)
             needs_resize = True
     elif max_width:
         if original_width > max_width:
             ratio = max_width / original_width
             new_height = int(original_height * ratio)
-            img = img.resize((max_width, new_height), Image.LANCZOS)
+            img = img.resize((max_width, new_height), Image.Resampling.LANCZOS)
             needs_resize = True
 
     if not needs_resize:
