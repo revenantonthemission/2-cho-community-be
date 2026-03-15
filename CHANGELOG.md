@@ -2,6 +2,29 @@
 
 ## 2026-03 (Mar)
 
+- **03-15: DynamoDB Rate Limiter 제거**
+  - Lambda 환경 폐기로 `rate_limiter_dynamodb.py` 삭제 (-99줄)
+  - Rate Limiter 백엔드: `memory`(로컬) + `redis`(K8s 프로덕션) 2중 구조로 단순화
+  - 커버리지 82.53% → 84.03%
+
+- **03-15: 이미지 업로드 시 자동 리사이징**
+  - Pillow 의존성 추가, `utils/image_resize.py` 신규
+  - 프로필 이미지: 최대 400x400, 게시글 이미지: 최대 폭 1200px, GIF 제외
+  - local/S3 양쪽 스토리지에 동일 적용
+
+- **03-15: 이용약관 동의 기록**
+  - `user.terms_agreed_at` 컬럼 추가 (마이그레이션: `migration_terms_agreed.sql`)
+  - 회원가입 시 `terms_agreed` 필드 필수 (`CreateUserRequest` 검증)
+  - 시드/테스트 페이로드 동기화 (conftest, seed_data, load_tests 등 5곳)
+
+- **03-15: @멘션 정규식 수정 및 수정 시 알림**
+  - `@(\S+)` → `@([a-zA-Z0-9_]{3,10})` — 후행 구두점 오탐 방지, 닉네임 규칙 일치
+  - 댓글/게시글 수정 시 새로 추가된 멘션에 대해서만 알림 (차집합 패턴)
+
+- **03-15: 댓글 인기순 정렬**
+  - `ALLOWED_COMMENT_SORT_OPTIONS`에 `popular` 추가
+  - `likes_count DESC, created_at DESC` 기준 루트 댓글 정렬 (대댓글은 시간순 유지)
+
 - **03-12: 투표 변경/취소 API + 팔로워·팔로잉 공개 목록 API**
   - `PUT /v1/posts/{post_id}/poll/vote` — 투표 변경 (다른 옵션으로 UPDATE, 원자적 처리)
   - `DELETE /v1/posts/{post_id}/poll/vote` — 투표 취소 (만료 전만 가능)
