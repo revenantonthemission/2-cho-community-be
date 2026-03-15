@@ -126,7 +126,15 @@ async def save_uploaded_file(file: UploadFile, folder: str = "images") -> str:
             },
         )
 
-    # 8. Generate unique filename and save
+    # 8. Resize image based on folder (purpose)
+    from utils.image_resize import resize_for_post, resize_for_profile
+
+    if folder == "profiles":
+        content = resize_for_profile(content)
+    elif folder in ("posts", "images"):
+        content = resize_for_post(content)
+
+    # 9. Generate unique filename and save
     unique_filename = f"{uuid.uuid4().hex}{ext}"
     save_dir = UPLOAD_DIR / folder
     save_dir.mkdir(parents=True, exist_ok=True)
@@ -134,7 +142,7 @@ async def save_uploaded_file(file: UploadFile, folder: str = "images") -> str:
     file_path = save_dir / unique_filename
     file_path.write_bytes(content)
 
-    # 9. Return URL path (nginx serves /uploads/*)
+    # 10. Return URL path (nginx serves /uploads/*)
     return f"/uploads/{folder}/{unique_filename}"
 
 

@@ -112,6 +112,14 @@ async def save_uploaded_file_s3(file: UploadFile, folder: str = "images") -> str
             },
         )
 
+    # Resize image based on folder (purpose)
+    from utils.image_resize import resize_for_post, resize_for_profile
+
+    if folder == "profiles":
+        content = resize_for_profile(content)
+    elif folder in ("posts", "images"):
+        content = resize_for_post(content)
+
     unique_filename = f"{uuid.uuid4().hex}{ext}"
     key = f"{S3_UPLOADS_PREFIX}/{folder}/{unique_filename}"
 
