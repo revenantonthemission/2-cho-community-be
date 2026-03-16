@@ -117,6 +117,18 @@ CREATE TABLE post_view_log (
     FOREIGN KEY (post_id) REFERENCES post (id) ON DELETE CASCADE
 );
     
+-- 알림 설정 테이블 (유형별 on/off)
+CREATE TABLE notification_setting (
+    user_id INT UNSIGNED NOT NULL,
+    comment_enabled TINYINT(1) NOT NULL DEFAULT 1,
+    like_enabled TINYINT(1) NOT NULL DEFAULT 1,
+    mention_enabled TINYINT(1) NOT NULL DEFAULT 1,
+    follow_enabled TINYINT(1) NOT NULL DEFAULT 1,
+    bookmark_enabled TINYINT(1) NOT NULL DEFAULT 1,
+    PRIMARY KEY (user_id),
+    FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE CASCADE
+);
+
 -- 알림 테이블
 CREATE TABLE notification (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
