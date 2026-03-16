@@ -10,7 +10,8 @@
 - **댓글 시스템** — 1단계 대댓글, 댓글 좋아요, 정렬(오래된순/최신순/인기순), @멘션 알림(수정 시 신규 멘션만 재파싱), 수정됨 표시
 - **인증/보안** — JWT 이중 토큰(Access 30분 + Refresh 7일), 이메일 인증, 이용약관 동의 기록, 계정 정지, 정보 열거 방지
 - **소셜 기능** — 팔로우/팔로잉, 팔로잉 피드, DM 쪽지, 사용자 차단, 북마크
-- **실시간 알림** — WebSocket (K8s 직접 배포), 폴링 폴백
+- **실시간 알림** — WebSocket (K8s 직접 배포), 폴링 폴백, 유형별 on/off 설정
+- **임시저장** — 서버 측 게시글 임시저장 (사용자당 1개, UPSERT), 기기 간 동기화
 - **관리자** — 신고 관리, 계정 정지, 게시글 고정, 대시보드 통계
 - **인프라** — AWS Lambda 컨테이너 배포, Blue/Green (Alias 기반), Locust 부하 테스트
 
@@ -411,6 +412,16 @@ erDiagram
 | PATCH | `/v1/notifications/{id}/read` | 개별 알림 읽음 처리 | O |
 | PATCH | `/v1/notifications/read-all` | 전체 알림 읽음 처리 | O |
 | DELETE | `/v1/notifications/{id}` | 알림 삭제 | O |
+| GET | `/v1/notifications/settings` | 알림 유형별 설정 조회 | O |
+| PATCH | `/v1/notifications/settings` | 알림 유형별 설정 변경 | O |
+
+### 임시저장 API (`/v1/drafts`)
+
+| Method | Endpoint | 설명 | 인증 |
+| ------ | -------- | ---- | ---- |
+| GET | `/v1/drafts/` | 임시저장 조회 | O |
+| PUT | `/v1/drafts/` | 임시저장 생성/갱신 (UPSERT) | O |
+| DELETE | `/v1/drafts/` | 임시저장 삭제 | O |
 
 ### 태그 API (`/v1/tags`)
 

@@ -2,6 +2,15 @@
 
 ## 2026-03 (Mar)
 
+- **03-16: 게시글 임시저장 API**
+  - `post_draft` 테이블 (사용자당 1개, UPSERT)
+  - `GET/PUT/DELETE /v1/drafts/` — 기기 간 동기화 지원
+
+- **03-16: 알림 유형별 on/off 설정 API**
+  - `notification_setting` 테이블 (5개 타입별 boolean)
+  - `GET/PATCH /v1/notifications/settings`
+  - `create_notification()`에서 음소거 체크 — muted 시 INSERT 스킵
+
 - **03-15: DynamoDB Rate Limiter 제거**
   - Lambda 환경 폐기로 `rate_limiter_dynamodb.py` 삭제 (-99줄)
   - Rate Limiter 백엔드: `memory`(로컬) + `redis`(K8s 프로덕션) 2중 구조로 단순화
