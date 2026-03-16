@@ -2,6 +2,15 @@
 
 ## 2026-03 (Mar)
 
+- **03-16: Lambda 호환성 완전 제거 — K8s 전용 전환**
+  - `ws_handler/` (Lambda WebSocket 핸들러) 삭제
+  - `Dockerfile`(Lambda) 삭제, `Dockerfile.k8s` → `Dockerfile` 리네임
+  - `deploy-backend.yml`, `rollback-backend.yml` (Lambda 배포/롤백 워크플로우) 삭제
+  - `main.py`: Mangum import, `AWS_LAMBDA_EXEC` 조건 분기 전체 제거
+  - `core/config.py`: SSM 시크릿 리졸버, `WS_DYNAMODB_TABLE`/`WS_API_GW_ENDPOINT` 삭제, `WS_BACKEND` 기본값 `redis`
+  - `utils/websocket_pusher.py`: DynamoDB/API GW 경로 삭제, Redis + 로컬 DEBUG 경로만 유지
+  - `pyproject.toml`: `mangum` 의존성 제거
+
 - **03-16: 소셜 로그인 (GitHub OAuth)**
   - `social_account` 테이블 + OAuth 프로바이더 팩토리 (GitHub/카카오/네이버 구조, GitHub만 활성)
   - `GET /v1/auth/social/{provider}/authorize` — OAuth 인가 URL 반환
