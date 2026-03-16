@@ -1,6 +1,6 @@
-# 아무 말 대잔치 — Backend
+# Camp Linux — Backend
 
-> 커뮤니티 포럼 "아무 말 대잔치"의 백엔드 서버. **FastAPI** + **MySQL** + **aiomysql** 기반 비동기 REST API.
+> 리눅스 커뮤니티 "Camp Linux"의 백엔드 서버. **FastAPI** + **MySQL** + **aiomysql** 기반 비동기 REST API.
 
 **Tech Stack**: Python 3.11+ · FastAPI · MySQL 8.0+ · aiomysql · JWT · Pydantic · Locust
 

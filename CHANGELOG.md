@@ -2,6 +2,13 @@
 
 ## 2026-03 (Mar)
 
+- **03-16: Camp Linux 리브랜딩**
+  - 사이트 이름 "아무 말 대잔치" → "Camp Linux" 전환
+  - 카테고리 4개 → 6개 (배포판, Q&A, 뉴스/소식, 프로젝트/쇼케이스, 팁/가이드, 공지사항)
+  - `user.distro` 컬럼 추가 (배포판 플레어/뱃지 시스템)
+  - 터미널 감성 테마 (차콜 + 오렌지/골드)
+  - 코드 하이라이팅 강화 (14개 언어, 터미널 스타일)
+
 - **03-16: Lambda 호환성 완전 제거 — K8s 전용 전환**
   - `ws_handler/` (Lambda WebSocket 핸들러) 삭제
   - `Dockerfile`(Lambda) 삭제, `Dockerfile.k8s` → `Dockerfile` 리네임
