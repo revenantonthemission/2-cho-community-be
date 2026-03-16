@@ -6,59 +6,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 logger = logging.getLogger(__name__)
 
 
-def _resolve_ssm_secrets() -> None:
-    """Lambda 환경에서 SSM Parameter Store의 SecureString 값을 환경 변수로 설정합니다.
-
-    SSM 파라미터 이름은 Lambda 환경변수 DB_PASSWORD_SSM_NAME, SECRET_KEY_SSM_NAME에 지정.
-    pydantic-settings가 환경변수에서 값을 읽기 전에 호출해야 합니다.
-    """
-    if os.getenv("AWS_LAMBDA_EXEC") != "true":
-        return
-
-    ssm_mappings = {
-        "DB_PASSWORD": os.getenv("DB_PASSWORD_SSM_NAME"),
-        "SECRET_KEY": os.getenv("SECRET_KEY_SSM_NAME"),
-        "INTERNAL_API_KEY": os.getenv("INTERNAL_API_KEY_SSM_NAME"),
-    }
-
-    params_to_fetch = {k: v for k, v in ssm_mappings.items() if v}
-    if not params_to_fetch:
-        return
-
-    import boto3  # Lambda 런타임에 기본 포함
-
-    ssm = boto3.client("ssm")
-
-    # 배치 API로 한 번에 조회 (콜드스타트 지연 최소화)
-    try:
-        response = ssm.get_parameters(
-            Names=list(params_to_fetch.values()),
-            WithDecryption=True,
-        )
-    except Exception:
-        logger.exception("SSM 배치 파라미터 조회 실패")
-        raise
-
-    if response.get("InvalidParameters"):
-        raise RuntimeError(
-            f"SSM 파라미터 조회 실패: {response['InvalidParameters']}"
-        )
-
-    # 모든 파라미터 조회 성공 후 환경변수 일괄 설정 (원자성 보장)
-    name_to_env = {v: k for k, v in params_to_fetch.items()}
-    resolved = {}
-    for param in response["Parameters"]:
-        env_var = name_to_env[param["Name"]]
-        resolved[env_var] = param["Value"]
-
-    for env_var, value in resolved.items():
-        os.environ[env_var] = value
-
-
-# Settings 인스턴스 생성 전에 SSM에서 시크릿을 환경변수로 설정
-_resolve_ssm_secrets()
-
-
 class Settings(BaseSettings):
     """애플리케이션 설정을 관리하는 클래스.
 
@@ -121,15 +68,11 @@ class Settings(BaseSettings):
     GITHUB_CLIENT_SECRET: str = ""
     GITHUB_REDIRECT_URI: str = ""
 
-    # 내부 API 인증 키 (EventBridge 등 자동화된 호출에서 사용)
+    # 내부 API 인증 키 (CronJob 등 자동화된 호출에서 사용)
     INTERNAL_API_KEY: str = ""
 
-    # WebSocket 푸시 설정 (Lambda 환경에서만 설정, 로컬에서는 빈 문자열)
-    WS_DYNAMODB_TABLE: str = ""
-    WS_API_GW_ENDPOINT: str = ""
-
-    # WebSocket 백엔드 (K8s: "redis", Lambda: "dynamodb")
-    WS_BACKEND: str = "dynamodb"
+    # WebSocket 백엔드 ("redis" 프로덕션, 로컬은 DEBUG 모드)
+    WS_BACKEND: str = "redis"
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
