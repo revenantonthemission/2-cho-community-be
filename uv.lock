@@ -22,7 +22,6 @@ dependencies = [
     { name = "h11" },
     { name = "httptools" },
     { name = "idna" },
-    { name = "mangum" },
     { name = "pillow" },
     { name = "pydantic" },
     { name = "pydantic-core" },
@@ -77,7 +76,6 @@ requires-dist = [
     { name = "httpx", marker = "extra == 'dev'" },
     { name = "idna", specifier = ">=3.11" },
     { name = "locust", marker = "extra == 'load-test'", specifier = ">=2.28.0" },
-    { name = "mangum", specifier = ">=0.21.0" },
     { name = "mypy", marker = "extra == 'dev'" },
     { name = "pillow", specifier = ">=11.0.0" },
     { name = "prometheus-fastapi-instrumentator", marker = "extra == 'k8s'", specifier = ">=7.0" },
@@ -1131,18 +1129,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/9d/c5/7d7bd50ac744bc209a4bcbeb74660d7ae450a44441737efe92ee9d8ea6a7/locust-2.43.3.tar.gz", hash = "sha256:b5d2c48f8f7d443e3abdfdd6ec2f7aebff5cd74fab986bcf1e95b375b5c5a54b", size = 1445349, upload-time = "2026-02-12T09:55:34.591Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3d/d2/dc5379876d3a481720803653ea4d219f0c26f2d2b37c9243baaa16d0bc79/locust-2.43.3-py3-none-any.whl", hash = "sha256:e032c119b54a9d984cb74a936ee83cfd7d68b3c76c8f308af63d04f11396b553", size = 1463473, upload-time = "2026-02-12T09:55:31.727Z" },
-]
-
-[[package]]
-name = "mangum"
-version = "0.21.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/89/cb/d9f4d685a0b8eceac10991e15ac471d9568e4e42c2489ae9bf072828c1c2/mangum-0.21.0.tar.gz", hash = "sha256:e31ed72d67f9958fa4379f65df77729906dec6dfa00afa6ed4e06c77833000de", size = 89130, upload-time = "2026-02-01T17:17:42.816Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/b7/50/e3c694b8e122551e4557450219283771334dee2ed5734a8398c8b8018c50/mangum-0.21.0-py3-none-any.whl", hash = "sha256:309e48f5c629542516c5106ecf079f4ec08809ed50df882238d98fe1392820c7", size = 17146, upload-time = "2026-02-01T17:17:41.553Z" },
 ]
 
 [[package]]
