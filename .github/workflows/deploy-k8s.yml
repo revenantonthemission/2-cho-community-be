@@ -71,7 +71,7 @@ jobs:
         run: |
           IMAGE="${{ steps.ecr-login.outputs.registry }}/my-community-${{ inputs.environment }}-backend-k8s"
           TAG="${{ steps.meta.outputs.tag }}"
-          docker build --provenance=false -f Dockerfile.k8s -t "${IMAGE}:${TAG}" -t "${IMAGE}:latest" .
+          docker build --provenance=false -f Dockerfile -t "${IMAGE}:${TAG}" -t "${IMAGE}:latest" .
           docker push "${IMAGE}:${TAG}"
           docker push "${IMAGE}:latest"
 

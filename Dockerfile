@@ -1,37 +1,31 @@
-# Backend Docker Image for AWS Lambda
-FROM public.ecr.aws/lambda/python:3.13
+# K8s 환경용 FastAPI 이미지 (Lambda와 별도)
+FROM python:3.13-slim
 
-ARG APP_VERSION=1.0.0
-LABEL maintainer="corpseonthemission@icloud.com"
+ARG APP_VERSION=dev
+LABEL maintainer="my-community"
 LABEL version="${APP_VERSION}"
-LABEL description="my-community-be: A community platform backend API built with FastAPI and adapted for AWS Lambda"
 
-# Install uv (fast Python package manager)
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
-
-# Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# Install system dependencies using dnf (Amazon Linux 2023)
-RUN dnf update -y && dnf install -y \
-    gcc \
-    gcc-c++ \
-    make \
-    && dnf clean all
+WORKDIR /app
 
-# Copy dependency files first
-COPY pyproject.toml uv.lock ${LAMBDA_TASK_ROOT}/
+# uv 패키지 매니저
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-# Export dependencies and install them directly into the Lambda task root
-RUN uv export --format requirements-txt > requirements.txt && \
-    uv pip install --system --no-cache -r requirements.txt --target "${LAMBDA_TASK_ROOT}"
+# 시스템 의존성 (mysqlclient 빌드용)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gcc default-libmysqlclient-dev pkg-config && \
+    rm -rf /var/lib/apt/lists/*
 
-# Copy application code
-COPY . ${LAMBDA_TASK_ROOT}/
+# Python 의존성 설치
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev --extra k8s
 
-# git이 빈 디렉토리를 추적하지 않으므로 assets 하위 디렉토리 보장
-RUN mkdir -p ${LAMBDA_TASK_ROOT}/assets/posts ${LAMBDA_TASK_ROOT}/assets/profiles
+# 애플리케이션 코드
+COPY . .
+RUN mkdir -p assets/posts assets/profiles
 
-# Start application using a Lambda handler
-CMD ["main.handler"]
+EXPOSE 8000
+
+CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
