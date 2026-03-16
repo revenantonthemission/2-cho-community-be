@@ -110,8 +110,10 @@ class UpdateUserRequest(BaseModel):
     @classmethod
     def validate_distro(cls, v: str | None) -> str | None:
         """배포판 값을 검증합니다."""
-        if v is None or v == '':
+        if v is None:
             return None
+        if v == '':
+            return ''  # 배포판 해제 요청
         if v not in VALID_DISTROS:
             raise ValueError(
                 f"유효하지 않은 배포판입니다. 허용: {', '.join(sorted(VALID_DISTROS))}"

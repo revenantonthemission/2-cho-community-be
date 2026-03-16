@@ -24,7 +24,7 @@ async def get_my_posts(
                 """
                 SELECT p.id, p.title, p.content, p.image_url, p.views,
                        p.created_at, p.updated_at,
-                       u.id, u.nickname, u.profile_img,
+                       u.id, u.nickname, u.profile_img, u.distro,
                        (SELECT COUNT(*) FROM post_like WHERE post_id = p.id) AS likes_count,
                        (SELECT COUNT(*) FROM comment
                         WHERE post_id = p.id AND deleted_at IS NULL) AS comments_count
@@ -48,9 +48,9 @@ async def get_my_posts(
             "views_count": row[4],
             "created_at": format_datetime(row[5]),
             "updated_at": format_datetime(row[6]),
-            "author": build_author_dict(row[7], row[8], row[9]),
-            "likes_count": row[10],
-            "comments_count": row[11],
+            "author": build_author_dict(row[7], row[8], row[9], distro=row[10]),
+            "likes_count": row[11],
+            "comments_count": row[12],
         })
 
     return posts, total_count
@@ -118,7 +118,7 @@ async def get_my_likes(
                 """
                 SELECT p.id, p.title, p.content, p.image_url, p.views,
                        p.created_at, p.updated_at,
-                       u.id, u.nickname, u.profile_img,
+                       u.id, u.nickname, u.profile_img, u.distro,
                        (SELECT COUNT(*) FROM post_like WHERE post_id = p.id) AS likes_count,
                        (SELECT COUNT(*) FROM comment
                         WHERE post_id = p.id AND deleted_at IS NULL) AS comments_count
@@ -143,9 +143,9 @@ async def get_my_likes(
             "views_count": row[4],
             "created_at": format_datetime(row[5]),
             "updated_at": format_datetime(row[6]),
-            "author": build_author_dict(row[7], row[8], row[9]),
-            "likes_count": row[10],
-            "comments_count": row[11],
+            "author": build_author_dict(row[7], row[8], row[9], distro=row[10]),
+            "likes_count": row[11],
+            "comments_count": row[12],
         })
 
     return posts, total_count
@@ -171,7 +171,7 @@ async def get_my_bookmarks(
                 """
                 SELECT p.id, p.title, p.content, p.image_url, p.views,
                        p.created_at, p.updated_at,
-                       u.id, u.nickname, u.profile_img,
+                       u.id, u.nickname, u.profile_img, u.distro,
                        (SELECT COUNT(*) FROM post_like WHERE post_id = p.id) AS likes_count,
                        (SELECT COUNT(*) FROM comment
                         WHERE post_id = p.id AND deleted_at IS NULL) AS comments_count
@@ -196,9 +196,9 @@ async def get_my_bookmarks(
             "views_count": row[4],
             "created_at": format_datetime(row[5]),
             "updated_at": format_datetime(row[6]),
-            "author": build_author_dict(row[7], row[8], row[9]),
-            "likes_count": row[10],
-            "comments_count": row[11],
+            "author": build_author_dict(row[7], row[8], row[9], distro=row[10]),
+            "likes_count": row[11],
+            "comments_count": row[12],
         })
 
     return posts, total_count

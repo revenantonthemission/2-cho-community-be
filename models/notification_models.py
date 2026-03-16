@@ -102,7 +102,7 @@ async def get_notifications(
                 """
                 SELECT n.id, n.type, n.post_id, n.comment_id, n.is_read, n.created_at,
                        u.id AS actor_id, u.nickname AS actor_nickname,
-                       u.profile_img AS actor_profile_img,
+                       u.profile_img AS actor_profile_img, u.distro AS actor_distro,
                        p.title AS post_title
                 FROM notification n
                 -- 삭제된 사용자/게시글도 포함 (알림에서 "탈퇴한 사용자", "삭제된 게시글"로 표시)
@@ -125,8 +125,8 @@ async def get_notifications(
             "comment_id": row[3],
             "is_read": bool(row[4]),
             "created_at": format_datetime(row[5]),
-            "actor": build_author_dict(row[6], row[7], row[8]),
-            "post_title": row[9] or "삭제된 게시글",
+            "actor": build_author_dict(row[6], row[7], row[8], distro=row[9]),
+            "post_title": row[10] or "삭제된 게시글",
         })
 
     return notifications, total_count

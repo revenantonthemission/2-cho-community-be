@@ -91,7 +91,7 @@ def _row_to_user(row: tuple) -> User:
 
     Args:
         row: (id, email, email_verified, nickname, nickname_set, password, profile_img, role,
-              suspended_until, suspended_reason, created_at, updated_at, deleted_at)
+              suspended_until, suspended_reason, created_at, updated_at, deleted_at, distro)
 
     Returns:
         User 객체.
@@ -398,8 +398,11 @@ async def update_user(
         updates.append("profile_img = %s")
         params.append(profile_image_url)
     if distro is not None:
-        updates.append("distro = %s")
-        params.append(distro)
+        if distro == '':
+            updates.append("distro = NULL")
+        else:
+            updates.append("distro = %s")
+            params.append(distro)
 
     if not updates:
         return await get_user_by_id(user_id)
