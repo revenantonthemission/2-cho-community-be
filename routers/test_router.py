@@ -99,7 +99,7 @@ async def unsuspend_user(req: UnsuspendRequest):
 
 @test_router.post("/cleanup")
 async def cleanup_database():
-    """테스트 데이터 정리 (24개 테이블 TRUNCATE + 카테고리 시드)"""
+    """테스트 데이터 정리 (27개 테이블 TRUNCATE + 카테고리 시드)"""
     async with get_connection() as conn:
         async with conn.cursor() as cur:
             await cur.execute("SET FOREIGN_KEY_CHECKS = 0")

@@ -2,6 +2,17 @@
 
 ## 2026-03 (Mar)
 
+- **03-16: 소셜 로그인 (GitHub OAuth)**
+  - `social_account` 테이블 + OAuth 프로바이더 팩토리 (GitHub/카카오/네이버 구조, GitHub만 활성)
+  - `GET /v1/auth/social/{provider}/authorize` — OAuth 인가 URL 반환
+  - `GET /v1/auth/social/{provider}/callback` — 콜백 처리 (기존 계정 연결 또는 신규 가입 리다이렉트)
+  - `POST /v1/auth/social/complete-signup` — 닉네임 설정 후 가입 완료
+  - 소셜 전용 계정(`password=NULL`)의 이메일 로그인 시 안내 메시지
+  - `user.nickname_set` 컬럼 추가 (소셜 가입 사용자는 `0`)
+  - 환경변수: `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_REDIRECT_URI`
+  - Rate Limit: `/v1/auth/social/` 경로 설정 추가
+  - 테스트: OAuth 콜백 통합 14개 + 모델/가입 단위 테스트
+
 - **03-16: 게시글 임시저장 API**
   - `post_draft` 테이블 (사용자당 1개, UPSERT)
   - `GET/PUT/DELETE /v1/drafts/` — 기기 간 동기화 지원

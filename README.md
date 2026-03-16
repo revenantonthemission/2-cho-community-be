@@ -8,7 +8,7 @@
 
 - **게시글 CRUD** — 카테고리, 태그(최대 5개), 다중 이미지(최대 5개, 업로드 시 자동 리사이징), 마크다운, 투표(Poll, 변경/취소), 인기순(Hot) 정렬, FULLTEXT 검색(ngram)
 - **댓글 시스템** — 1단계 대댓글, 댓글 좋아요, 정렬(오래된순/최신순/인기순), @멘션 알림(수정 시 신규 멘션만 재파싱), 수정됨 표시
-- **인증/보안** — JWT 이중 토큰(Access 30분 + Refresh 7일), 이메일 인증, 이용약관 동의 기록, 계정 정지, 정보 열거 방지
+- **인증/보안** — JWT 이중 토큰(Access 30분 + Refresh 7일), 소셜 로그인(GitHub OAuth), 이메일 인증, 이용약관 동의 기록, 계정 정지, 정보 열거 방지
 - **소셜 기능** — 팔로우/팔로잉, 팔로잉 피드, DM 쪽지, 사용자 차단, 북마크
 - **실시간 알림** — WebSocket (K8s 직접 배포), 폴링 폴백, 유형별 on/off 설정
 - **임시저장** — 서버 측 게시글 임시저장 (사용자당 1개, UPSERT), 기기 간 동기화
@@ -40,7 +40,7 @@ flowchart TD
     Backend -->|"Async Connection"| DB
 
     subgraph DB["MySQL"]
-        Tables["24개 테이블<br/>user, post, comment, notification,<br/>tag, poll, dm_conversation, report ..."]
+        Tables["27개 테이블<br/>user, post, comment, notification,<br/>tag, poll, dm_conversation, social_account ..."]
     end
 
     Backend -->|"WebSocket Push"| WS
@@ -90,6 +90,9 @@ erDiagram
     user ||--o{ dm_message : "sends"
     user ||--o{ poll_vote : "votes"
     user ||--o{ user_post_score : "has scores"
+    user ||--o{ social_account : "linked"
+    user ||--o{ notification_setting : "configures"
+    user ||--o{ post_draft : "saves draft"
     post ||--o{ comment : "has"
     comment ||--o{ comment : "replies (1-level)"
     post ||--o{ post_like : "receives"
@@ -316,6 +319,36 @@ erDiagram
         float combined_score
         timestamp computed_at
     }
+
+    social_account {
+        int id PK
+        int user_id FK
+        varchar provider "github, kakao, naver"
+        varchar provider_user_id
+        timestamp created_at
+    }
+
+    notification_setting {
+        int id PK
+        int user_id FK "UNIQUE"
+        tinyint comment_enabled "default 1"
+        tinyint like_enabled "default 1"
+        tinyint mention_enabled "default 1"
+        tinyint follow_enabled "default 1"
+        tinyint bookmark_enabled "default 1"
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    post_draft {
+        int id PK
+        int user_id FK "UNIQUE"
+        varchar title
+        text content
+        int category_id
+        timestamp created_at
+        timestamp updated_at
+    }
 ```
 
 ### 주요 설계 결정
@@ -359,6 +392,14 @@ erDiagram
 | GET | `/v1/auth/me` | 현재 사용자 정보 | O |
 | POST | `/v1/auth/verify-email` | 이메일 인증 토큰 검증 | X |
 | POST | `/v1/auth/resend-verification` | 인증 메일 재발송 | O |
+
+### 소셜 로그인 API (`/v1/auth/social`)
+
+| Method | Endpoint | 설명 | 인증 |
+| ------ | -------- | ---- | ---- |
+| GET | `/v1/auth/social/{provider}/authorize` | OAuth 인가 URL 반환 (GitHub) | X |
+| GET | `/v1/auth/social/{provider}/callback` | OAuth 콜백 처리 → 로그인 또는 가입 리다이렉트 | X |
+| POST | `/v1/auth/social/complete-signup` | 소셜 가입 완료 (닉네임 설정) | X (쿠키) |
 
 ### 사용자 API (`/v1/users`)
 

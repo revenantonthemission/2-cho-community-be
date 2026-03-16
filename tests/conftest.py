@@ -17,7 +17,7 @@ from faker import Faker
 # ---------------------------------------------------------------------------
 
 async def clear_all_data() -> None:
-    """테스트용 헬퍼: 24개 테이블 전체 TRUNCATE + 카테고리 시드 재삽입."""
+    """테스트용 헬퍼: 27개 테이블 전체 TRUNCATE + 카테고리 시드 재삽입."""
     async with get_connection() as conn:
         async with conn.cursor() as cur:
             await cur.execute("SET FOREIGN_KEY_CHECKS = 0")
