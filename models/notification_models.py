@@ -31,6 +31,12 @@ async def create_notification(
     if user_id == actor_id:
         return
 
+    # 수신자의 알림 설정 확인 — 음소거 시 알림 미생성
+    from models.notification_setting_models import is_notification_muted
+
+    if await is_notification_muted(user_id, notification_type):
+        return
+
     notification_id = None
     async with transactional() as cur:
         await cur.execute(

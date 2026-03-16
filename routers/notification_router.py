@@ -1,12 +1,29 @@
 """notification_router: 알림 API 라우터."""
 
 from fastapi import APIRouter, Depends, Query, Request
+from pydantic import BaseModel
 
 from controllers import notification_controller
 from dependencies.auth import get_current_user
 from models.user_models import User
+from models.notification_setting_models import (
+    get_notification_settings,
+    update_notification_settings,
+)
+from schemas.common import create_response
+from dependencies.request_context import get_request_timestamp
 
 router = APIRouter(prefix="/v1/notifications", tags=["notifications"])
+
+
+class NotificationSettingsRequest(BaseModel):
+    """알림 설정 요청 모델."""
+
+    comment: bool | None = None
+    like: bool | None = None
+    mention: bool | None = None
+    follow: bool | None = None
+    bookmark: bool | None = None
 
 
 @router.get("/")
@@ -27,6 +44,36 @@ async def get_unread_count(
     current_user: User = Depends(get_current_user),
 ):
     return await notification_controller.get_unread_count(current_user, request)
+
+
+@router.get("/settings")
+async def get_settings(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+):
+    """알림 유형별 설정 조회."""
+    settings = await get_notification_settings(current_user.id)
+    return create_response(
+        "QUERY_SUCCESS", "알림 설정을 조회했습니다.",
+        data={"settings": settings},
+        timestamp=get_request_timestamp(request),
+    )
+
+
+@router.patch("/settings")
+async def update_settings(
+    body: NotificationSettingsRequest,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+):
+    """알림 유형별 설정 변경."""
+    changes = {k: v for k, v in body.model_dump().items() if v is not None}
+    updated = await update_notification_settings(current_user.id, changes)
+    return create_response(
+        "SETTINGS_UPDATED", "알림 설정이 변경되었습니다.",
+        data={"settings": updated},
+        timestamp=get_request_timestamp(request),
+    )
 
 
 # 정적 경로를 동적 경로보다 먼저 등록 (FastAPI 라우트 순서)
