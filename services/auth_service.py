@@ -61,10 +61,24 @@ class AuthService:
         """
         user = await user_models.get_user_by_email(email)
 
+        # 소셜 전용 계정(password=NULL): 타이밍 공격 방지 후 안내 메시지 반환
+        if user and user.password is None:
+            await asyncio.to_thread(
+                verify_password, password, _TIMING_ATTACK_DUMMY_HASH
+            )
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error": "social_only_account",
+                    "message": "소셜 로그인으로 가입된 계정입니다. 소셜 로그인을 이용해주세요.",
+                    "timestamp": timestamp,
+                },
+            )
+
         password_valid = await asyncio.to_thread(
             verify_password,
             password,
-            user.password if user else _TIMING_ATTACK_DUMMY_HASH,
+            (user.password or _TIMING_ATTACK_DUMMY_HASH) if user else _TIMING_ATTACK_DUMMY_HASH,
         )
 
         if not user or not password_valid:

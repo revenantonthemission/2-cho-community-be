@@ -116,6 +116,11 @@ class Settings(BaseSettings):
     # 프론트엔드 URL (이메일 인증 링크 등에 사용)
     FRONTEND_URL: str = "http://localhost:8080"
 
+    # 소셜 로그인 (GitHub)
+    GITHUB_CLIENT_ID: str = ""
+    GITHUB_CLIENT_SECRET: str = ""
+    GITHUB_REDIRECT_URI: str = ""
+
     # 내부 API 인증 키 (EventBridge 등 자동화된 호출에서 사용)
     INTERNAL_API_KEY: str = ""
 

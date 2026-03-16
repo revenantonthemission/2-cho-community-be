@@ -11,6 +11,11 @@ from datetime import datetime, timezone
 from database.connection import get_connection, transactional
 
 
+def generate_temp_nickname() -> str:
+    """임시 닉네임을 생성합니다 (tmp_ + 6자리)."""
+    return f"tmp_{uuid.uuid4().hex[:6]}"
+
+
 # SQL Injection 방지: 허용된 컬럼명 whitelist
 ALLOWED_USER_COLUMNS = {'nickname', 'profile_img'}
 
@@ -33,9 +38,10 @@ class User:
 
     id: int
     email: str
-    password: str
+    password: str | None
     nickname: str
     email_verified: bool = False
+    nickname_set: bool = True
     profile_image_url: str | None = None
     role: str = "user"
     suspended_until: datetime | None = None
@@ -74,7 +80,7 @@ class User:
 
 # 공통으로 사용되는 SELECT 필드
 USER_SELECT_FIELDS = (
-    "id, email, email_verified, nickname, password, profile_img, role, "
+    "id, email, email_verified, nickname, nickname_set, password, profile_img, role, "
     "suspended_until, suspended_reason, created_at, updated_at, deleted_at"
 )
 
@@ -83,7 +89,7 @@ def _row_to_user(row: tuple) -> User:
     """데이터베이스 행을 User 객체로 변환합니다.
 
     Args:
-        row: (id, email, email_verified, nickname, password, profile_img, role,
+        row: (id, email, email_verified, nickname, nickname_set, password, profile_img, role,
               suspended_until, suspended_reason, created_at, updated_at, deleted_at)
 
     Returns:
@@ -94,14 +100,15 @@ def _row_to_user(row: tuple) -> User:
         email=row[1],
         email_verified=bool(row[2]),
         nickname=row[3],
-        password=row[4],
-        profile_image_url=row[5],
-        role=row[6],
-        suspended_until=row[7],
-        suspended_reason=row[8],
-        created_at=row[9],
-        updated_at=row[10],
-        deleted_at=row[11],
+        nickname_set=bool(row[4]),
+        password=row[5],
+        profile_image_url=row[6],
+        role=row[7],
+        suspended_until=row[8],
+        suspended_reason=row[9],
+        created_at=row[10],
+        updated_at=row[11],
+        deleted_at=row[12],
     )
 
 
@@ -569,6 +576,47 @@ async def cleanup_deleted_user(user_id: int) -> User | None:
     """
     async with transactional() as cur:
         return await _disconnect_and_anonymize_user(cur, user_id, set_deleted_at=False)
+
+
+async def update_nickname_set(user_id: int, nickname: str) -> User | None:
+    """닉네임을 설정하고 nickname_set=1로 변경합니다."""
+    async with transactional() as cur:
+        await cur.execute(
+            "UPDATE user SET nickname = %s, nickname_set = 1 WHERE id = %s AND deleted_at IS NULL",
+            (nickname, user_id),
+        )
+        if cur.rowcount == 0:
+            return None
+        await cur.execute(
+            f"SELECT {USER_SELECT_FIELDS} FROM user WHERE id = %s", (user_id,)
+        )
+        row = await cur.fetchone()
+        return _row_to_user(row) if row else None
+
+
+async def add_social_user(
+    email: str | None,
+    nickname: str,
+    profile_image_url: str | None = None,
+) -> User:
+    """소셜 로그인으로 사용자를 생성합니다 (password=NULL, email_verified=1, nickname_set=0)."""
+    async with transactional() as cur:
+        await cur.execute(
+            """
+            INSERT INTO user (email, password, nickname, nickname_set, email_verified, profile_img, terms_agreed_at)
+            VALUES (%s, NULL, %s, 0, 1, %s, NOW())
+            """,
+            (email, nickname, profile_image_url),
+        )
+        user_id = cur.lastrowid
+        await cur.execute(
+            f"SELECT {USER_SELECT_FIELDS} FROM user WHERE id = %s",
+            (user_id,),
+        )
+        row = await cur.fetchone()
+        if not row:
+            raise RuntimeError(f"User 생성 직후 조회 실패: user_id={user_id}")
+        return _row_to_user(row)
 
 
 __all__ = [

@@ -189,6 +189,17 @@ async def change_password(
     """현재 로그인 중인 사용자의 비밀번호를 변경합니다."""
     timestamp = get_request_timestamp(request)
 
+    # 소셜 전용 계정은 비밀번호 변경 불가
+    if current_user.password is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "social_only_account",
+                "message": "소셜 로그인으로 가입된 계정은 비밀번호를 변경할 수 없습니다.",
+                "timestamp": timestamp,
+            },
+        )
+
     # Service Layer 호출
     await UserService.change_password(
         user_id=current_user.id,

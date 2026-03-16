@@ -18,6 +18,7 @@ from routers import notification_router
 from routers import draft_router
 from routers.tag_router import tag_router
 from routers.dm_router import router as dm_router
+from routers import social_auth_router
 from middleware import TimingMiddleware, LoggingMiddleware, RateLimitMiddleware
 from middleware.exception_handler import (
     global_exception_handler,
@@ -86,6 +87,7 @@ app.include_router(tag_router)
 app.include_router(report_router)
 app.include_router(notification_router.router)
 app.include_router(dm_router)
+app.include_router(social_auth_router.router)
 app.include_router(draft_router.router)
 
 # 로컬 개발 전용 WebSocket 엔드포인트 (프로덕션에서는 별도 Lambda가 담당)
