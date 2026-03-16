@@ -335,6 +335,9 @@ async def clear_existing_data():
     print("기존 데이터 삭제 중...")
     async with transactional() as cur:
         await cur.execute("SET FOREIGN_KEY_CHECKS = 0")
+        # 패키지
+        await cur.execute("TRUNCATE TABLE package_review")
+        await cur.execute("TRUNCATE TABLE package")
         # DM
         await cur.execute("TRUNCATE TABLE dm_message")
         await cur.execute("TRUNCATE TABLE dm_conversation")
@@ -820,6 +823,45 @@ async def seed_dms(cfg: dict):
 
 
 # ─────────────────────────────────────────────
+# 패키지
+# ─────────────────────────────────────────────
+
+
+# 패키지 시드 데이터
+PACKAGES = [
+    ('vim', 'Vim', '터미널 기반 텍스트 에디터', 'https://www.vim.org', 'editor', 'apt'),
+    ('neovim', 'Neovim', 'Vim 기반 하이퍼 확장 에디터', 'https://neovim.io', 'editor', 'apt'),
+    ('docker', 'Docker', '컨테이너 플랫폼', 'https://www.docker.com', 'devtool', 'apt'),
+    ('git', 'Git', '분산 버전 관리 시스템', 'https://git-scm.com', 'devtool', 'apt'),
+    ('tmux', 'tmux', '터미널 멀티플렉서', 'https://github.com/tmux/tmux', 'terminal', 'apt'),
+    ('zsh', 'Zsh', 'Z 셸', 'https://www.zsh.org', 'terminal', 'apt'),
+    ('htop', 'htop', '대화형 프로세스 뷰어', 'https://htop.dev', 'system', 'apt'),
+    ('fzf', 'fzf', '커맨드라인 퍼지 파인더', 'https://github.com/junegunn/fzf', 'utility', 'apt'),
+    ('ripgrep', 'ripgrep', '초고속 검색 도구', 'https://github.com/BurntSushi/ripgrep', 'utility', 'apt'),
+    ('alacritty', 'Alacritty', 'GPU 가속 터미널 에뮬레이터', 'https://alacritty.org', 'terminal', 'apt'),
+    ('nginx', 'nginx', '웹 서버 및 리버스 프록시', 'https://nginx.org', 'system', 'apt'),
+    ('vlc', 'VLC', '멀티미디어 플레이어', 'https://www.videolan.org', 'multimedia', 'apt'),
+    ('gimp', 'GIMP', 'GNU 이미지 편집기', 'https://www.gimp.org', 'multimedia', 'apt'),
+    ('ufw', 'UFW', '간편 방화벽', 'https://launchpad.net/ufw', 'security', 'apt'),
+    ('gnome-shell', 'GNOME Shell', 'GNOME 데스크톱 환경', 'https://www.gnome.org', 'desktop', 'apt'),
+]
+
+
+async def seed_packages():
+    """샘플 패키지 데이터 생성 (admin user id=1이 등록)."""
+    print(f"패키지 {len(PACKAGES)}개 생성 중...")
+
+    async with transactional() as cur:
+        await cur.executemany(
+            """INSERT IGNORE INTO package
+            (name, display_name, description, homepage_url, category, package_manager, created_by)
+            VALUES (%s, %s, %s, %s, %s, %s, 1)""",
+            PACKAGES,
+        )
+    print(f"  ✓ 패키지 {len(PACKAGES)}개 (created_by=admin)")
+
+
+# ─────────────────────────────────────────────
 # 메인
 # ─────────────────────────────────────────────
 
@@ -865,6 +907,7 @@ async def main():
 
         # 순서 중요: FK 의존성에 따라 부모 먼저
         await seed_users(cfg)
+        await seed_packages()
         await seed_posts(cfg)
         await seed_comments(cfg)
         await seed_tags(cfg)

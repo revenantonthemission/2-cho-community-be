@@ -400,6 +400,38 @@ CREATE TABLE dm_message (
     INDEX idx_msg_unread (conversation_id, sender_id, is_read)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 패키지 정보
+CREATE TABLE package (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    display_name VARCHAR(200) NOT NULL,
+    description TEXT,
+    homepage_url VARCHAR(500),
+    category VARCHAR(50) NOT NULL,
+    package_manager VARCHAR(20),
+    created_by INT UNSIGNED,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES user(id),
+    UNIQUE KEY uk_package_name (name)
+);
+
+-- 패키지 리뷰 (1유저 1패키지 1리뷰)
+CREATE TABLE package_review (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    package_id INT UNSIGNED NOT NULL,
+    user_id INT UNSIGNED NOT NULL,
+    rating TINYINT UNSIGNED NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL,
+    UNIQUE KEY uk_package_user (package_id, user_id),
+    FOREIGN KEY (package_id) REFERENCES package(id),
+    FOREIGN KEY (user_id) REFERENCES user(id)
+);
+
 -- 추천 피드 점수 테이블 (배치 재계산, 30분 주기)
 CREATE TABLE user_post_score (
     user_id         INT UNSIGNED NOT NULL,

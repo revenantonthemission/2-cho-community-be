@@ -13,6 +13,7 @@
 - **실시간 알림** — WebSocket (K8s 직접 배포), 폴링 폴백, 유형별 on/off 설정
 - **임시저장** — 서버 측 게시글 임시저장 (사용자당 1개, UPSERT), 기기 간 동기화
 - **관리자** — 신고 관리, 계정 정지, 게시글 고정, 대시보드 통계
+- **패키지 리뷰** — 패키지 등록/조회, 1유저 1패키지 1리뷰, 평점(1~5), 평균 평점 집계
 - **인프라** — AWS Lambda 컨테이너 배포, Blue/Green (Alias 기반), Locust 부하 테스트
 
 ---
@@ -40,7 +41,7 @@ flowchart TD
     Backend -->|"Async Connection"| DB
 
     subgraph DB["MySQL"]
-        Tables["27개 테이블<br/>user, post, comment, notification,<br/>tag, poll, dm_conversation, social_account ..."]
+        Tables["29개 테이블<br/>user, post, comment, notification,<br/>tag, poll, dm_conversation, social_account ..."]
     end
 
     Backend -->|"WebSocket Push"| WS
@@ -109,6 +110,9 @@ erDiagram
     poll ||--o{ poll_vote : "has votes"
     poll_option ||--o{ poll_vote : "receives"
     dm_conversation ||--o{ dm_message : "contains"
+    user ||--o{ package : "registers"
+    user ||--o{ package_review : "writes review"
+    package ||--o{ package_review : "has reviews"
 
     user {
         int id PK
@@ -349,6 +353,31 @@ erDiagram
         timestamp created_at
         timestamp updated_at
     }
+
+    package {
+        int id PK
+        varchar name UK "패키지 고유 이름"
+        varchar display_name
+        text description
+        varchar homepage_url
+        varchar category "editor, devtool, terminal 등"
+        varchar package_manager "apt, snap, flatpak 등"
+        int created_by FK
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    package_review {
+        int id PK
+        int package_id FK
+        int user_id FK
+        tinyint rating "1~5"
+        varchar title
+        text content
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
 ```
 
 ### 주요 설계 결정
@@ -522,6 +551,18 @@ erDiagram
 | POST | `/v1/posts/{post_id}/poll/vote` | 투표 참여 (option_id) | O (이메일 인증) |
 | PUT | `/v1/posts/{post_id}/poll/vote` | 투표 변경 (다른 option_id) | O (이메일 인증) |
 | DELETE | `/v1/posts/{post_id}/poll/vote` | 투표 취소 | O (이메일 인증) |
+
+### 패키지 API (`/v1/packages`)
+
+| Method | Endpoint | 설명 | 인증 |
+| ------ | -------- | ---- | ---- |
+| GET | `/v1/packages` | 패키지 목록 (페이지네이션, `?search=`, `?category=`, `?sort=latest\|rating\|reviews\|name`) | X |
+| POST | `/v1/packages` | 패키지 등록 | O (이메일 인증) |
+| GET | `/v1/packages/{package_id}` | 패키지 상세 조회 (평균 평점, 리뷰 수 포함) | X |
+| GET | `/v1/packages/{package_id}/reviews` | 패키지 리뷰 목록 (페이지네이션) | X |
+| POST | `/v1/packages/{package_id}/reviews` | 리뷰 작성 (1유저 1패키지 1리뷰) | O (이메일 인증) |
+| PUT | `/v1/packages/{package_id}/reviews/{review_id}` | 리뷰 수정 | O (작성자) |
+| DELETE | `/v1/packages/{package_id}/reviews/{review_id}` | 리뷰 삭제 | O (작성자/관리자) |
 
 ### 관리자 대시보드 API
 
