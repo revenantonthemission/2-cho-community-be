@@ -139,11 +139,11 @@ class WithdrawRequest(BaseModel):
     """사용자 탈퇴 요청 모델.
 
     Attributes:
-        password: 현재 비밀번호.
+        password: 현재 비밀번호 (소셜 전용 계정은 None 허용).
         agree: 탈퇴 동의 여부.
     """
 
-    password: str
+    password: str | None = None
     agree: bool
 
     @field_validator("agree")
