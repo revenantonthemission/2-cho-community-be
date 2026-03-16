@@ -4,7 +4,8 @@ CREATE TABLE user (
     email varchar(255) NOT NULL UNIQUE,
     email_verified TINYINT(1) NOT NULL DEFAULT 0,
     nickname varchar(255) NOT NULL UNIQUE,
-    password varchar(2048) NOT NULL,
+    nickname_set TINYINT(1) NOT NULL DEFAULT 1,
+    password varchar(2048) NULL,
     profile_img varchar(2048) NULL,
     role ENUM('user','admin') NOT NULL DEFAULT 'user',
     suspended_until TIMESTAMP NULL,
@@ -117,6 +118,18 @@ CREATE TABLE post_view_log (
     FOREIGN KEY (post_id) REFERENCES post (id) ON DELETE CASCADE
 );
     
+-- 소셜 계정 연동 테이블
+CREATE TABLE social_account (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL,
+    provider ENUM('kakao', 'naver') NOT NULL,
+    provider_id VARCHAR(255) NOT NULL,
+    provider_email VARCHAR(255) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_social (provider, provider_id),
+    FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE CASCADE
+);
+
 -- 게시글 임시저장 테이블
 CREATE TABLE post_draft (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
