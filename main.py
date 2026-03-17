@@ -20,6 +20,7 @@ from routers.tag_router import tag_router
 from routers.dm_router import router as dm_router
 from routers import social_auth_router
 from routers.package_router import package_router
+from routers.wiki_router import wiki_router
 from middleware import TimingMiddleware, LoggingMiddleware, RateLimitMiddleware
 from middleware.exception_handler import (
     global_exception_handler,
@@ -90,6 +91,7 @@ app.include_router(dm_router)
 app.include_router(social_auth_router.router)
 app.include_router(draft_router.router)
 app.include_router(package_router)
+app.include_router(wiki_router)
 
 # 로컬 개발 전용 WebSocket 엔드포인트 (K8s WS Pod이 담당)
 if settings.DEBUG:

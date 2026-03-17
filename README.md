@@ -41,7 +41,7 @@ flowchart TD
     Backend -->|"Async Connection"| DB
 
     subgraph DB["MySQL"]
-        Tables["29개 테이블<br/>user, post, comment, notification,<br/>tag, poll, dm_conversation, social_account ..."]
+        Tables["31개 테이블<br/>user, post, comment, notification,<br/>tag, poll, dm_conversation, social_account,<br/>wiki_page, wiki_page_tag ..."]
     end
 
     Backend -->|"WebSocket Push"| WS
@@ -113,6 +113,9 @@ erDiagram
     user ||--o{ package : "registers"
     user ||--o{ package_review : "writes review"
     package ||--o{ package_review : "has reviews"
+    user ||--o{ wiki_page : "creates"
+    wiki_page ||--o{ wiki_page_tag : "has tags"
+    tag ||--o{ wiki_page_tag : "tagged"
 
     user {
         int id PK
@@ -377,6 +380,23 @@ erDiagram
         timestamp created_at
         timestamp updated_at
         timestamp deleted_at
+    }
+
+    wiki_page {
+        int id PK
+        varchar title UK
+        varchar slug UK
+        text content
+        int author_id FK
+        int views "default 0"
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+
+    wiki_page_tag {
+        int wiki_page_id PK
+        bigint tag_id PK
     }
 ```
 

@@ -432,6 +432,36 @@ CREATE TABLE package_review (
     FOREIGN KEY (user_id) REFERENCES user(id)
 );
 
+-- 위키 페이지 테이블
+CREATE TABLE wiki_page (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(200) NOT NULL,
+    slug VARCHAR(200) NOT NULL UNIQUE,
+    content TEXT NOT NULL,
+    author_id INT UNSIGNED NOT NULL,
+    last_edited_by INT UNSIGNED NULL,
+    views_count INT UNSIGNED NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL,
+    FOREIGN KEY (author_id) REFERENCES user(id),
+    FOREIGN KEY (last_edited_by) REFERENCES user(id)
+);
+
+-- 위키 페이지 ↔ 태그 연결 테이블
+CREATE TABLE wiki_page_tag (
+    wiki_page_id INT UNSIGNED NOT NULL,
+    tag_id BIGINT UNSIGNED NOT NULL,
+    PRIMARY KEY (wiki_page_id, tag_id),
+    FOREIGN KEY (wiki_page_id) REFERENCES wiki_page(id) ON DELETE CASCADE,
+    FOREIGN KEY (tag_id) REFERENCES tag(id) ON DELETE CASCADE
+);
+
+-- 22. 위키 페이지 인덱스
+CREATE INDEX idx_wiki_page_deleted ON wiki_page (deleted_at, created_at);
+ALTER TABLE wiki_page ADD FULLTEXT INDEX ft_wiki_search (title, content) WITH PARSER ngram;
+CREATE INDEX idx_wiki_page_tag_tag ON wiki_page_tag (tag_id);
+
 -- 추천 피드 점수 테이블 (배치 재계산, 30분 주기)
 CREATE TABLE user_post_score (
     user_id         INT UNSIGNED NOT NULL,
