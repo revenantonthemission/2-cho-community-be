@@ -17,7 +17,7 @@ mypy .                                       # 타입 체크
 
 ## Architecture (Router → Controller → Model)
 
-- `routers/`: API 엔드포인트 (`/v1/auth`, `/v1/auth/social`, `/v1/users`, `/v1/posts`, `/v1/terms`, `/v1/categories`, `/v1/tags`, `/v1/reports`, `/v1/admin/reports`, `/v1/dms`, `/v1/drafts`, `/v1/notifications`, `/v1/packages`)
+- `routers/`: API 엔드포인트 (`/v1/auth`, `/v1/auth/social`, `/v1/users`, `/v1/posts`, `/v1/terms`, `/v1/categories`, `/v1/tags`, `/v1/reports`, `/v1/admin/reports`, `/v1/dms`, `/v1/drafts`, `/v1/notifications`, `/v1/packages`, `/v1/wiki`)
 - `controllers/`: 비즈니스 로직
 - `services/`: 컨트롤러-모델 간 조율 (`user_service`, `post_service`, `report_service`, `dm_service`)
 - `models/`: DB 쿼리 (raw SQL with aiomysql)
@@ -94,7 +94,7 @@ mypy .                                       # 타입 체크
 ## 데이터베이스
 
 - **DB 스키마**: `database/schema.sql`로 전체 스키마 관리
-- **테이블 수**: 29개. 추가/삭제 시 `README.md` 아키텍처 다이어그램도 업데이트
+- **테이블 수**: 31개. 추가/삭제 시 `README.md` 아키텍처 다이어그램도 업데이트
 - **테이블 수 동기화 5곳**: `README.md` ERD 주석, `CLAUDE.md` 이 항목, `tests/conftest.py` docstring, `routers/test_router.py` docstring, 루트 `CLAUDE.md` Architecture 다이어그램
 - **ERD 동기화 필수**: `schema.sql` 변경 시 `README.md` ERD도 갱신
 - **커넥션 풀**: 5-50 크기, 연결 타임아웃 5초 (`database/connection.py`)
@@ -119,7 +119,7 @@ mypy .                                       # 타입 체크
 
 ## API Endpoints
 
-모든 API는 `/v1/` 프리픽스. 라우터: `auth`, `auth/social`, `users`, `posts`, `categories`, `tags`, `reports`, `admin/reports`, `admin/users`, `dms`, `drafts`, `notifications`, `terms`, `packages`.
+모든 API는 `/v1/` 프리픽스. 라우터: `auth`, `auth/social`, `users`, `posts`, `categories`, `tags`, `reports`, `admin/reports`, `admin/users`, `dms`, `drafts`, `notifications`, `terms`, `packages`, `wiki`.
 
 - 정렬: `?sort=latest|likes|views|comments|hot|for_you`
 - 필터: `?search=`, `?category_id=`, `?tag=`, `?following=true`
