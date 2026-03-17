@@ -370,6 +370,11 @@ CREATE TABLE post_tag (
     CREATE INDEX idx_poll_vote_poll ON poll_vote(poll_id);
     CREATE INDEX idx_poll_vote_user ON poll_vote(user_id);
 
+    -- 22. 위키 페이지 인덱스
+    CREATE INDEX idx_wiki_page_deleted ON wiki_page (deleted_at, created_at);
+    ALTER TABLE wiki_page ADD FULLTEXT INDEX ft_wiki_search (title, content) WITH PARSER ngram;
+    CREATE INDEX idx_wiki_page_tag_tag ON wiki_page_tag (tag_id);
+
 -- DM 대화 테이블
 CREATE TABLE dm_conversation (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -430,6 +435,31 @@ CREATE TABLE package_review (
     UNIQUE KEY uk_package_user (package_id, user_id),
     FOREIGN KEY (package_id) REFERENCES package(id),
     FOREIGN KEY (user_id) REFERENCES user(id)
+);
+
+-- 위키 페이지 테이블
+CREATE TABLE wiki_page (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(200) NOT NULL,
+    slug VARCHAR(200) NOT NULL UNIQUE,
+    content TEXT NOT NULL,
+    author_id INT UNSIGNED NOT NULL,
+    last_edited_by INT UNSIGNED NULL,
+    views_count INT UNSIGNED NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL,
+    FOREIGN KEY (author_id) REFERENCES user(id),
+    FOREIGN KEY (last_edited_by) REFERENCES user(id)
+);
+
+-- 위키 페이지 ↔ 태그 연결 테이블
+CREATE TABLE wiki_page_tag (
+    wiki_page_id INT UNSIGNED NOT NULL,
+    tag_id INT UNSIGNED NOT NULL,
+    PRIMARY KEY (wiki_page_id, tag_id),
+    FOREIGN KEY (wiki_page_id) REFERENCES wiki_page(id) ON DELETE CASCADE,
+    FOREIGN KEY (tag_id) REFERENCES tag(id) ON DELETE CASCADE
 );
 
 -- 추천 피드 점수 테이블 (배치 재계산, 30분 주기)
