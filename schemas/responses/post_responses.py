@@ -10,7 +10,8 @@ class AuthorSummary(BaseModel):
 
     user_id: int | None = None
     nickname: str | None = None
-    profile_img: str | None = None
+    profileImageUrl: str | None = None
+    distro: str | None = None
 
 
 class TagSummary(BaseModel):
