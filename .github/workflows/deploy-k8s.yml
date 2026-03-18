@@ -1,14 +1,13 @@
 ###############################################################################
-# K8s CD — Backend Docker Build → ECR Push → kubectl rollout
+# K8s CD — Backend Docker Build → ECR Push → infra repo 태그 커밋 → ArgoCD 동기화
 #
-# 수동 트리거: workflow_dispatch로 컴포넌트 선택 후 배포
-# 인증: GitHub Actions OIDC → AWS IAM Role (ECR push + SG 관리)
-# kubectl: Master 노드에서 직접 실행 (SSH)
-# SSH SG: runner IP를 동적 추가/삭제 (GitHub Actions IP가 매번 변경)
+# 수동 트리거: workflow_dispatch로 환경 선택 후 배포
+# 인증: GitHub Actions OIDC → AWS IAM Role (ECR push)
+# 배포: ArgoCD가 infra repo의 kustomization.yaml 변경 감지 후 자동 sync
 #
 # 사전 설정:
 #   - Repository variable: AWS_ACCOUNT_ID
-#   - Environment secrets: K8S_MASTER_SSH_KEY, K8S_MASTER_HOST, K8S_SSH_SG_ID
+#   - Environment secrets: INFRA_REPO_PAT (infra repo contents:write)
 ###############################################################################
 
 name: K8s CD — Backend
@@ -16,14 +15,6 @@ name: K8s CD — Backend
 on:
   workflow_dispatch:
     inputs:
-      component:
-        description: "배포 컴포넌트"
-        required: true
-        type: choice
-        options:
-          - api
-          - ws
-          - all
       environment:
         description: "배포 환경"
         required: true
@@ -34,18 +25,17 @@ on:
           - prod
 
 concurrency:
-  group: k8s-deploy-${{ inputs.environment }}-${{ inputs.component }}
+  group: k8s-deploy-backend-${{ inputs.environment }}
   cancel-in-progress: false
-
-permissions:
-  id-token: write
-  contents: read
 
 jobs:
   build-and-push:
-    name: "Build & Push (${{ inputs.component }})"
+    name: "Build & Push (backend)"
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
     outputs:
       image_tag: ${{ steps.meta.outputs.tag }}
 
@@ -68,90 +58,74 @@ jobs:
         run: echo "tag=sha-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
 
       - name: Build & push backend-k8s
+        env:
+          IMAGE: ${{ steps.ecr-login.outputs.registry }}/my-community-${{ inputs.environment }}-backend-k8s
+          TAG: ${{ steps.meta.outputs.tag }}
         run: |
-          IMAGE="${{ steps.ecr-login.outputs.registry }}/my-community-${{ inputs.environment }}-backend-k8s"
-          TAG="${{ steps.meta.outputs.tag }}"
-          docker build --provenance=false -f Dockerfile -t "${IMAGE}:${TAG}" -t "${IMAGE}:latest" .
+          docker build --provenance=false --platform linux/amd64 -f Dockerfile -t "${IMAGE}:${TAG}" -t "${IMAGE}:latest" .
           docker push "${IMAGE}:${TAG}"
           docker push "${IMAGE}:latest"
 
-  deploy:
-    name: "Deploy (${{ inputs.component }})"
+  update-image-tag:
+    name: "Update Image Tag in Infra Repo"
     needs: build-and-push
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
 
     steps:
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Checkout infra repo
+        uses: actions/checkout@v4
         with:
-          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/my-community-${{ inputs.environment }}-github-actions
-          aws-region: ap-northeast-2
+          repository: 80-hours-a-week/2-cho-community-infra
+          token: ${{ secrets.INFRA_REPO_PAT }}
+          path: infra
 
-      - name: Allow SSH from runner IP
-        id: sg
+      - name: Install kustomize
+        uses: imranismail/setup-kustomize@v2
+        with:
+          kustomize-version: "5.4.3"
+
+      - name: Update backend image tag
+        working-directory: infra/k8s/overlays/${{ inputs.environment }}
         env:
-          SG_ID: ${{ secrets.K8S_SSH_SG_ID }}
+          REGISTRY: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.ap-northeast-2.amazonaws.com
+          TAG: ${{ needs.build-and-push.outputs.image_tag }}
+          ENV: ${{ inputs.environment }}
         run: |
-          RUNNER_IP=$(curl -s https://checkip.amazonaws.com)
-          echo "runner_ip=${RUNNER_IP}" >> "$GITHUB_OUTPUT"
-          aws ec2 authorize-security-group-ingress \
-            --group-id "${SG_ID}" \
-            --protocol tcp --port 22 \
-            --cidr "${RUNNER_IP}/32" \
-            --tag-specifications "ResourceType=security-group-rule,Tags=[{Key=Purpose,Value=github-actions-deploy}]" || true
-          sleep 5
+          kustomize edit set image \
+            "community-backend=${REGISTRY}/my-community-${ENV}-backend-k8s:${TAG}"
 
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.K8S_MASTER_HOST }}
-          username: ec2-user
-          key: ${{ secrets.K8S_MASTER_SSH_KEY }}
-          script: |
-            TAG="${{ needs.build-and-push.outputs.image_tag }}"
-            REGISTRY="${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.ap-northeast-2.amazonaws.com"
-            COMPONENT="${{ inputs.component }}"
-            ENV="${{ inputs.environment }}"
-
-            if [ "${COMPONENT}" = "api" ] || [ "${COMPONENT}" = "all" ]; then
-              kubectl set image deployment/community-api \
-                community-api="${REGISTRY}/my-community-${ENV}-backend-k8s:${TAG}" -n app
-              kubectl rollout status deployment/community-api -n app --timeout=120s
-            fi
-
-            if [ "${COMPONENT}" = "ws" ] || [ "${COMPONENT}" = "all" ]; then
-              kubectl set image deployment/community-ws \
-                community-ws="${REGISTRY}/my-community-${ENV}-backend-k8s:${TAG}" -n app
-              kubectl rollout status deployment/community-ws -n app --timeout=120s
-            fi
-
-      - name: Set health check URL
-        id: health
+      - name: Commit and push
+        working-directory: infra
+        env:
+          TAG: ${{ needs.build-and-push.outputs.image_tag }}
+          ENV: ${{ inputs.environment }}
         run: |
-          case "${{ inputs.environment }}" in
-            dev)     echo "url=https://api.my-community.shop/health" >> "$GITHUB_OUTPUT" ;;
-            staging) echo "url=https://api-staging.my-community.shop/health" >> "$GITHUB_OUTPUT" ;;
-            prod)    echo "url=https://api.my-community.shop/health" >> "$GITHUB_OUTPUT" ;;
-          esac
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "k8s/overlays/${ENV}/kustomization.yaml"
 
-      - name: Health check
-        run: |
-          sleep 10
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ steps.health.outputs.url }}" || true)
-          if [ "${STATUS}" = "200" ]; then
-            echo "Health check passed"
-          else
-            echo "Warning: Health check returned ${STATUS}"
+          # 변경 없으면 커밋 스킵 (동일 SHA 재배포 시)
+          if git diff --cached --quiet; then
+            echo "kustomization.yaml에 변경 없음 — 커밋 스킵"
+            exit 0
           fi
 
-      - name: Revoke SSH from runner IP
-        if: always()
-        env:
-          SG_ID: ${{ secrets.K8S_SSH_SG_ID }}
-          RUNNER_IP: ${{ steps.sg.outputs.runner_ip }}
-        run: |
-          aws ec2 revoke-security-group-ingress \
-            --group-id "${SG_ID}" \
-            --protocol tcp --port 22 \
-            --cidr "${RUNNER_IP}/32" || true
+          git commit -m "deploy(${ENV}): backend → ${TAG} [skip ci]"
+
+          # 동시 push 경합 방지: rebase 후 재시도 (3회 실패 시 에러)
+          PUSHED=false
+          for i in 1 2 3; do
+            if git push origin main; then
+              PUSHED=true
+              break
+            fi
+            echo "Push 실패 (시도 ${i}/3) — pull --rebase 후 재시도"
+            git pull --rebase origin main
+          done
+          if [ "${PUSHED}" = "false" ]; then
+            echo "::error::3회 push 모두 실패 — infra repo 업데이트 불가"
+            exit 1
+          fi
