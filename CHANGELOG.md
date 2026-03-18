@@ -2,6 +2,14 @@
 
 ## 2026-03 (Mar)
 
+- **03-18: SSH 배포를 ArgoCD GitOps 방식으로 전환**
+  - `deploy-k8s.yml`: SSH + `kubectl set image` → infra repo 태그 커밋 방식
+  - `kustomize edit set image`로 overlay `newTag` 업데이트 후 git push
+  - ArgoCD가 변경 감지 → 자동 sync + rolling update
+  - `component` 입력 제거 (api/ws 동일 이미지, ArgoCD가 전체 overlay 관리)
+  - `--platform linux/amd64` 추가, OIDC 권한 job 스코프 축소
+  - push 경합 방지: 3회 rebase 재시도 + 실패 시 에러 종료
+
 - **03-17: 위키 FAQ/지식베이스 시스템**
   - `wiki_page`, `wiki_page_tag` 테이블 추가 (31개 테이블)
   - 위키 CRUD API (`/v1/wiki`), 태그 연동, 슬러그 기반 조회, 조회수
