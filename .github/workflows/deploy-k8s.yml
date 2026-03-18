@@ -64,9 +64,8 @@ jobs:
           IMAGE: ${{ steps.ecr-login.outputs.registry }}/my-community-${{ inputs.environment }}-backend-k8s
           TAG: ${{ steps.meta.outputs.tag }}
         run: |
-          docker build --provenance=false --platform linux/amd64 -f Dockerfile -t "${IMAGE}:${TAG}" -t "${IMAGE}:latest" .
+          docker build --provenance=false --platform linux/amd64 -f Dockerfile -t "${IMAGE}:${TAG}" .
           docker push "${IMAGE}:${TAG}"
-          docker push "${IMAGE}:latest"
 
   update-image-tag:
     name: "Update Image Tag in Infra Repo"

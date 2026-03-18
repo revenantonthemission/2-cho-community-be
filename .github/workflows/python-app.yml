@@ -77,6 +77,6 @@ jobs:
         DB_USER: "root"
         DB_PASSWORD: "testpassword"
         DB_NAME: "community_service"
-        SECRET_KEY: "test-secret-key-for-ci"
+        SECRET_KEY: ${{ github.run_id }}-${{ github.run_attempt }}-ci-secret
         TESTING: "true"
       run: pytest --cov --cov-report=term-missing
