@@ -39,7 +39,7 @@
 | **데이터베이스** | MySQL 8.0 (RDS + K8s StatefulSet) | FULLTEXT 검색(ngram), 트랜잭션 격리 | RDS 관리형 + K8s 내부 MySQL 이중 구성 |
 | **인증** | JWT (Access 30분 + Refresh 7일) | Stateless 인증, XSS 방어 | 토큰 저장소 DB 의존, CronJob 주기적 정리 |
 | **인프라** | AWS (Terraform 활성 12개 + 레거시 9개 모듈) + kubeadm K8s | IaC 재현성, 컨테이너 오케스트레이션 학습 | 3개 환경(Dev/Staging/Prod) 통일 아키텍처 |
-| **CI/CD** | GitHub Actions + OIDC | 장기 자격 증명 없는 배포 | 리포지토리별 독립 워크플로우, 롤링 업데이트 |
+| **CI/CD** | GitHub Actions + OIDC + ArgoCD | 장기 자격 증명 없는 배포, GitOps | ArgoCD App-of-Apps, 자동 sync (dev), 수동 sync (staging/prod) |
 | **모니터링** | Prometheus + Grafana (kube-prometheus-stack) | K8s 네이티브 메트릭 수집 | ServiceMonitor 자동 수집, Alertmanager 연동 |
 | **테스트** | pytest-asyncio + Playwright | 백엔드 242개 단위/통합 테스트, 프론트엔드 90개 E2E 테스트 | 테스트 환경 bcrypt 최적화 (rounds 4), 82%+ 커버리지 |
 | **부하 테스트** | Locust (gevent 기반) | 3종 사용자 시나리오 | 병목 사전 식별, 50~200 동시 사용자 검증 완료 |
@@ -57,7 +57,7 @@
 | Rate Limiter | DynamoDB Fixed Window Counter | Redis |
 | 배치 작업 | EventBridge → Lambda 내부 API | K8s CronJob |
 | 모니터링 | CloudWatch 알람 + 대시보드 | Prometheus + Grafana |
-| 배포 | Blue/Green (Lambda Alias) | 롤링 업데이트 (kubectl) |
+| 배포 | Blue/Green (Lambda Alias) | ArgoCD GitOps (자동 sync) |
 | 콜드 스타트 | 3~10초 (VPC ENI + SSM + 앱 초기화) | 없음 (항상 실행 중) |
 | 비용 모델 | 요청당 과금 + Provisioned Concurrency | 고정 EC2 비용 |
 
@@ -121,9 +121,14 @@ flowchart TD
             Metrics["metrics-server<br/>HPA 메트릭"]
         end
 
+        subgraph ArgoNS["argocd namespace"]
+            ArgoCD["ArgoCD<br/>App-of-Apps · GitHub SSO<br/>auto-sync (dev)"]
+        end
+
         Ingress --> FE
         Ingress --> API
         Ingress --> WS
+        Ingress -->|"argocd.my-community.shop"| ArgoCD
         API --> MySQLPod
         API --> RedisPod
         WS --> RedisPod
@@ -143,12 +148,15 @@ flowchart TD
     ECR -.-> K8s
     CronJobs -- "MySQL 백업" --> S3
 
-    subgraph Deploy["CI/CD"]
+    subgraph Deploy["GitOps CD"]
         GHA["GitHub Actions<br/>OIDC 인증"]
+        InfraRepo["Infra Repo<br/>kustomization.yaml<br/>newTag: sha-XXXX"]
     end
 
     GHA -- "Docker Push" --> ECR
-    GHA -- "SSH → kubectl rollout" --> K8s
+    GHA -- "kustomize edit set image" --> InfraRepo
+    InfraRepo -- "webhook → 자동 sync" --> ArgoCD
+    ArgoCD -- "kubectl apply" --> AppNS
 
     style K8s fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
     style AWS fill:#e3f2fd,stroke:#1565c0
@@ -296,14 +304,14 @@ sequenceDiagram
 - DB 행 잠금(`SELECT ... FOR UPDATE`)으로 동시 토큰 재사용 공격을 방지합니다.
 - 타이밍 공격 방지: 존재하지 않는 이메일로 로그인 시에도 동일한 bcrypt 검증을 수행합니다.
 
-#### CI/CD 배포 흐름
+#### CI/CD 배포 흐름 (ArgoCD GitOps)
 
 ```mermaid
 flowchart LR
     subgraph GitHub["GitHub (3개 리포지토리)"]
         BE["BE 리포<br/>deploy-k8s.yml"]
         FE["FE 리포<br/>deploy-k8s.yml"]
-        Infra["Infra 리포<br/>deploy-infra.yml"]
+        Infra["Infra 리포<br/>kustomization.yaml"]
     end
 
     subgraph Auth["인증"]
@@ -311,36 +319,35 @@ flowchart LR
         STS["AWS STS<br/>(임시 자격 증명)"]
     end
 
-    subgraph K8s_Deploy["K8s 배포 (롤링 업데이트)"]
+    subgraph Build["이미지 빌드"]
         Docker["Docker Build<br/>(--platform linux/amd64)"]
         ECR_Push["ECR Push<br/>(sha-commit + latest)"]
-        SG_Open["SSH SG 규칙 추가<br/>(GitHub Actions IP)"]
-        SSH["SSH → Master 노드<br/>kubectl rollout restart"]
-        Health["Health Check<br/>(HTTPS → /health)"]
-        SG_Close["SSH SG 규칙 제거"]
     end
 
-    BE -->|"api/ws 컴포넌트"| OIDC
-    FE -->|"프론트엔드"| OIDC
+    subgraph GitOps["GitOps 배포"]
+        TagCommit["kustomize edit set image<br/>newTag: sha-XXXX"]
+        Webhook["GitHub Webhook<br/>→ ArgoCD"]
+        ArgoCD["ArgoCD<br/>자동 sync (dev)<br/>수동 sync (staging/prod)"]
+    end
+
+    BE --> OIDC
+    FE --> OIDC
     OIDC --> STS
     STS --> Docker
     Docker --> ECR_Push
-    ECR_Push --> SG_Open
-    SG_Open --> SSH
-    SSH --> Health
-    Health --> SG_Close
+    ECR_Push --> TagCommit
+    TagCommit -->|"git push → Infra 리포"| Webhook
+    Webhook --> ArgoCD
 
-    Infra -->|"terraform plan/apply"| STS
-
-    style K8s_Deploy fill:#e8f5e9,stroke:#2e7d32
+    style GitOps fill:#e8f5e9,stroke:#2e7d32
 ```
 
 **설계 근거**:
 
 - **OIDC 인증**: 장기 자격 증명(AWS Access Key) 없이 임시 토큰으로 AWS 인증. 자격 증명 유출 위험을 제거합니다.
-- **동적 SSH SG 관리**: 배포 시에만 GitHub Actions Runner IP를 SSH SG에 추가하고, 완료 후 즉시 제거합니다.
-- **롤링 업데이트**: `kubectl rollout restart`로 무중단 배포. 새 Pod가 Ready 후 기존 Pod를 종료합니다.
-- **리포지토리별 독립 워크플로우**: BE(api/ws), FE(프론트엔드), Infra(Terraform)를 분리하여 배포 범위를 제한합니다.
+- **GitOps (ArgoCD)**: Git을 단일 진실 공급원(Single Source of Truth)으로 사용. SSH 접근 불필요, SG 동적 조작 제거, 배포 이력이 Git 커밋으로 자동 기록됩니다.
+- **App-of-Apps 패턴**: root-app이 환경별 Application CRD를 관리. dev는 자동 sync, staging/prod는 수동 sync + 배포 윈도우 제한.
+- **리포지토리별 독립 워크플로우**: BE, FE가 각각 이미지 빌드 후 infra repo에 태그 커밋. ArgoCD가 변경 감지 후 자동 반영.
 
 ---
 
@@ -840,20 +847,21 @@ flowchart LR
 - **RPO**: ~0 (동기 복제)
 - **애플리케이션 영향**: 전환 중 DB 커넥션 에러 → aiomysql 풀이 자동 재연결
 
-##### K8s 배포 롤백
+##### K8s 배포 롤백 (ArgoCD)
 
 ```bash
-# 이전 버전으로 즉시 롤백
+# ArgoCD를 통한 롤백: infra repo의 이전 커밋으로 revert
+git revert HEAD  # 태그 커밋 되돌리기
+git push origin main  # ArgoCD가 자동 감지 → 이전 이미지로 sync
+
+# 긴급 수동 롤백 (ArgoCD 우회)
 kubectl -n app rollout undo deployment/community-api
 
 # 특정 리비전으로 롤백
 kubectl -n app rollout undo deployment/community-api --to-revision=3
-
-# 롤아웃 상태 확인
-kubectl -n app rollout status deployment/community-api
 ```
 
-- **RTO**: ~30초 (Pod 재생성)
+- **RTO**: ~30초 (Pod 재생성) — ArgoCD 경유 시 webhook 포함 ~1분
 - **RPO**: 0 (Stateless)
 
 ##### K8s MySQL 복원
@@ -889,7 +897,7 @@ flowchart TD
     end
 
     subgraph Response["3. 대응"]
-        Rollback["배포 롤백<br/>kubectl rollout undo"]
+        Rollback["배포 롤백<br/>git revert + ArgoCD sync"]
         Scale_Node["Worker 노드 추가"]
         Scale_Pod["HPA 상한 조정"]
         RDS_Scale["RDS 인스턴스 스케일 업"]
@@ -928,7 +936,7 @@ flowchart TD
 | **IaC 완전 관리** | Terraform 활성 12개 모듈 + K8s 매니페스트로 전체 인프라 코드화 (레거시 9개는 `_legacy/` 보존) |
 | **보안 계층화** | VPC 격리, NetworkPolicy, OIDC 배포, 동적 SSH SG 관리 |
 | **K8s 네이티브 모니터링** | Prometheus + Grafana + ServiceMonitor 자동 메트릭 수집 |
-| **무중단 배포** | 롤링 업데이트 + 즉시 롤백 (`kubectl rollout undo`) |
+| **무중단 배포** | ArgoCD GitOps + 롤링 업데이트 + 즉시 롤백 (`git revert` 또는 `kubectl rollout undo`) |
 
 ### 5.2 현재 아키텍처의 약점과 위험도
 
