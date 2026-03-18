@@ -78,7 +78,7 @@ jobs:
       - name: Checkout infra repo
         uses: actions/checkout@v4
         with:
-          repository: 80-hours-a-week/2-cho-community-infra
+          repository: revenantonthemission/2-cho-community-infra
           token: ${{ secrets.INFRA_REPO_PAT }}
           path: infra
 
