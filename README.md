@@ -2,7 +2,7 @@
 
 > 리눅스 커뮤니티 "Camp Linux"의 백엔드 서버. **FastAPI** + **MySQL** + **aiomysql** 기반 비동기 REST API.
 
-**Tech Stack**: Python 3.11+ · FastAPI · MySQL 8.0+ · aiomysql · JWT · Pydantic · Locust
+**Tech Stack**: Python 3.13 · FastAPI · MySQL 8.0+ · aiomysql · JWT · Pydantic · Locust
 
 ### 주요 기능
 
@@ -14,7 +14,7 @@
 - **임시저장** — 서버 측 게시글 임시저장 (사용자당 1개, UPSERT), 기기 간 동기화
 - **관리자** — 신고 관리, 계정 정지, 게시글 고정, 대시보드 통계
 - **패키지 리뷰** — 패키지 등록/조회, 1유저 1패키지 1리뷰, 평점(1~5), 평균 평점 집계
-- **인프라** — AWS Lambda 컨테이너 배포, Blue/Green (Alias 기반), Locust 부하 테스트
+- **인프라** — EKS (K8s) 컨테이너 배포, HPA 자동 스케일링, Locust 부하 테스트
 
 ---
 
@@ -48,8 +48,8 @@ flowchart TD
 
     subgraph WS["실시간 알림"]
         Pusher["websocket_pusher.py"]
-        Pusher --> DynamoDB["DynamoDB<br/>(ws_connections)"]
-        Pusher --> APIGW["API Gateway<br/>ManageConnections"]
+        Pusher --> K8sPod["FastAPI Pod (EKS)<br/>WebSocket 직접 연결"]
+        Pusher --> HPA["HPA<br/>자동 스케일링"]
     end
 ```
 
@@ -584,6 +584,12 @@ erDiagram
 | PUT | `/v1/packages/{package_id}/reviews/{review_id}` | 리뷰 수정 | O (작성자) |
 | DELETE | `/v1/packages/{package_id}/reviews/{review_id}` | 리뷰 삭제 | O (작성자/관리자) |
 
+### 위키 API (`/v1/wiki`)
+
+| Method | Endpoint | 설명 | 인증 |
+| ------ | -------- | ---- | ---- |
+| GET | `/v1/wiki/tags/popular` | 위키 인기 태그 상위 N개 조회 | X |
+
 ### 관리자 대시보드 API
 
 | Method | Endpoint | 설명 | 인증 |
@@ -787,7 +793,7 @@ flowchart LR
 | **이미지 URL 검증** | `schemas/_image_validators.py` 공통 헬퍼로 업로드/프로필 이미지 URL 검증 |
 | **Rate Limiting** | IP 기반 엔드포인트별 요청 빈도 제한, 메모리 상한 보장 |
 | **계정 정지** | `_validate_token()` + `login()` + `refresh_token()` 3중 차단, 기간 자동 만료 |
-| **Lambda 시크릿** | SSM SecureString + `get_parameters()` 배치 API로 콜드 스타트 시 일괄 조회 |
+| **시크릿 관리** | AWS Secrets Manager + External Secrets Operator (ESO)로 K8s Secret 자동 동기화 |
 | **DEBUG 모드** | 기본값 `False`, 프로덕션 에러 메시지에 내부 정보 미포함 |
 
 ---
@@ -796,7 +802,7 @@ flowchart LR
 
 ### 사전 요구사항
 
-- Python 3.11+
+- Python 3.13
 - MySQL 8.0+
 - uv (패키지 매니저)
 
@@ -977,6 +983,16 @@ locust -f load_tests/locustfile.py --host=http://127.0.0.1:8000
 ```
 
 3종 사용자 시나리오: ReaderUser(60%), WriterUser(20%), ActiveUser(20%). 계정 풀(`queue.Queue`)로 동시 사용자 간 1:1 바인딩.
+
+**EKS Prod 부하 테스트 결과**
+
+| 항목 | 결과 |
+| --- | --- |
+| **대상** | EKS Prod (`api.my-community.shop`) |
+| **동시 사용자** | 100명 |
+| **에러율** | 읽기/쓰기 API 0% |
+| **P95 응답시간** | 100ms |
+| **처리량** | 25.3 RPS |
 
 ---
 
