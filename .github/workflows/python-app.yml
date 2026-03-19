@@ -56,10 +56,10 @@ jobs:
       run: uv sync --frozen --extra dev
 
     - name: Run linting (ruff)
-      run: ruff check .
+      run: uv run ruff check .
 
     - name: Run type checking (mypy)
-      run: mypy .
+      run: uv run mypy .
 
     - name: Wait for MySQL
       run: |
@@ -82,4 +82,4 @@ jobs:
         DB_NAME: "community_service"
         SECRET_KEY: ${{ github.run_id }}-${{ github.run_attempt }}-ci-secret
         TESTING: "true"
-      run: pytest --cov --cov-report=term-missing
+      run: uv run pytest --cov --cov-report=term-missing
