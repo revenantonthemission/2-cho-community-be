@@ -60,6 +60,8 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     SES_REGION: str = "ap-northeast-2"
 
+    REQUIRE_EMAIL_VERIFICATION: bool = True
+
     FRONTEND_URL: str = "http://127.0.0.1:3000"
 
     GITHUB_CLIENT_ID: str = ""

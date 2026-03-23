@@ -169,7 +169,7 @@ async def require_verified_email(
     Raises:
         HTTPException: 이메일 미인증 시 403.
     """
-    if not current_user.email_verified:
+    if settings.REQUIRE_EMAIL_VERIFICATION and not current_user.email_verified:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={
