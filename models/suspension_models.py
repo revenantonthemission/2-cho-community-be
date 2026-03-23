@@ -48,7 +48,7 @@ async def unsuspend_user(user_id: int) -> bool:
             """
             UPDATE user
             SET suspended_until = NULL, suspended_reason = NULL
-            WHERE id = %s AND deleted_at IS NULL
+            WHERE id = %s AND deleted_at IS NULL AND suspended_until IS NOT NULL
             """,
             (user_id,),
         )

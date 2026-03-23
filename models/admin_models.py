@@ -92,7 +92,7 @@ async def get_users_list(offset: int = 0, limit: int = 20, search: str | None = 
         # 목록
         query = f"""
                 SELECT u.id, u.email, u.nickname, u.profile_img, u.role,
-                       u.suspended_until, u.suspended_reason, u.created_at
+                       u.suspended_until, u.suspended_reason, u.created_at, u.email_verified
                 FROM user u
                 {where}
                 ORDER BY u.created_at DESC
@@ -111,6 +111,7 @@ async def get_users_list(offset: int = 0, limit: int = 20, search: str | None = 
             "suspended_until": r[5].isoformat() if r[5] else None,
             "suspended_reason": r[6],
             "created_at": r[7].isoformat() if r[7] else None,
+            "email_verified": bool(r[8]),
         }
         for r in rows
     ]

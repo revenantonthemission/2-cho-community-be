@@ -1,5 +1,7 @@
 """suspension_service: 계정 정지 관련 비즈니스 로직을 처리하는 서비스."""
 
+from fastapi import HTTPException, status
+
 from models import suspension_models, user_models
 from utils.error_codes import ErrorCode
 from utils.exceptions import bad_request_error, not_found_error
@@ -50,6 +52,17 @@ class SuspensionService:
                 ErrorCode.CANNOT_SUSPEND_ADMIN,
                 timestamp,
                 "관리자를 정지할 수 없습니다.",
+            )
+
+        # 이미 정지된 사용자 — 기존 정지 정보와 함께 409 반환
+        if target_user.is_suspended:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "error": "already_suspended",
+                    "message": f"이미 정지된 사용자입니다. (만료: {target_user.suspended_until})",
+                    "timestamp": timestamp,
+                },
             )
 
         success = await suspension_models.suspend_user(

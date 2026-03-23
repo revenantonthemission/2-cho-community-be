@@ -2,7 +2,7 @@
 
 import logging
 
-from models import comment_models, post_models, report_models, suspension_models
+from models import comment_models, post_models, report_models, suspension_models, user_models
 from utils.error_codes import ErrorCode
 from utils.exceptions import bad_request_error, not_found_error
 from utils.formatters import format_datetime
@@ -132,18 +132,23 @@ class ReportService:
             # 작성자 정지 (관리자 지정 시)
             # NOTE: 콘텐츠 삭제와 정지는 별도 트랜잭션. 정지 실패 시 로그 기록
             if suspend_days and author_id:
-                reason = f"신고 처리에 의한 정지 (신고 #{report_id}: {report.reason})"
-                suspended = await suspension_models.suspend_user(
-                    user_id=author_id,
-                    duration_days=suspend_days,
-                    reason=reason,
-                )
-                if not suspended:
-                    logger.warning(
-                        "신고 #%d 처리 중 사용자 %d 정지 실패 (이미 탈퇴했을 수 있음)",
-                        report_id,
-                        author_id,
+                author = await user_models.get_user_by_id(author_id)
+                if author and author.is_admin:
+                    # 관리자 계정은 신고 처리로 정지 불가
+                    logger.warning("관리자 계정은 신고 처리로 정지 불가: user_id=%s", author_id)
+                else:
+                    reason = f"신고 처리에 의한 정지 (신고 #{report_id}: {report.reason})"
+                    suspended = await suspension_models.suspend_user(
+                        user_id=author_id,
+                        duration_days=suspend_days,
+                        reason=reason,
                     )
+                    if not suspended:
+                        logger.warning(
+                            "신고 #%d 처리 중 사용자 %d 정지 실패 (이미 탈퇴했을 수 있음)",
+                            report_id,
+                            author_id,
+                        )
 
         return {
             "report_id": resolved.id,
