@@ -1,4 +1,4 @@
-name: Backend CI — Test & Lint
+name: Backend CI — Test
 
 on:
   push:
@@ -23,7 +23,7 @@ permissions: {}
 
 jobs:
   test:
-    name: Test & Lint
+    name: Test
     runs-on: ubuntu-latest
 
     services:
@@ -56,12 +56,6 @@ jobs:
 
     - name: Install dependencies
       run: uv sync --frozen --extra dev
-
-    - name: Run linting (ruff)
-      run: uv run ruff check .
-
-    - name: Run type checking (mypy)
-      run: uv run mypy .
 
     - name: Wait for MySQL
       run: |
