@@ -1,5 +1,5 @@
 # .pre-commit-config.yaml
-# 커밋 전 코드 품질 자동 검사
+# 커밋 전 코드 품질 자동 검사 (ruff lint + format + mypy)
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.11.12
@@ -7,3 +7,12 @@ repos:
       - id: ruff
         args: [--fix]
       - id: ruff-format
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: uv run mypy
+        language: system
+        types: [python]
+        pass_filenames: false
+        args: [.]
