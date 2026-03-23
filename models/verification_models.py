@@ -58,11 +58,13 @@ async def verify_token(raw_token: str) -> int | None:
     token_hash = hash_refresh_token(raw_token)
 
     async with transactional() as cur:
+        # FOR UPDATE: 동시 이중 인증 요청이 모두 성공하는 것을 방지하기 위해 행 잠금
         await cur.execute(
             """
             SELECT user_id, expires_at
             FROM email_verification
             WHERE token_hash = %s
+            FOR UPDATE
             """,
             (token_hash,),
         )

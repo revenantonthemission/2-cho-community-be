@@ -165,8 +165,11 @@ async def refresh_token(request: Request, response: Response) -> dict:
     )
 
 
-async def get_my_info(current_user: User, request: Request) -> dict:
-    """현재 로그인 중인 사용자의 정보를 반환합니다.
+async def get_auth_status(current_user: User, request: Request) -> dict:
+    """현재 로그인 중인 사용자의 인증 상태와 기본 정보를 반환합니다.
+
+    user_controller의 get_my_info(팔로우 수 포함 전체 프로필)와 달리
+    인증 상태 확인 용도로 최소한의 사용자 정보만 반환합니다.
 
     Args:
         current_user: 현재 인증된 사용자 객체.

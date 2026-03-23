@@ -58,11 +58,11 @@ from .report_models import (
     resolve_report,
 )
 from .token_models import (
+    atomic_rotate_refresh_token,
     cleanup_expired_tokens,
     create_refresh_token,
     delete_refresh_token,
     get_refresh_token,
-    rotate_refresh_token,
 )
 from .user_models import (
     User,
@@ -94,6 +94,7 @@ __all__ = [
     "User",
     "add_like",
     "add_user",
+    "atomic_rotate_refresh_token",
     "cleanup_expired_tokens",
     "cleanup_expired_verification_tokens",
     "create_comment",
@@ -141,7 +142,6 @@ __all__ = [
     "mark_as_read",
     "remove_like",
     "resolve_report",
-    "rotate_refresh_token",
     "update_comment",
     "update_password",
     "update_post",

@@ -271,36 +271,32 @@ async def search_users_by_nickname(query: str, exclude_user_ids: set[int], limit
 
 
 async def get_user_stats(user_id: int) -> dict:
-    """사용자 활동 통계 조회 (게시글 수, 댓글 수, 받은 좋아요 수)."""
-    async with get_connection() as conn:
-        async with conn.cursor() as cur_posts:
-            await cur_posts.execute(
-                "SELECT COUNT(*) FROM post WHERE author_id = %s AND deleted_at IS NULL",
-                (user_id,),
-            )
-            posts_row = await cur_posts.fetchone()
+    """사용자 활동 통계 조회 (게시글 수, 댓글 수, 받은 좋아요 수).
 
-        async with conn.cursor() as cur_comments:
-            await cur_comments.execute(
-                "SELECT COUNT(*) FROM comment WHERE author_id = %s AND deleted_at IS NULL",
-                (user_id,),
-            )
-            comments_row = await cur_comments.fetchone()
+    3개의 COUNT 쿼리를 단일 쿼리로 합쳐 DB 왕복 횟수를 줄입니다.
+    """
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            """
+            SELECT
+                (SELECT COUNT(*) FROM post WHERE author_id = %s AND deleted_at IS NULL) AS posts_count,
+                (SELECT COUNT(*) FROM comment WHERE author_id = %s AND deleted_at IS NULL) AS comments_count,
+                (SELECT COUNT(*)
+                 FROM post_like pl
+                 JOIN post p ON pl.post_id = p.id
+                 WHERE p.author_id = %s AND p.deleted_at IS NULL) AS likes_received_count
+            """,
+            (user_id, user_id, user_id),
+        )
+        row = await cur.fetchone()
 
-        async with conn.cursor() as cur_likes:
-            await cur_likes.execute(
-                "SELECT COUNT(*) FROM post_like pl "
-                "JOIN post p ON pl.post_id = p.id "
-                "WHERE p.author_id = %s AND p.deleted_at IS NULL",
-                (user_id,),
-            )
-            likes_row = await cur_likes.fetchone()
-
-    return {
-        "posts_count": posts_row[0] if posts_row else 0,
-        "comments_count": comments_row[0] if comments_row else 0,
-        "likes_received_count": likes_row[0] if likes_row else 0,
-    }
+    if row:
+        return {
+            "posts_count": row[0],
+            "comments_count": row[1],
+            "likes_received_count": row[2],
+        }
+    return {"posts_count": 0, "comments_count": 0, "likes_received_count": 0}
 
 
 async def get_user_email_by_nickname(nickname: str) -> str | None:

@@ -77,7 +77,7 @@ async def get_my_info(request: Request, current_user: User = Depends(get_current
     Returns:
         사용자 정보가 포함된 응답.
     """
-    return await auth_controller.get_my_info(current_user, request)
+    return await auth_controller.get_auth_status(current_user, request)
 
 
 @auth_router.post("/verify-email", status_code=status.HTTP_200_OK)

@@ -16,7 +16,7 @@ from fastapi import HTTPException, status
 from core.config import settings
 from models import token_models, user_models
 from models.user_models import User
-from utils.jwt_utils import create_access_token, create_refresh_token
+from utils.jwt_utils import create_access_token, create_refresh_token, hash_refresh_token
 from utils.password import verify_password
 
 logger = logging.getLogger(__name__)
@@ -165,16 +165,22 @@ class AuthService:
                 },
             )
 
-        # 토큰 회전: DELETE + INSERT를 단일 트랜잭션으로 묶어 원자성 보장
+        # 토큰 원자적 회전: SELECT FOR UPDATE + DELETE + INSERT를 단일 트랜잭션으로 묶어
+        # 동시 갱신 요청이 모두 성공하는 팬아웃(fan-out)을 방지
         new_access_token = create_access_token(user_id=user.id)
         new_raw_refresh = create_refresh_token()
         new_expires_at = datetime.now(UTC) + timedelta(days=settings.JWT_REFRESH_EXPIRE_DAYS)
-        await token_models.rotate_refresh_token(
-            old_raw_token=refresh_token_value,
-            new_raw_token=new_raw_refresh,
+        rotated = await token_models.atomic_rotate_refresh_token(
+            old_token_hash=hash_refresh_token(refresh_token_value),
             user_id=user.id,
+            new_token_hash=hash_refresh_token(new_raw_refresh),
             new_expires_at=new_expires_at,
         )
+        if not rotated:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={"error": "refresh_token_invalid", "timestamp": timestamp},
+            )
 
         return AuthResult(
             access_token=new_access_token,
