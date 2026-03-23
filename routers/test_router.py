@@ -4,12 +4,9 @@ TESTING=true 환경에서만 main.py에 등록됩니다.
 프로덕션 환경에서는 이 라우터가 등록되지 않아 엔드포인트 자체가 존재하지 않습니다.
 """
 
-from core.config import settings as _settings
 
-# 이중 게이트: TESTING=true가 프로덕션에 유출되더라도 DEBUG=false이면 차단한다.
-# test_router는 개발/테스트 전용이며 절대 프로덕션에서 활성화되어서는 안 된다.
-if not _settings.DEBUG:
-    raise RuntimeError("테스트 라우터는 DEBUG=True 환경에서만 사용할 수 있습니다.")
+# 보안: TESTING=true 없이는 이 모듈이 import되지 않음 (main.py 조건부 import)
+# 추가 방어는 main.py에서 TESTING + DEBUG 이중 체크로 처리
 
 from typing import Literal
 
