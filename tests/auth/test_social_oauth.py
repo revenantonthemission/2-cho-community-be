@@ -115,7 +115,11 @@ async def test_callback_creates_new_user(client: AsyncClient):
     assert resp.status_code == 302
     location = resp.headers["location"]
     assert "/social-signup" in location
-    assert "access_token=" in location
+
+    # access_token은 URL 대신 non-HttpOnly 쿠키로 전달 (보안: Referer 헤더 노출 방지)
+    set_cookie_headers = resp.headers.get_list("set-cookie")
+    token_cookies = [h for h in set_cookie_headers if "access_token_temp" in h]
+    assert len(token_cookies) > 0, "access_token_temp 쿠키가 설정되지 않음"
 
     user = await user_models.get_user_by_email(GITHUB_USER_INFO.email)  # type: ignore[arg-type]
     assert user is not None
