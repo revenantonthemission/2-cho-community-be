@@ -57,9 +57,7 @@ class PollService:
         try:
             await poll_models.vote(poll_id, option_id, user_id)
         except IntegrityError:
-            raise conflict_error(
-                ErrorCode.ALREADY_VOTED, timestamp, "이미 투표한 투표입니다."
-            )
+            raise conflict_error(ErrorCode.ALREADY_VOTED, timestamp, "이미 투표한 투표입니다.") from None
 
     @staticmethod
     async def cancel_vote(

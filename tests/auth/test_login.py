@@ -6,7 +6,6 @@ from httpx import AsyncClient
 from database.connection import get_connection
 from tests.conftest import create_verified_user
 
-
 # ---------------------------------------------------------------------------
 # 로그인 성공
 # ---------------------------------------------------------------------------
@@ -72,13 +71,12 @@ async def test_login_with_suspended_account_returns_403(client: AsyncClient, fak
     user = await create_verified_user(client, fake)
 
     # DB에서 직접 계정 정지 처리
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                "UPDATE user SET suspended_until = DATE_ADD(NOW(), INTERVAL 7 DAY), "
-                "suspended_reason = '테스트 정지' WHERE id = %s",
-                (user["user_id"],),
-            )
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            "UPDATE user SET suspended_until = DATE_ADD(NOW(), INTERVAL 7 DAY), "
+            "suspended_reason = '테스트 정지' WHERE id = %s",
+            (user["user_id"],),
+        )
 
     res = await client.post(
         "/v1/auth/session",

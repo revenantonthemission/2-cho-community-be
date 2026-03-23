@@ -3,8 +3,7 @@
 import pytest
 from httpx import AsyncClient
 
-from tests.conftest import create_verified_user, create_test_post, create_test_comment
-
+from tests.conftest import create_test_comment, create_test_post, create_verified_user
 
 # ---------------------------------------------------------------------------
 # 댓글 생성

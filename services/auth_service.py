@@ -7,8 +7,7 @@ HTTP 관련 처리(쿠키, Request/Response)는 컨트롤러에 위임합니다.
 import asyncio
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException, status
 
@@ -22,9 +21,7 @@ logger = logging.getLogger(__name__)
 
 # 타이밍 공격 방지: 존재하지 않는 사용자에 대해서도 bcrypt 비교를 수행하여 응답 시간 차이로
 # 사용자 존재 여부가 노출되지 않도록 함
-_TIMING_ATTACK_DUMMY_HASH = (
-    "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxwKc.60VF.wdz.xGto8.H82o.f2y"
-)
+_TIMING_ATTACK_DUMMY_HASH = "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxwKc.60VF.wdz.xGto8.H82o.f2y"
 
 
 @dataclass
@@ -40,9 +37,7 @@ class AuthService:
     """인증 비즈니스 로직 서비스."""
 
     @staticmethod
-    async def authenticate(
-        email: str, password: str, timestamp: str
-    ) -> AuthResult:
+    async def authenticate(email: str, password: str, timestamp: str) -> AuthResult:
         """이메일과 비밀번호로 사용자를 인증하고 토큰을 발급합니다.
 
         타이밍 공격 방지를 위해 사용자가 존재하지 않아도 bcrypt 비교를 수행합니다.
@@ -63,9 +58,7 @@ class AuthService:
 
         # 소셜 전용 계정(password=NULL): 타이밍 공격 방지 후 안내 메시지 반환
         if user and user.password is None:
-            await asyncio.to_thread(
-                verify_password, password, _TIMING_ATTACK_DUMMY_HASH
-            )
+            await asyncio.to_thread(verify_password, password, _TIMING_ATTACK_DUMMY_HASH)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
@@ -97,9 +90,7 @@ class AuthService:
                 detail={
                     "error": "account_suspended",
                     "message": "계정이 정지되었습니다.",
-                    "suspended_until": user.suspended_until.strftime(
-                        "%Y-%m-%dT%H:%M:%SZ"
-                    )
+                    "suspended_until": user.suspended_until.strftime("%Y-%m-%dT%H:%M:%SZ")
                     if user.suspended_until
                     else None,
                     "suspended_reason": user.suspended_reason,
@@ -110,9 +101,7 @@ class AuthService:
         access_token = create_access_token(user_id=user.id)
 
         raw_refresh = create_refresh_token()
-        expires_at = datetime.now(timezone.utc) + timedelta(
-            days=settings.JWT_REFRESH_EXPIRE_DAYS
-        )
+        expires_at = datetime.now(UTC) + timedelta(days=settings.JWT_REFRESH_EXPIRE_DAYS)
         await token_models.create_refresh_token(user.id, raw_refresh, expires_at)
 
         return AuthResult(
@@ -122,9 +111,7 @@ class AuthService:
         )
 
     @staticmethod
-    async def refresh_access_token(
-        refresh_token_value: str, timestamp: str
-    ) -> AuthResult:
+    async def refresh_access_token(refresh_token_value: str, timestamp: str) -> AuthResult:
         """리프레시 토큰을 검증하고 회전(rotate)하여 새 토큰 쌍을 발급합니다.
 
         토큰 회전: DELETE + INSERT를 단일 트랜잭션으로 묶어 원자성 보장.
@@ -167,9 +154,7 @@ class AuthService:
                 detail={
                     "error": "account_suspended",
                     "message": "계정이 정지되었습니다.",
-                    "suspended_until": user.suspended_until.strftime(
-                        "%Y-%m-%dT%H:%M:%SZ"
-                    )
+                    "suspended_until": user.suspended_until.strftime("%Y-%m-%dT%H:%M:%SZ")
                     if user.suspended_until
                     else None,
                     "suspended_reason": user.suspended_reason,
@@ -180,9 +165,7 @@ class AuthService:
         # 토큰 회전: DELETE + INSERT를 단일 트랜잭션으로 묶어 원자성 보장
         new_access_token = create_access_token(user_id=user.id)
         new_raw_refresh = create_refresh_token()
-        new_expires_at = datetime.now(timezone.utc) + timedelta(
-            days=settings.JWT_REFRESH_EXPIRE_DAYS
-        )
+        new_expires_at = datetime.now(UTC) + timedelta(days=settings.JWT_REFRESH_EXPIRE_DAYS)
         await token_models.rotate_refresh_token(
             old_raw_token=refresh_token_value,
             new_raw_token=new_raw_refresh,
@@ -197,7 +180,7 @@ class AuthService:
         )
 
     @staticmethod
-    async def logout(refresh_token_value: Optional[str]) -> None:
+    async def logout(refresh_token_value: str | None) -> None:
         """리프레시 토큰을 삭제하여 로그아웃 처리합니다.
 
         Args:

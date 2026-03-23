@@ -2,10 +2,10 @@
 
 import logging
 
-from models import post_models, comment_models
+from models import comment_models, post_models
 from models.user_models import get_user_by_nickname
 from utils.error_codes import ErrorCode
-from utils.exceptions import not_found_error, bad_request_error, forbidden_error, safe_notify
+from utils.exceptions import bad_request_error, forbidden_error, not_found_error, safe_notify
 from utils.mention import extract_mentions
 
 logger = logging.getLogger(__name__)
@@ -43,7 +43,8 @@ class CommentService:
 
         if comment.post_id != post_id:
             raise bad_request_error(
-                ErrorCode.COMMENT_NOT_IN_POST, timestamp,
+                ErrorCode.COMMENT_NOT_IN_POST,
+                timestamp,
             )
 
         return post, comment
@@ -84,20 +85,23 @@ class CommentService:
 
             if not parent_comment:
                 raise bad_request_error(
-                    ErrorCode.PARENT_COMMENT_NOT_FOUND, timestamp,
+                    ErrorCode.PARENT_COMMENT_NOT_FOUND,
+                    timestamp,
                     message="삭제된 댓글에 답글을 달 수 없습니다.",
                 )
 
             if parent_comment.post_id != post_id:
                 raise bad_request_error(
-                    ErrorCode.PARENT_COMMENT_NOT_IN_POST, timestamp,
+                    ErrorCode.PARENT_COMMENT_NOT_IN_POST,
+                    timestamp,
                     message="해당 게시글의 댓글이 아닙니다.",
                 )
 
             # 1단계 제한: 부모가 이미 대댓글이면 거부
             if parent_comment.parent_id is not None:
                 raise bad_request_error(
-                    ErrorCode.NESTED_REPLY_NOT_ALLOWED, timestamp,
+                    ErrorCode.NESTED_REPLY_NOT_ALLOWED,
+                    timestamp,
                     message="1단계 대댓글만 가능합니다.",
                 )
 
@@ -178,12 +182,15 @@ class CommentService:
             HTTPException: 게시글/댓글 없으면 404, 권한 없으면 403.
         """
         _, comment = await CommentService._validate_access(
-            post_id, comment_id, timestamp,
+            post_id,
+            comment_id,
+            timestamp,
         )
 
         if comment.author_id != user_id:
             raise forbidden_error(
-                "edit", timestamp,
+                "edit",
+                timestamp,
                 message="댓글 작성자만 수정/삭제할 수 있습니다.",
             )
 
@@ -191,7 +198,8 @@ class CommentService:
         old_mentions = set(extract_mentions(comment.content))
 
         updated_comment = await comment_models.update_comment(
-            comment_id, content,
+            comment_id,
+            content,
         )
         assert updated_comment is not None  # 댓글 존재는 위에서 검증됨
 
@@ -236,13 +244,16 @@ class CommentService:
             HTTPException: 게시글/댓글 없으면 404, 권한 없으면 403.
         """
         _, comment = await CommentService._validate_access(
-            post_id, comment_id, timestamp,
+            post_id,
+            comment_id,
+            timestamp,
         )
 
         # 관리자가 아닌 경우 작성자 검증
         if not is_admin and comment.author_id != user_id:
             raise forbidden_error(
-                "delete", timestamp,
+                "delete",
+                timestamp,
                 message="댓글 작성자만 수정/삭제할 수 있습니다.",
             )
 

@@ -3,8 +3,9 @@
 
 실행: pytest tests/smoke/ --base-url=https://api.my-community.shop --no-cov -v
 """
-import ssl
+
 import socket
+import ssl
 
 import pytest
 

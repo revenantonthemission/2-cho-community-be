@@ -5,13 +5,13 @@ from pydantic import BaseModel
 
 from controllers import notification_controller
 from dependencies.auth import get_current_user
-from models.user_models import User
+from dependencies.request_context import get_request_timestamp
 from models.notification_setting_models import (
     get_notification_settings,
     update_notification_settings,
 )
+from models.user_models import User
 from schemas.common import create_response
-from dependencies.request_context import get_request_timestamp
 
 router = APIRouter(prefix="/v1/notifications", tags=["notifications"])
 
@@ -33,9 +33,7 @@ async def get_notifications(
     limit: int = Query(20, ge=1, le=100),
     current_user: User = Depends(get_current_user),
 ):
-    return await notification_controller.get_notifications(
-        current_user, request, offset, limit
-    )
+    return await notification_controller.get_notifications(current_user, request, offset, limit)
 
 
 @router.get("/unread-count")
@@ -54,7 +52,8 @@ async def get_settings(
     """알림 유형별 설정 조회."""
     settings = await get_notification_settings(current_user.id)
     return create_response(
-        "QUERY_SUCCESS", "알림 설정을 조회했습니다.",
+        "QUERY_SUCCESS",
+        "알림 설정을 조회했습니다.",
         data={"settings": settings},
         timestamp=get_request_timestamp(request),
     )
@@ -70,7 +69,8 @@ async def update_settings(
     changes = {k: v for k, v in body.model_dump().items() if v is not None}
     updated = await update_notification_settings(current_user.id, changes)
     return create_response(
-        "SETTINGS_UPDATED", "알림 설정이 변경되었습니다.",
+        "SETTINGS_UPDATED",
+        "알림 설정이 변경되었습니다.",
         data={"settings": updated},
         timestamp=get_request_timestamp(request),
     )
@@ -91,9 +91,7 @@ async def mark_as_read(
     request: Request,
     current_user: User = Depends(get_current_user),
 ):
-    return await notification_controller.mark_as_read(
-        notification_id, current_user, request
-    )
+    return await notification_controller.mark_as_read(notification_id, current_user, request)
 
 
 @router.delete("/{notification_id}")
@@ -102,6 +100,4 @@ async def delete_notification(
     request: Request,
     current_user: User = Depends(get_current_user),
 ):
-    return await notification_controller.delete_notification(
-        notification_id, current_user, request
-    )
+    return await notification_controller.delete_notification(notification_id, current_user, request)

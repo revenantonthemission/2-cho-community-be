@@ -25,7 +25,7 @@ import math
 import random
 import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 # 프로젝트 루트를 PYTHONPATH에 추가
@@ -46,18 +46,58 @@ random.seed(42)
 
 TAG_NAMES = [
     # 인기 태그 (상위 10개 — post_tag의 50% 차지)
-    "ubuntu", "arch", "fedora", "debian", "docker",
-    "kernel", "systemd", "vim", "bash", "ssh",
+    "ubuntu",
+    "arch",
+    "fedora",
+    "debian",
+    "docker",
+    "kernel",
+    "systemd",
+    "vim",
+    "bash",
+    "ssh",
     # 중간 인기 (11~25)
-    "wayland", "gnome", "kde", "i3wm", "nginx",
-    "neovim", "zsh", "dotfiles", "xorg", "mint",
-    "git", "tmux", "서버관리", "보안", "네트워크",
+    "wayland",
+    "gnome",
+    "kde",
+    "i3wm",
+    "nginx",
+    "neovim",
+    "zsh",
+    "dotfiles",
+    "xorg",
+    "mint",
+    "git",
+    "tmux",
+    "서버관리",
+    "보안",
+    "네트워크",
     # 일반 (26~50)
-    "파일시스템", "패키지관리", "가상화", "백업", "모니터링",
-    "성능최적화", "apache", "cron", "firewall", "grub",
-    "btrfs", "zfs", "ansible", "terraform", "kubernetes",
-    "python", "rust", "go", "flatpak", "snap",
-    "opensuse", "manjaro", "rocky", "alpine", "proxmox",
+    "파일시스템",
+    "패키지관리",
+    "가상화",
+    "백업",
+    "모니터링",
+    "성능최적화",
+    "apache",
+    "cron",
+    "firewall",
+    "grub",
+    "btrfs",
+    "zfs",
+    "ansible",
+    "terraform",
+    "kubernetes",
+    "python",
+    "rust",
+    "go",
+    "flatpak",
+    "snap",
+    "opensuse",
+    "manjaro",
+    "rocky",
+    "alpine",
+    "proxmox",
 ]
 
 # 미리 해시된 비밀번호 (Test1234!)
@@ -72,18 +112,18 @@ DISTRO_WEIGHTS = [0.30, 0.15, 0.15, 0.12, 0.08, 0.05, 0.05, 0.05, 0.05]
 # ─────────────────────────────────────────────
 
 TOTAL_USERS = 50_000
-POWER_RATIO = 0.05   # 2,500명 — 게시글/댓글 다수 생성
+POWER_RATIO = 0.05  # 2,500명 — 게시글/댓글 다수 생성
 REGULAR_RATIO = 0.25  # 12,500명 — 일반적 활동
-READER_RATIO = 0.70   # 35,000명 — 주로 조회/좋아요
+READER_RATIO = 0.70  # 35,000명 — 주로 조회/좋아요
 
-POWER_COUNT = int(TOTAL_USERS * POWER_RATIO)      # 2,500
-REGULAR_COUNT = int(TOTAL_USERS * REGULAR_RATIO)   # 12,500
+POWER_COUNT = int(TOTAL_USERS * POWER_RATIO)  # 2,500
+REGULAR_COUNT = int(TOTAL_USERS * REGULAR_RATIO)  # 12,500
 READER_COUNT = TOTAL_USERS - POWER_COUNT - REGULAR_COUNT  # 35,000
 
 # 1-indexed ID 범위
-POWER_IDS = range(1, POWER_COUNT + 1)                              # 1 ~ 2,500
+POWER_IDS = range(1, POWER_COUNT + 1)  # 1 ~ 2,500
 REGULAR_IDS = range(POWER_COUNT + 1, POWER_COUNT + REGULAR_COUNT + 1)  # 2,501 ~ 15,000
-READER_IDS = range(POWER_COUNT + REGULAR_COUNT + 1, TOTAL_USERS + 1)   # 15,001 ~ 50,000
+READER_IDS = range(POWER_COUNT + REGULAR_COUNT + 1, TOTAL_USERS + 1)  # 15,001 ~ 50,000
 
 # 배치 크기
 BATCH_SIZE = 5_000
@@ -202,7 +242,7 @@ def growth_curve_timestamp(max_days: int = 365) -> datetime:
     """
     r = random.random() ** 2
     days_ago = r * max_days
-    return datetime.now(timezone.utc) - timedelta(
+    return datetime.now(UTC) - timedelta(
         days=days_ago,
         hours=random.randint(0, 23),
         minutes=random.randint(0, 59),
@@ -212,7 +252,7 @@ def growth_curve_timestamp(max_days: int = 365) -> datetime:
 
 def recent_timestamp(max_days: int = 7) -> datetime:
     """최근 N일 내 균등 분포 타임스탬프 (추천 피드 후보용)."""
-    return datetime.now(timezone.utc) - timedelta(
+    return datetime.now(UTC) - timedelta(
         days=random.uniform(0, max_days),
         hours=random.randint(0, 23),
         minutes=random.randint(0, 59),
@@ -310,27 +350,68 @@ def parse_args() -> argparse.Namespace:
 TOTAL_POSTS = 250_000
 
 TITLE_PREFIXES = [
-    "Ubuntu 업그레이드 후기", "Arch 설치 삽질기", "Fedora Wayland 경험",
-    "NVIDIA 드라이버 설치", "i3wm 설정 공유", "systemd 서비스 만들기",
-    "내 dotfiles 공유", "리눅스 면접 준비 정리", "커널 패닉 복구",
-    "ZFS vs Btrfs 비교", "WSL2 개발 환경 세팅", "SSH 터널링 활용법",
-    "Vim 플러그인 추천", "Docker 컨테이너 경량화", "리눅스 보안 강화",
-    "GRUB 커스텀 테마", "Flatpak vs Snap 비교", "tmux 설정 공유",
-    "Ansible로 서버 관리", "리눅스 데스크톱 쇼케이스", "커널 컴파일 후기",
-    "Wayland 전환 현황", "네트워크 트러블슈팅", "iptables 설정 가이드",
-    "Btrfs 스냅샷 활용", "KDE Plasma 커스텀", "GNOME 확장 추천",
-    "LVM 파티션 관리", "Podman vs Docker", "리눅스 서버 모니터링",
-    "SELinux 입문", "AppArmor 설정", "Cron 작업 자동화",
-    "NFS 마운트 설정", "WireGuard VPN 구축", "Proxmox 가상화",
-    "Raspberry Pi 프로젝트", "리눅스 백업 전략", "파일 권한 관리",
+    "Ubuntu 업그레이드 후기",
+    "Arch 설치 삽질기",
+    "Fedora Wayland 경험",
+    "NVIDIA 드라이버 설치",
+    "i3wm 설정 공유",
+    "systemd 서비스 만들기",
+    "내 dotfiles 공유",
+    "리눅스 면접 준비 정리",
+    "커널 패닉 복구",
+    "ZFS vs Btrfs 비교",
+    "WSL2 개발 환경 세팅",
+    "SSH 터널링 활용법",
+    "Vim 플러그인 추천",
+    "Docker 컨테이너 경량화",
+    "리눅스 보안 강화",
+    "GRUB 커스텀 테마",
+    "Flatpak vs Snap 비교",
+    "tmux 설정 공유",
+    "Ansible로 서버 관리",
+    "리눅스 데스크톱 쇼케이스",
+    "커널 컴파일 후기",
+    "Wayland 전환 현황",
+    "네트워크 트러블슈팅",
+    "iptables 설정 가이드",
+    "Btrfs 스냅샷 활용",
+    "KDE Plasma 커스텀",
+    "GNOME 확장 추천",
+    "LVM 파티션 관리",
+    "Podman vs Docker",
+    "리눅스 서버 모니터링",
+    "SELinux 입문",
+    "AppArmor 설정",
+    "Cron 작업 자동화",
+    "NFS 마운트 설정",
+    "WireGuard VPN 구축",
+    "Proxmox 가상화",
+    "Raspberry Pi 프로젝트",
+    "리눅스 백업 전략",
+    "파일 권한 관리",
     "Neovim 설정 공유",
 ]
 
 TITLE_SUFFIXES = [
-    "공유합니다", "질문입니다", "후기", "정리", "가이드",
-    "삽질기", "해결 방법", "비교 분석", "추천", "경험담",
-    "팁", "트러블슈팅", "설정법", "",
-    "", "", "", "", "",
+    "공유합니다",
+    "질문입니다",
+    "후기",
+    "정리",
+    "가이드",
+    "삽질기",
+    "해결 방법",
+    "비교 분석",
+    "추천",
+    "경험담",
+    "팁",
+    "트러블슈팅",
+    "설정법",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
 ]
 
 MARKDOWN_CONTENTS = [
@@ -339,7 +420,7 @@ MARKDOWN_CONTENTS = [
     "### i3wm 타일링 윈도우 매니저 설정 공유\n\n데스크톱 환경 없이 i3wm만 쓰고 있습니다.\n\n1. **i3-gaps** — 창 사이 간격 설정\n2. **polybar** — 상태 바 커스텀\n3. **rofi** — 앱 런처\n\n```bash\nbindsym $mod+Return exec alacritty\nbindsym $mod+d exec rofi -show drun\nbindsym $mod+Shift+q kill\n```",
     "## systemd 서비스 직접 만들기\n\n```ini\n[Unit]\nDescription=My Application\nAfter=network.target\n\n[Service]\nType=simple\nUser=www-data\nExecStart=/opt/myapp/run.sh\nRestart=on-failure\nRestartSec=5\n\n[Install]\nWantedBy=multi-user.target\n```\n\n> `Restart=on-failure`와 `RestartSec`을 꼭 설정하세요.",
     "NVIDIA 드라이버 삽질기를 공유합니다.\n\n### 증상\nUbuntu에서 `nvidia-smi` 실행 시 `No devices were found` 에러.\n\n### 해결\n```bash\nsudo mokutil --import /var/lib/dkms/mok.pub\n# 재부팅 후 MOK Manager에서 Enroll 선택\n```\n\nSecure Boot가 서명되지 않은 커널 모듈을 차단한 것이 원인이었습니다.",
-    "프론트엔드 개발할 때 WSL2 + Docker 조합이 편합니다.\n\n- **WSL2 Ubuntu** 안에서 개발 서버 실행\n- VS Code **Remote - WSL** 확장\n- `localhost` 포워딩 자동 지원\n\n```bash\ndocker info | grep \"Operating System\"\n# Docker Desktop (WSL2 backend)\n```\n\nWindows 파일시스템(`/mnt/c/`)에서 작업하면 느리니 `~/` 아래에서 작업하세요.",
+    '프론트엔드 개발할 때 WSL2 + Docker 조합이 편합니다.\n\n- **WSL2 Ubuntu** 안에서 개발 서버 실행\n- VS Code **Remote - WSL** 확장\n- `localhost` 포워딩 자동 지원\n\n```bash\ndocker info | grep "Operating System"\n# Docker Desktop (WSL2 backend)\n```\n\nWindows 파일시스템(`/mnt/c/`)에서 작업하면 느리니 `~/` 아래에서 작업하세요.',
     "## 내 dotfiles 관리 방법\n\nbare Git repo로 관리합니다.\n\n```bash\ngit init --bare $HOME/.dotfiles\nalias dotgit='git --git-dir=$HOME/.dotfiles --work-tree=$HOME'\ndotgit add ~/.bashrc ~/.config/i3/config\ndotgit commit -m \"i3 키바인딩 업데이트\"\n```\n\nStow나 chezmoi보다 간단하고, 별도 도구 설치가 필요 없어서 좋습니다.",
     "취업 준비하면서 정리한 **리눅스 면접 필수 개념**입니다.\n\n### 프로세스\n- `fork()` vs `exec()` vs `clone()`\n- 좀비 프로세스와 고아 프로세스\n\n### 파일 시스템\n- inode 구조, 하드링크 vs 심볼릭링크\n- `/proc`, `/sys` 가상 파일시스템\n\n### 네트워크\n- iptables/nftables 규칙 구조\n- TCP 3-way handshake, TIME_WAIT",
 ]
@@ -397,7 +478,7 @@ POLL_QUESTIONS = [
 # 전역 변수: poll_votes에서 사용
 _poll_options_map: dict[int, list[int]] = {}
 
-POSTS_POWER_AVG = 40    # 파워유저 평균 게시글
+POSTS_POWER_AVG = 40  # 파워유저 평균 게시글
 POSTS_REGULAR_AVG = 10  # 일반유저 평균
 POSTS_READER_AVG = 0.7  # 읽기전용 평균
 
@@ -532,30 +613,49 @@ async def clean_all_data(pool: aiomysql.Pool) -> None:
     # FK 자식 → 부모 순서 (31테이블 전체 커버)
     tables = [
         "user_post_score",
-        "wiki_page_tag", "wiki_page",
-        "package_review", "package",
-        "dm_message", "dm_conversation",
-        "poll_vote", "poll_option", "poll",
-        "post_tag", "tag", "user_follow", "user_block",
-        "comment_like", "post_bookmark", "post_image",
-        "notification_setting", "notification", "report", "post_view_log",
-        "post_like", "comment", "post_draft", "post",
-        "social_account", "email_verification", "refresh_token", "image",
-        "category", "user",
+        "wiki_page_tag",
+        "wiki_page",
+        "package_review",
+        "package",
+        "dm_message",
+        "dm_conversation",
+        "poll_vote",
+        "poll_option",
+        "poll",
+        "post_tag",
+        "tag",
+        "user_follow",
+        "user_block",
+        "comment_like",
+        "post_bookmark",
+        "post_image",
+        "notification_setting",
+        "notification",
+        "report",
+        "post_view_log",
+        "post_like",
+        "comment",
+        "post_draft",
+        "post",
+        "social_account",
+        "email_verification",
+        "refresh_token",
+        "image",
+        "category",
+        "user",
     ]
 
-    async with pool.acquire() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute("SET FOREIGN_KEY_CHECKS = 0")
-            try:
-                for table in tables:
-                    await cur.execute(f"TRUNCATE TABLE {table}")
-                    print(f"  TRUNCATE {table}")
-            finally:
-                await cur.execute("SET FOREIGN_KEY_CHECKS = 1")
+    async with pool.acquire() as conn, conn.cursor() as cur:
+        await cur.execute("SET FOREIGN_KEY_CHECKS = 0")
+        try:
+            for table in tables:
+                await cur.execute(f"TRUNCATE TABLE {table}")
+                print(f"  TRUNCATE {table}")
+        finally:
+            await cur.execute("SET FOREIGN_KEY_CHECKS = 1")
 
-            # 카테고리 시드 재삽입
-            await cur.execute("""
+        # 카테고리 시드 재삽입
+        await cur.execute("""
                 INSERT INTO category (name, slug, description, sort_order) VALUES
                     ('배포판', 'distro', 'Ubuntu, Fedora, Arch 등 배포판별 토론 공간입니다.', 1),
                     ('Q&A', 'qna', '리눅스 트러블슈팅, 설치, 설정 관련 질문과 답변입니다.', 2),
@@ -564,7 +664,7 @@ async def clean_all_data(pool: aiomysql.Pool) -> None:
                     ('팁/가이드', 'guide', '리눅스 튜토리얼과 How-to 가이드입니다.', 5),
                     ('공지사항', 'notice', '관리자 공지사항입니다.', 6)
             """)
-            print("  카테고리 시드 재삽입 완료 (6개)")
+        print("  카테고리 시드 재삽입 완료 (6개)")
     print("  전체 TRUNCATE 완료")
 
 
@@ -573,10 +673,9 @@ async def seed_categories(pool: aiomysql.Pool) -> None:
 
     이미 6개 이상 존재하면 스킵합니다.
     """
-    async with pool.acquire() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute("SELECT COUNT(*) FROM category")
-            (count,) = await cur.fetchone()
+    async with pool.acquire() as conn, conn.cursor() as cur:
+        await cur.execute("SELECT COUNT(*) FROM category")
+        (count,) = await cur.fetchone()
 
     if count >= 6:
         print(f"  카테고리: 이미 {count}개 존재 — 스킵")
@@ -591,9 +690,11 @@ async def seed_categories(pool: aiomysql.Pool) -> None:
         ("공지사항", "notice", "관리자 공지사항입니다.", 6),
     ]
     inserted = await batch_insert_raw(
-        pool, "category",
+        pool,
+        "category",
         ["name", "slug", "description", "sort_order"],
-        data, ignore=True,
+        data,
+        ignore=True,
     )
     print(f"  카테고리: {inserted}개 삽입")
 
@@ -602,7 +703,11 @@ async def seed_tags(pool: aiomysql.Pool) -> None:
     """태그 50개 삽입 (INSERT IGNORE)."""
     data = [(name,) for name in TAG_NAMES]
     inserted = await batch_insert_raw(
-        pool, "tag", ["name"], data, ignore=True,
+        pool,
+        "tag",
+        ["name"],
+        data,
+        ignore=True,
     )
     print(f"  태그: {inserted}개 삽입 (총 {len(TAG_NAMES)}개 시도)")
 
@@ -630,9 +735,21 @@ async def seed_users(pool: aiomysql.Pool) -> None:
 
     print("  사용자 INSERT 시작...")
     inserted = await batch_insert_raw(
-        pool, "user",
-        ["email", "email_verified", "nickname", "nickname_set", "password", "role", "distro", "created_at", "terms_agreed_at"],
-        data, ignore=True,
+        pool,
+        "user",
+        [
+            "email",
+            "email_verified",
+            "nickname",
+            "nickname_set",
+            "password",
+            "role",
+            "distro",
+            "created_at",
+            "terms_agreed_at",
+        ],
+        data,
+        ignore=True,
     )
     print(f"  사용자: {inserted:,}명 삽입 완료")
 
@@ -684,7 +801,8 @@ async def seed_posts(pool: aiomysql.Pool) -> None:
     progress(TOTAL_POSTS, TOTAL_POSTS, "게시글 데이터 생성")
 
     count = await batch_insert_raw(
-        pool, "post",
+        pool,
+        "post",
         ["title", "content", "image_url", "author_id", "category_id", "views", "created_at"],
         data,
         ignore=False,  # post 테이블에 UNIQUE 제약 없음
@@ -709,7 +827,11 @@ async def seed_post_tags(pool: aiomysql.Pool) -> None:
                 data.append((post_id, tag_id))
 
     count = await batch_insert_raw(
-        pool, "post_tag", ["post_id", "tag_id"], data, ignore=True,
+        pool,
+        "post_tag",
+        ["post_id", "tag_id"],
+        data,
+        ignore=True,
     )
     print(f"  게시글-태그: {count:,}개 삽입 완료")
 
@@ -728,7 +850,11 @@ async def seed_post_images(pool: aiomysql.Pool) -> None:
             data.append((post_id, image_url, order))
 
     count = await batch_insert_raw(
-        pool, "post_image", ["post_id", "image_url", "sort_order"], data, ignore=False,
+        pool,
+        "post_image",
+        ["post_id", "image_url", "sort_order"],
+        data,
+        ignore=False,
     )
     print(f"  게시글 이미지: {count:,}개 삽입 완료")
 
@@ -752,7 +878,7 @@ async def seed_polls(pool: aiomysql.Pool) -> None:
 
                     # 50%는 만료일 설정
                     if random.random() < 0.50:
-                        expires_at = datetime.now(timezone.utc) + timedelta(
+                        expires_at = datetime.now(UTC) + timedelta(
                             days=random.randint(1, 30),
                         )
                     else:
@@ -761,8 +887,7 @@ async def seed_polls(pool: aiomysql.Pool) -> None:
                     created_at = growth_curve_timestamp(365)
 
                     await cur.execute(
-                        "INSERT IGNORE INTO poll (post_id, question, expires_at, created_at) "
-                        "VALUES (%s, %s, %s, %s)",
+                        "INSERT IGNORE INTO poll (post_id, question, expires_at, created_at) VALUES (%s, %s, %s, %s)",
                         (post_id, question, expires_at, created_at),
                     )
                     poll_id = cur.lastrowid
@@ -776,8 +901,7 @@ async def seed_polls(pool: aiomysql.Pool) -> None:
 
                     for opt_text in options:
                         await cur.execute(
-                            "INSERT INTO poll_option (poll_id, option_text) "
-                            "VALUES (%s, %s)",
+                            "INSERT INTO poll_option (poll_id, option_text) VALUES (%s, %s)",
                             (poll_id, opt_text),
                         )
                         option_ids.append(cur.lastrowid)
@@ -823,21 +947,22 @@ async def seed_comments(pool: aiomysql.Pool) -> None:
             root_data.append((content, author_id, post_id, None, created_at))
 
         count1 += await batch_insert_raw(
-            pool, "comment",
+            pool,
+            "comment",
             ["content", "author_id", "post_id", "parent_id", "created_at"],
-            root_data, ignore=False,
+            root_data,
+            ignore=False,
         )
         progress(batch_end, root_count, "루트 댓글")
 
     # 대댓글 — parent_id의 post_id를 배치 조회
-    async with pool.acquire() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute("SELECT MIN(id), MAX(id) FROM comment WHERE parent_id IS NULL")
-            row = await cur.fetchone()
-            if not row or not row[0]:
-                print(f"  ✓ 댓글 {count1:,}개 (루트만)")
-                return
-            min_root_id, max_root_id = row
+    async with pool.acquire() as conn, conn.cursor() as cur:
+        await cur.execute("SELECT MIN(id), MAX(id) FROM comment WHERE parent_id IS NULL")
+        row = await cur.fetchone()
+        if not row or not row[0]:
+            print(f"  ✓ 댓글 {count1:,}개 (루트만)")
+            return
+        min_root_id, max_root_id = row
 
     # 대댓글을 배치로 생성: parent_id들의 post_id를 한번에 조회
     REPLY_BATCH = 10_000
@@ -847,13 +972,12 @@ async def seed_comments(pool: aiomysql.Pool) -> None:
         batch_parent_ids = [random.randint(min_root_id, max_root_id) for _ in range(batch_end - batch_start)]
 
         placeholders = ",".join(["%s"] * len(batch_parent_ids))
-        async with pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    f"SELECT id, post_id FROM comment WHERE id IN ({placeholders})",
-                    batch_parent_ids,
-                )
-                parent_map = {r[0]: r[1] for r in await cur.fetchall()}
+        async with pool.acquire() as conn, conn.cursor() as cur:
+            await cur.execute(
+                f"SELECT id, post_id FROM comment WHERE id IN ({placeholders})",
+                batch_parent_ids,
+            )
+            parent_map = {r[0]: r[1] for r in await cur.fetchall()}
 
         for parent_id in batch_parent_ids:
             mapped_post_id = parent_map.get(parent_id)
@@ -867,9 +991,11 @@ async def seed_comments(pool: aiomysql.Pool) -> None:
     count2 = 0
     if reply_data:
         count2 = await batch_insert_raw(
-            pool, "comment",
+            pool,
+            "comment",
             ["content", "author_id", "post_id", "parent_id", "created_at"],
-            reply_data, ignore=False,
+            reply_data,
+            ignore=False,
         )
     print(f"  ✓ 댓글 {count1 + count2:,}개 (루트 {count1:,}, 대댓글 {count2:,})")
 
@@ -894,9 +1020,11 @@ async def seed_post_likes(pool: aiomysql.Pool) -> None:
         data.append((user_id, post_id, created_at))
 
     count = await batch_insert_raw(
-        pool, "post_like",
+        pool,
+        "post_like",
         ["user_id", "post_id", "created_at"],
-        data, ignore=True,
+        data,
+        ignore=True,
     )
     print(f"  ✓ 게시글 좋아요 {count:,}개 삽입 완료")
 
@@ -921,9 +1049,11 @@ async def seed_bookmarks(pool: aiomysql.Pool) -> None:
         data.append((user_id, post_id, created_at))
 
     count = await batch_insert_raw(
-        pool, "post_bookmark",
+        pool,
+        "post_bookmark",
         ["user_id", "post_id", "created_at"],
-        data, ignore=True,
+        data,
+        ignore=True,
     )
     print(f"  ✓ 북마크 {count:,}개 삽입 완료")
 
@@ -933,14 +1063,13 @@ async def seed_comment_likes(pool: aiomysql.Pool) -> None:
     print(f"  댓글 좋아요 {TOTAL_COMMENT_LIKES:,}개 생성 중...")
 
     # 댓글 ID 범위 조회
-    async with pool.acquire() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute("SELECT MAX(id) FROM comment")
-            row = await cur.fetchone()
-            if not row or not row[0]:
-                print("  ✓ 댓글 좋아요 0개 (댓글 없음)")
-                return
-            max_comment_id = row[0]
+    async with pool.acquire() as conn, conn.cursor() as cur:
+        await cur.execute("SELECT MAX(id) FROM comment")
+        row = await cur.fetchone()
+        if not row or not row[0]:
+            print("  ✓ 댓글 좋아요 0개 (댓글 없음)")
+            return
+        max_comment_id = row[0]
 
     seen: set[tuple[int, int]] = set()
     data: list[tuple] = []
@@ -959,9 +1088,11 @@ async def seed_comment_likes(pool: aiomysql.Pool) -> None:
         data.append((user_id, comment_id, created_at))
 
     count = await batch_insert_raw(
-        pool, "comment_like",
+        pool,
+        "comment_like",
         ["user_id", "comment_id", "created_at"],
-        data, ignore=True,
+        data,
+        ignore=True,
     )
     print(f"  ✓ 댓글 좋아요 {count:,}개 삽입 완료")
 
@@ -989,9 +1120,11 @@ async def seed_view_logs(pool: aiomysql.Pool) -> None:
         data.append((user_id, post_id, created_at))
 
     count = await batch_insert_raw(
-        pool, "post_view_log",
+        pool,
+        "post_view_log",
         ["user_id", "post_id", "created_at"],
-        data, ignore=True,
+        data,
+        ignore=True,
     )
     print(f"  ✓ 조회 로그 {count:,}개 삽입 완료")
 
@@ -1037,9 +1170,11 @@ async def seed_poll_votes(pool: aiomysql.Pool) -> None:
             break
 
     count = await batch_insert_raw(
-        pool, "poll_vote",
+        pool,
+        "poll_vote",
         ["poll_id", "option_id", "user_id", "created_at"],
-        data, ignore=True,
+        data,
+        ignore=True,
     )
     print(f"  ✓ 투표 참여 {count:,}개 삽입 완료")
 
@@ -1078,8 +1213,11 @@ async def seed_follows(pool: aiomysql.Pool) -> None:
         attempts += 1
 
     count = await batch_insert_raw(
-        pool, "user_follow", ["follower_id", "following_id", "created_at"],
-        data[:TOTAL_FOLLOWS], ignore=True,
+        pool,
+        "user_follow",
+        ["follower_id", "following_id", "created_at"],
+        data[:TOTAL_FOLLOWS],
+        ignore=True,
     )
     print(f"  ✓ 팔로우 {count:,}개")
 
@@ -1100,8 +1238,11 @@ async def seed_blocks(pool: aiomysql.Pool) -> None:
         attempts += 1
 
     count = await batch_insert_raw(
-        pool, "user_block", ["blocker_id", "blocked_id", "created_at"],
-        data, ignore=True,
+        pool,
+        "user_block",
+        ["blocker_id", "blocked_id", "created_at"],
+        data,
+        ignore=True,
     )
     print(f"  ✓ 사용자 차단 {count:,}개")
 
@@ -1111,10 +1252,9 @@ async def seed_notifications(pool: aiomysql.Pool) -> None:
     print(f"  알림 {TOTAL_NOTIFICATIONS:,}개 생성 중...")
 
     # 실제 댓글 MAX(id) 조회 — 대댓글 스킵으로 TOTAL_COMMENTS보다 작을 수 있음
-    async with pool.acquire() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute("SELECT MAX(id) FROM comment")
-            (max_comment_id,) = await cur.fetchone()
+    async with pool.acquire() as conn, conn.cursor() as cur:
+        await cur.execute("SELECT MAX(id) FROM comment")
+        (max_comment_id,) = await cur.fetchone()
     max_comment_id = max_comment_id or TOTAL_COMMENTS
 
     # 타입 가중치: comment 20%, like 30%, mention 10%, follow 20%, bookmark 20%
@@ -1141,9 +1281,11 @@ async def seed_notifications(pool: aiomysql.Pool) -> None:
     progress(TOTAL_NOTIFICATIONS, TOTAL_NOTIFICATIONS, "알림 데이터 생성")
 
     count = await batch_insert_raw(
-        pool, "notification",
+        pool,
+        "notification",
         ["user_id", "type", "post_id", "comment_id", "actor_id", "is_read", "created_at"],
-        data, ignore=False,
+        data,
+        ignore=False,
     )
     print(f"  ✓ 알림 {count:,}개")
 
@@ -1188,12 +1330,26 @@ async def seed_reports(pool: aiomysql.Pool) -> None:
             resolved_by = 1  # admin
             resolved_at = created_at + timedelta(days=random.randint(1, 7))
 
-        data.append((reporter_id, target_type, target_id, reason, description, status, resolved_by, resolved_at, created_at))
+        data.append(
+            (reporter_id, target_type, target_id, reason, description, status, resolved_by, resolved_at, created_at)
+        )
 
     count = await batch_insert_raw(
-        pool, "report",
-        ["reporter_id", "target_type", "target_id", "reason", "description", "status", "resolved_by", "resolved_at", "created_at"],
-        data, ignore=True,
+        pool,
+        "report",
+        [
+            "reporter_id",
+            "target_type",
+            "target_id",
+            "reason",
+            "description",
+            "status",
+            "resolved_by",
+            "resolved_at",
+            "created_at",
+        ],
+        data,
+        ignore=True,
     )
     print(f"  ✓ 신고 {count:,}개")
 
@@ -1208,13 +1364,12 @@ async def seed_dms(pool: aiomysql.Pool) -> None:
     conv_pairs: list[tuple[int, int]] = []
 
     # 팔로우 기반 쌍
-    async with pool.acquire() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                "SELECT follower_id, following_id FROM user_follow ORDER BY RAND() LIMIT %s",
-                (follow_based * 2,),
-            )
-            follow_rows = await cur.fetchall()
+    async with pool.acquire() as conn, conn.cursor() as cur:
+        await cur.execute(
+            "SELECT follower_id, following_id FROM user_follow ORDER BY RAND() LIMIT %s",
+            (follow_based * 2,),
+        )
+        follow_rows = await cur.fetchall()
 
     for a, b in follow_rows:
         if len(conv_pairs) >= follow_based:
@@ -1240,7 +1395,7 @@ async def seed_dms(pool: aiomysql.Pool) -> None:
     total_messages = 0
     CONV_BATCH = 500
     for batch_start in range(0, len(conv_pairs), CONV_BATCH):
-        batch = conv_pairs[batch_start:batch_start + CONV_BATCH]
+        batch = conv_pairs[batch_start : batch_start + CONV_BATCH]
         async with pool.acquire() as conn:
             await conn.begin()
             try:
@@ -1313,9 +1468,15 @@ PACKAGES = [
 ]
 
 REVIEW_TITLES = [
-    "최고의 도구입니다", "매일 사용하는 필수 프로그램", "초보자에게 추천합니다",
-    "기대 이하였습니다", "대안이 더 나은 것 같아요", "설정이 좀 복잡하지만 강력합니다",
-    "리눅스 필수 패키지", "오래 써본 솔직한 후기", "입문용으로 괜찮습니다",
+    "최고의 도구입니다",
+    "매일 사용하는 필수 프로그램",
+    "초보자에게 추천합니다",
+    "기대 이하였습니다",
+    "대안이 더 나은 것 같아요",
+    "설정이 좀 복잡하지만 강력합니다",
+    "리눅스 필수 패키지",
+    "오래 써본 솔직한 후기",
+    "입문용으로 괜찮습니다",
     "프로덕션에서 검증된 도구",
 ]
 
@@ -1335,21 +1496,96 @@ REVIEW_CONTENTS = [
 TOTAL_PACKAGE_REVIEWS = 10_000
 
 WIKI_PAGES_DATA = [
-    ("Ubuntu 설치 가이드", "ubuntu-install-guide", "## Ubuntu 설치 가이드\n\n### USB 부팅 디스크 만들기\n```bash\nsudo dd if=ubuntu-24.04.iso of=/dev/sdX bs=4M status=progress\n```\n\n### 설치 후 필수 작업\n```bash\nsudo apt update && sudo apt upgrade -y\nsudo apt install build-essential curl wget\n```", ["ubuntu", "파일시스템"]),
-    ("Arch Linux 설치 가이드", "arch-install-guide", "## Arch Linux 수동 설치\n\n```bash\nfdisk /dev/sda\nmkfs.ext4 /dev/sda3\nmount /dev/sda3 /mnt\npacstrap /mnt base linux linux-firmware\ngenfstab -U /mnt >> /mnt/etc/fstab\narch-chroot /mnt\n```\n\n### 자주 빠뜨리는 것\n- `networkmanager` 설치 + `systemctl enable NetworkManager`", ["arch", "파일시스템"]),
-    ("한글 입력기 설정", "korean-input-setup", "## IBus + 한글 설정\n\n```bash\nsudo apt install ibus-hangul   # Ubuntu\nsudo dnf install ibus-hangul   # Fedora\nsudo pacman -S ibus-hangul     # Arch\n```\n\n환경 변수:\n```bash\nexport GTK_IM_MODULE=ibus\nexport QT_IM_MODULE=ibus\nexport XMODIFIERS=@im=ibus\n```", ["ubuntu", "fedora", "arch"]),
-    ("Windows 듀얼 부팅", "dual-boot-windows", "## 듀얼 부팅 설정\n\n1. Windows 디스크 축소\n2. Secure Boot 비활성화\n3. Linux 설치 (GRUB이 Windows 자동 감지)\n\n시간 동기화:\n```bash\ntimedatectl set-local-rtc 1\n```", ["ubuntu", "파일시스템"]),
-    ("NVIDIA 드라이버 설치", "nvidia-driver-install", "## NVIDIA 드라이버\n\n```bash\n# Ubuntu\nsudo ubuntu-drivers autoinstall\n# Fedora\nsudo dnf install akmod-nvidia\n# Arch\nsudo pacman -S nvidia nvidia-utils\n```\n\nSecure Boot 환경:\n```bash\nsudo mokutil --import /var/lib/dkms/mok.pub\n```", ["ubuntu", "fedora", "arch"]),
-    ("SSH 키 생성 및 설정", "ssh-key-setup", "## SSH 키 인증\n\n```bash\nssh-keygen -t ed25519 -C \"your@email.com\"\nssh-copy-id user@server-ip\n```\n\n보안 강화 (sshd_config):\n```\nPasswordAuthentication no\nPermitRootLogin no\n```", ["ssh", "보안", "서버관리"]),
-    ("systemd 서비스 만들기", "systemd-service-create", "## systemd 서비스\n\n```ini\n[Unit]\nDescription=My App\nAfter=network.target\n[Service]\nExecStart=/opt/myapp/start.sh\nRestart=on-failure\n[Install]\nWantedBy=multi-user.target\n```\n\n```bash\nsudo systemctl daemon-reload && sudo systemctl enable myapp\n```", ["systemd", "서버관리"]),
-    ("GRUB 부트로더 복구", "grub-recovery", "## GRUB 복구\n\nLive USB로 부팅 후:\n```bash\nsudo mount /dev/sda3 /mnt\nsudo mount /dev/sda1 /mnt/boot/efi\nsudo chroot /mnt\ngrub-install --target=x86_64-efi\nupdate-grub\n```", ["ubuntu", "arch"]),
-    ("UFW 방화벽 설정", "firewall-ufw-guide", "## UFW 방화벽\n\n```bash\nsudo ufw enable\nsudo ufw default deny incoming\nsudo ufw allow 22/tcp\nsudo ufw allow 80,443/tcp\n```\n\n> SSH 포트를 차단하면 원격 접속이 끊깁니다!", ["보안", "서버관리"]),
-    ("Docker 시작하기", "docker-getting-started", "## Docker 기본\n\n```bash\ncurl -fsSL https://get.docker.com | sh\nsudo usermod -aG docker $USER\n```\n\n```bash\ndocker run -d --name myapp -p 8080:80 nginx\ndocker logs -f myapp\n```", ["docker", "서버관리"]),
-    ("Vim 기본 사용법", "vim-basic-usage", "## Vim 입문\n\n모드: Normal(`Esc`), Insert(`i`), Visual(`v`), Command(`:`)\n\n```\ndd(줄 삭제), yy(복사), p(붙여넣기), u(취소)\n/pattern (검색), :wq (저장 종료)\n```\n\n> `vimtutor`로 30분 튜토리얼 먼저!", ["vim"]),
-    ("패키지 매니저 비교", "package-manager-comparison", "## 패키지 매니저\n\n| PM | 배포판 | 예시 |\n|---|---|---|\n| APT | Ubuntu | `apt install vim` |\n| DNF | Fedora | `dnf install vim` |\n| Pacman | Arch | `pacman -S vim` |", ["패키지관리", "ubuntu", "fedora", "arch"]),
-    ("리눅스 디렉토리 구조", "linux-directory-structure", "## FHS\n\n```\n/bin    필수 바이너리\n/etc    설정 파일\n/home   사용자 홈\n/var    가변 데이터 (로그)\n/proc   프로세스 가상 FS\n/tmp    임시 파일\n```", ["파일시스템"]),
-    ("Cron 작업 스케줄링", "cron-job-setup", "## Cron\n\n```bash\ncrontab -e\n```\n\n```\n분 시 일 월 요일 명령\n0 2 * * * /home/user/backup.sh\n*/5 * * * * health-check.sh\n```\n\n> cron은 환경 변수를 로드하지 않습니다. 절대 경로 사용하세요.", ["서버관리"]),
-    ("스왑 파티션 설정", "swap-partition-setup", "## 스왑 파일\n\n```bash\nsudo fallocate -l 4G /swapfile\nsudo chmod 600 /swapfile\nsudo mkswap /swapfile\nsudo swapon /swapfile\necho '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab\n```\n\nSSD는 swappiness를 10~20으로 낮추세요.", ["파일시스템", "성능최적화"]),
+    (
+        "Ubuntu 설치 가이드",
+        "ubuntu-install-guide",
+        "## Ubuntu 설치 가이드\n\n### USB 부팅 디스크 만들기\n```bash\nsudo dd if=ubuntu-24.04.iso of=/dev/sdX bs=4M status=progress\n```\n\n### 설치 후 필수 작업\n```bash\nsudo apt update && sudo apt upgrade -y\nsudo apt install build-essential curl wget\n```",
+        ["ubuntu", "파일시스템"],
+    ),
+    (
+        "Arch Linux 설치 가이드",
+        "arch-install-guide",
+        "## Arch Linux 수동 설치\n\n```bash\nfdisk /dev/sda\nmkfs.ext4 /dev/sda3\nmount /dev/sda3 /mnt\npacstrap /mnt base linux linux-firmware\ngenfstab -U /mnt >> /mnt/etc/fstab\narch-chroot /mnt\n```\n\n### 자주 빠뜨리는 것\n- `networkmanager` 설치 + `systemctl enable NetworkManager`",
+        ["arch", "파일시스템"],
+    ),
+    (
+        "한글 입력기 설정",
+        "korean-input-setup",
+        "## IBus + 한글 설정\n\n```bash\nsudo apt install ibus-hangul   # Ubuntu\nsudo dnf install ibus-hangul   # Fedora\nsudo pacman -S ibus-hangul     # Arch\n```\n\n환경 변수:\n```bash\nexport GTK_IM_MODULE=ibus\nexport QT_IM_MODULE=ibus\nexport XMODIFIERS=@im=ibus\n```",
+        ["ubuntu", "fedora", "arch"],
+    ),
+    (
+        "Windows 듀얼 부팅",
+        "dual-boot-windows",
+        "## 듀얼 부팅 설정\n\n1. Windows 디스크 축소\n2. Secure Boot 비활성화\n3. Linux 설치 (GRUB이 Windows 자동 감지)\n\n시간 동기화:\n```bash\ntimedatectl set-local-rtc 1\n```",
+        ["ubuntu", "파일시스템"],
+    ),
+    (
+        "NVIDIA 드라이버 설치",
+        "nvidia-driver-install",
+        "## NVIDIA 드라이버\n\n```bash\n# Ubuntu\nsudo ubuntu-drivers autoinstall\n# Fedora\nsudo dnf install akmod-nvidia\n# Arch\nsudo pacman -S nvidia nvidia-utils\n```\n\nSecure Boot 환경:\n```bash\nsudo mokutil --import /var/lib/dkms/mok.pub\n```",
+        ["ubuntu", "fedora", "arch"],
+    ),
+    (
+        "SSH 키 생성 및 설정",
+        "ssh-key-setup",
+        '## SSH 키 인증\n\n```bash\nssh-keygen -t ed25519 -C "your@email.com"\nssh-copy-id user@server-ip\n```\n\n보안 강화 (sshd_config):\n```\nPasswordAuthentication no\nPermitRootLogin no\n```',
+        ["ssh", "보안", "서버관리"],
+    ),
+    (
+        "systemd 서비스 만들기",
+        "systemd-service-create",
+        "## systemd 서비스\n\n```ini\n[Unit]\nDescription=My App\nAfter=network.target\n[Service]\nExecStart=/opt/myapp/start.sh\nRestart=on-failure\n[Install]\nWantedBy=multi-user.target\n```\n\n```bash\nsudo systemctl daemon-reload && sudo systemctl enable myapp\n```",
+        ["systemd", "서버관리"],
+    ),
+    (
+        "GRUB 부트로더 복구",
+        "grub-recovery",
+        "## GRUB 복구\n\nLive USB로 부팅 후:\n```bash\nsudo mount /dev/sda3 /mnt\nsudo mount /dev/sda1 /mnt/boot/efi\nsudo chroot /mnt\ngrub-install --target=x86_64-efi\nupdate-grub\n```",
+        ["ubuntu", "arch"],
+    ),
+    (
+        "UFW 방화벽 설정",
+        "firewall-ufw-guide",
+        "## UFW 방화벽\n\n```bash\nsudo ufw enable\nsudo ufw default deny incoming\nsudo ufw allow 22/tcp\nsudo ufw allow 80,443/tcp\n```\n\n> SSH 포트를 차단하면 원격 접속이 끊깁니다!",
+        ["보안", "서버관리"],
+    ),
+    (
+        "Docker 시작하기",
+        "docker-getting-started",
+        "## Docker 기본\n\n```bash\ncurl -fsSL https://get.docker.com | sh\nsudo usermod -aG docker $USER\n```\n\n```bash\ndocker run -d --name myapp -p 8080:80 nginx\ndocker logs -f myapp\n```",
+        ["docker", "서버관리"],
+    ),
+    (
+        "Vim 기본 사용법",
+        "vim-basic-usage",
+        "## Vim 입문\n\n모드: Normal(`Esc`), Insert(`i`), Visual(`v`), Command(`:`)\n\n```\ndd(줄 삭제), yy(복사), p(붙여넣기), u(취소)\n/pattern (검색), :wq (저장 종료)\n```\n\n> `vimtutor`로 30분 튜토리얼 먼저!",
+        ["vim"],
+    ),
+    (
+        "패키지 매니저 비교",
+        "package-manager-comparison",
+        "## 패키지 매니저\n\n| PM | 배포판 | 예시 |\n|---|---|---|\n| APT | Ubuntu | `apt install vim` |\n| DNF | Fedora | `dnf install vim` |\n| Pacman | Arch | `pacman -S vim` |",
+        ["패키지관리", "ubuntu", "fedora", "arch"],
+    ),
+    (
+        "리눅스 디렉토리 구조",
+        "linux-directory-structure",
+        "## FHS\n\n```\n/bin    필수 바이너리\n/etc    설정 파일\n/home   사용자 홈\n/var    가변 데이터 (로그)\n/proc   프로세스 가상 FS\n/tmp    임시 파일\n```",
+        ["파일시스템"],
+    ),
+    (
+        "Cron 작업 스케줄링",
+        "cron-job-setup",
+        "## Cron\n\n```bash\ncrontab -e\n```\n\n```\n분 시 일 월 요일 명령\n0 2 * * * /home/user/backup.sh\n*/5 * * * * health-check.sh\n```\n\n> cron은 환경 변수를 로드하지 않습니다. 절대 경로 사용하세요.",
+        ["서버관리"],
+    ),
+    (
+        "스왑 파티션 설정",
+        "swap-partition-setup",
+        "## 스왑 파일\n\n```bash\nsudo fallocate -l 4G /swapfile\nsudo chmod 600 /swapfile\nsudo mkswap /swapfile\nsudo swapon /swapfile\necho '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab\n```\n\nSSD는 swappiness를 10~20으로 낮추세요.",
+        ["파일시스템", "성능최적화"],
+    ),
 ]
 
 
@@ -1358,9 +1594,11 @@ async def seed_packages(pool: aiomysql.Pool) -> None:
     print(f"  패키지 {len(PACKAGES)}개 생성 중...")
     data = [(name, display, desc, url, cat, pm, 1) for name, display, desc, url, cat, pm in PACKAGES]
     count = await batch_insert_raw(
-        pool, "package",
+        pool,
+        "package",
         ["name", "display_name", "description", "homepage_url", "category", "package_manager", "created_by"],
-        data, ignore=True,
+        data,
+        ignore=True,
     )
     print(f"  ✓ 패키지 {count}개")
 
@@ -1389,9 +1627,11 @@ async def seed_package_reviews(pool: aiomysql.Pool) -> None:
         data.append((pkg_id, user_id, rating, title, content, created_at))
 
     count = await batch_insert_raw(
-        pool, "package_review",
+        pool,
+        "package_review",
         ["package_id", "user_id", "rating", "title", "content", "created_at"],
-        data, ignore=True,
+        data,
+        ignore=True,
     )
     print(f"  ✓ 패키지 리뷰 {count:,}개 (평점 1~5 균등)")
 
@@ -1452,9 +1692,11 @@ async def seed_notification_settings(pool: aiomysql.Pool) -> None:
         data.append((user_id, *settings))
 
     count = await batch_insert_raw(
-        pool, "notification_setting",
+        pool,
+        "notification_setting",
         ["user_id", "comment_enabled", "like_enabled", "mention_enabled", "follow_enabled", "bookmark_enabled"],
-        data, ignore=True,
+        data,
+        ignore=True,
     )
     print(f"  ✓ 알림 설정 {count:,}명 (각 타입 ~20% OFF)")
 
@@ -1462,56 +1704,74 @@ async def seed_notification_settings(pool: aiomysql.Pool) -> None:
 async def verify_data(pool: aiomysql.Pool) -> None:
     """시딩 결과 검증 (테이블별 행 수 + 무결성)."""
     tables = [
-        "user", "category", "tag", "post", "post_tag", "post_image",
-        "poll", "poll_option", "poll_vote",
-        "comment", "post_like", "post_bookmark", "comment_like", "post_view_log",
-        "user_follow", "user_block", "notification", "notification_setting", "report",
-        "dm_conversation", "dm_message",
-        "package", "package_review", "wiki_page", "wiki_page_tag",
+        "user",
+        "category",
+        "tag",
+        "post",
+        "post_tag",
+        "post_image",
+        "poll",
+        "poll_option",
+        "poll_vote",
+        "comment",
+        "post_like",
+        "post_bookmark",
+        "comment_like",
+        "post_view_log",
+        "user_follow",
+        "user_block",
+        "notification",
+        "notification_setting",
+        "report",
+        "dm_conversation",
+        "dm_message",
+        "package",
+        "package_review",
+        "wiki_page",
+        "wiki_page_tag",
     ]
 
     print("  테이블별 행 수:")
-    async with pool.acquire() as conn:
-        async with conn.cursor() as cur:
-            for table in tables:
-                await cur.execute(f"SELECT COUNT(*) FROM {table}")
-                (count,) = await cur.fetchone()
-                print(f"    {table:.<25s} {count:>12,}")
+    async with pool.acquire() as conn, conn.cursor() as cur:
+        for table in tables:
+            await cur.execute(f"SELECT COUNT(*) FROM {table}")
+            (count,) = await cur.fetchone()
+            print(f"    {table:.<25s} {count:>12,}")
 
-            # 무결성 검증 1: 고아 댓글 (parent_id가 존재하지 않는 comment 참조)
-            await cur.execute("""
+        # 무결성 검증 1: 고아 댓글 (parent_id가 존재하지 않는 comment 참조)
+        await cur.execute("""
                 SELECT COUNT(*) FROM comment c
                 WHERE c.parent_id IS NOT NULL
                 AND NOT EXISTS (SELECT 1 FROM comment p WHERE p.id = c.parent_id)
             """)
-            (orphan_comments,) = await cur.fetchone()
-            if orphan_comments:
-                print(f"  ⚠ 고아 댓글: {orphan_comments:,}개")
-            else:
-                print("  ✓ 고아 댓글 없음")
+        (orphan_comments,) = await cur.fetchone()
+        if orphan_comments:
+            print(f"  ⚠ 고아 댓글: {orphan_comments:,}개")
+        else:
+            print("  ✓ 고아 댓글 없음")
 
-            # 무결성 검증 2: DM 정규화 (participant1_id < participant2_id)
-            await cur.execute("""
+        # 무결성 검증 2: DM 정규화 (participant1_id < participant2_id)
+        await cur.execute("""
                 SELECT COUNT(*) FROM dm_conversation
                 WHERE participant1_id >= participant2_id
             """)
-            (bad_dm,) = await cur.fetchone()
-            if bad_dm:
-                print(f"  ⚠ DM 정규화 위반: {bad_dm:,}개")
-            else:
-                print("  ✓ DM 정규화 정상")
+        (bad_dm,) = await cur.fetchone()
+        if bad_dm:
+            print(f"  ⚠ DM 정규화 위반: {bad_dm:,}개")
+        else:
+            print("  ✓ DM 정규화 정상")
 
-            # 무결성 검증 3: 대댓글이 1단계만인지 확인
-            await cur.execute("""
+        # 무결성 검증 3: 대댓글이 1단계만인지 확인
+        await cur.execute("""
                 SELECT COUNT(*) FROM comment c
                 JOIN comment p ON c.parent_id = p.id
                 WHERE p.parent_id IS NOT NULL
             """)
-            (nested_replies,) = await cur.fetchone()
-            if nested_replies:
-                print(f"  ⚠ 2단계 이상 대댓글: {nested_replies:,}개")
-            else:
-                print("  ✓ 대댓글 1단계만 존재")
+        (nested_replies,) = await cur.fetchone()
+        if nested_replies:
+            print(f"  ⚠ 2단계 이상 대댓글: {nested_replies:,}개")
+        else:
+            print("  ✓ 대댓글 1단계만 존재")
 
 
 async def trigger_recompute(url: str) -> None:
@@ -1523,10 +1783,12 @@ async def trigger_recompute(url: str) -> None:
         import urllib.request
 
         # admin 로그인
-        login_data = json.dumps({
-            "email": "user1@example.com",
-            "password": "Test1234!",
-        }).encode()
+        login_data = json.dumps(
+            {
+                "email": "user1@example.com",
+                "password": "Test1234!",
+            }
+        ).encode()
         login_req = urllib.request.Request(
             f"{url}/v1/auth/login",
             data=login_data,
@@ -1593,11 +1855,10 @@ async def main() -> None:
 
     try:
         # 기존 데이터 카운트 확인
-        async with pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute("SELECT COUNT(*) FROM user")
-                (user_count,) = await cur.fetchone()
-                print(f"\n현재 user 테이블: {user_count:,}행")
+        async with pool.acquire() as conn, conn.cursor() as cur:
+            await cur.execute("SELECT COUNT(*) FROM user")
+            (user_count,) = await cur.fetchone()
+            print(f"\n현재 user 테이블: {user_count:,}행")
 
         # 기존 데이터 삭제
         if args.clean:

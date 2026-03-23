@@ -4,12 +4,12 @@
 """
 
 from .auth import get_current_user, get_optional_user, require_verified_email
-from .request_context import get_request_timestamp, get_request_time
+from .request_context import get_request_time, get_request_timestamp
 
 __all__ = [
     "get_current_user",
     "get_optional_user",
-    "require_verified_email",
-    "get_request_timestamp",
     "get_request_time",
+    "get_request_timestamp",
+    "require_verified_email",
 ]

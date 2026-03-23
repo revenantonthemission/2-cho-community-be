@@ -11,9 +11,8 @@ from database.connection import get_connection, transactional
 from models.comment_models import get_comments_with_author
 from schemas.common import build_author_dict
 
-
 # SQL Injection 방지: 허용된 컬럼명 whitelist
-ALLOWED_POST_COLUMNS = {'title', 'content', 'image_url', 'category_id', 'updated_at'}
+ALLOWED_POST_COLUMNS = {"title", "content", "image_url", "category_id", "updated_at"}
 
 # FULLTEXT BOOLEAN MODE 특수문자 이스케이프 패턴
 _FULLTEXT_SPECIAL_CHARS = re.compile(r'([+\-><()~*"@])')
@@ -21,7 +20,7 @@ _FULLTEXT_SPECIAL_CHARS = re.compile(r'([+\-><()~*"@])')
 
 def _escape_fulltext_query(query: str) -> str:
     """FULLTEXT BOOLEAN MODE 특수문자를 이스케이프합니다."""
-    return _FULLTEXT_SPECIAL_CHARS.sub(r'\\\1', query.strip())
+    return _FULLTEXT_SPECIAL_CHARS.sub(r"\\\1", query.strip())
 
 
 # SQL Injection 방지: 허용된 정렬 옵션 whitelist
@@ -110,44 +109,46 @@ async def get_total_posts_count(
     Returns:
         게시글 총 개수.
     """
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            where = "deleted_at IS NULL"
-            params: list = []
+    async with get_connection() as conn, conn.cursor() as cur:
+        where = "deleted_at IS NULL"
+        params: list = []
 
-            if search:
-                escaped = _escape_fulltext_query(search)
-                where += " AND MATCH(title, content) AGAINST(%s IN BOOLEAN MODE)"
-                params.append(escaped)
+        if search:
+            escaped = _escape_fulltext_query(search)
+            where += " AND MATCH(title, content) AGAINST(%s IN BOOLEAN MODE)"
+            params.append(escaped)
 
-            if author_id is not None:
-                where += " AND author_id = %s"
-                params.append(author_id)
+        if author_id is not None:
+            where += " AND author_id = %s"
+            params.append(author_id)
 
-            if category_id is not None:
-                where += " AND category_id = %s"
-                params.append(category_id)
+        if category_id is not None:
+            where += " AND category_id = %s"
+            params.append(category_id)
 
-            if blocked_user_ids:
-                placeholders = ", ".join(["%s"] * len(blocked_user_ids))
-                where += f" AND (author_id NOT IN ({placeholders}) OR author_id IS NULL)"
-                params.extend(blocked_user_ids)
+        if blocked_user_ids:
+            placeholders = ", ".join(["%s"] * len(blocked_user_ids))
+            where += f" AND (author_id NOT IN ({placeholders}) OR author_id IS NULL)"
+            params.extend(blocked_user_ids)
 
-            if author_ids:
-                placeholders = ", ".join(["%s"] * len(author_ids))
-                where += f" AND author_id IN ({placeholders})"
-                params.extend(author_ids)
+        if author_ids:
+            placeholders = ", ".join(["%s"] * len(author_ids))
+            where += f" AND author_id IN ({placeholders})"
+            params.extend(author_ids)
 
-            if tag:
-                where += " AND EXISTS (SELECT 1 FROM post_tag pt INNER JOIN tag t ON pt.tag_id = t.id WHERE pt.post_id = post.id AND t.name = %s)"
-                params.append(tag)
-
-            await cur.execute(
-                f"SELECT COUNT(*) FROM post WHERE {where}",
-                params,
+        if tag:
+            where += (
+                " AND EXISTS (SELECT 1 FROM post_tag pt INNER JOIN tag t"
+                " ON pt.tag_id = t.id WHERE pt.post_id = post.id AND t.name = %s)"
             )
-            row = await cur.fetchone()
-            return row[0] if row else 0
+            params.append(tag)
+
+        await cur.execute(
+            f"SELECT COUNT(*) FROM post WHERE {where}",
+            params,
+        )
+        row = await cur.fetchone()
+        return row[0] if row else 0
 
 
 async def get_post_by_id(post_id: int) -> Post | None:
@@ -159,19 +160,18 @@ async def get_post_by_id(post_id: int) -> Post | None:
     Returns:
         게시글 객체, 없거나 삭제된 경우 None.
     """
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            """
                 SELECT id, title, content, image_url, author_id, category_id,
                        is_pinned, views, created_at, updated_at, deleted_at
                 FROM post
                 WHERE id = %s AND deleted_at IS NULL
                 """,
-                (post_id,),
-            )
-            row = await cur.fetchone()
-            return _row_to_post(row) if row else None
+            (post_id,),
+        )
+        row = await cur.fetchone()
+        return _row_to_post(row) if row else None
 
 
 async def create_post(
@@ -263,7 +263,7 @@ async def update_post(
 
     # SQL Injection 방지: 컬럼명 검증
     for update_clause in updates:
-        column_name = update_clause.split(' = ')[0]
+        column_name = update_clause.split(" = ")[0]
         if column_name not in ALLOWED_POST_COLUMNS:
             raise ValueError(f"Invalid column name: {column_name}")
 
@@ -357,14 +357,13 @@ async def get_read_post_ids(user_id: int, post_ids: list[int]) -> set[int]:
     """사용자가 조회한 게시글 ID 집합을 반환합니다."""
     if not post_ids:
         return set()
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            placeholders = ", ".join(["%s"] * len(post_ids))
-            await cur.execute(
-                f"SELECT DISTINCT post_id FROM post_view_log WHERE user_id = %s AND post_id IN ({placeholders})",
-                [user_id, *post_ids],
-            )
-            return {row[0] for row in await cur.fetchall()}
+    async with get_connection() as conn, conn.cursor() as cur:
+        placeholders = ", ".join(["%s"] * len(post_ids))
+        await cur.execute(
+            f"SELECT DISTINCT post_id FROM post_view_log WHERE user_id = %s AND post_id IN ({placeholders})",
+            [user_id, *post_ids],
+        )
+        return {row[0] for row in await cur.fetchall()}
 
 
 async def get_posts_with_details(
@@ -431,7 +430,10 @@ async def get_posts_with_details(
         params.extend(author_ids)
 
     if tag:
-        where += " AND EXISTS (SELECT 1 FROM post_tag pt INNER JOIN tag t ON pt.tag_id = t.id WHERE pt.post_id = p.id AND t.name = %s)"
+        where += (
+            " AND EXISTS (SELECT 1 FROM post_tag pt INNER JOIN tag t"
+            " ON pt.tag_id = t.id WHERE pt.post_id = p.id AND t.name = %s)"
+        )
         params.append(tag)
 
     # 추천 피드 JOIN 처리 (current_user_id 없으면 latest 폴백)
@@ -447,10 +449,9 @@ async def get_posts_with_details(
 
     params.extend([limit, offset])
 
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                f"""
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            f"""
                 SELECT
                     p.id, p.title, p.content, p.image_url, p.views,
                     p.created_at, p.updated_at,
@@ -489,29 +490,29 @@ async def get_posts_with_details(
                 ORDER BY p.is_pinned DESC, {order_by}
                 LIMIT %s OFFSET %s
                 """,
-                [*join_params, *params],
-            )
-            rows = await cur.fetchall()
+            [*join_params, *params],
+        )
+        rows = await cur.fetchall()
 
-            return [
-                {
-                    "post_id": row[0],
-                    "title": row[1],
-                    "content": row[2],
-                    "image_url": row[3],
-                    "views_count": row[4],
-                    "created_at": row[5],
-                    "updated_at": row[6],
-                    "author": build_author_dict(row[7], row[8], row[9], row[10]),
-                    "likes_count": row[11],
-                    "comments_count": row[12],
-                    "is_pinned": bool(row[13]),
-                    "category_id": row[14],
-                    "category_name": row[15],
-                    "bookmarks_count": row[16],
-                }
-                for row in rows
-            ]
+        return [
+            {
+                "post_id": row[0],
+                "title": row[1],
+                "content": row[2],
+                "image_url": row[3],
+                "views_count": row[4],
+                "created_at": row[5],
+                "updated_at": row[6],
+                "author": build_author_dict(row[7], row[8], row[9], row[10]),
+                "likes_count": row[11],
+                "comments_count": row[12],
+                "is_pinned": bool(row[13]),
+                "category_id": row[14],
+                "category_name": row[15],
+                "bookmarks_count": row[16],
+            }
+            for row in rows
+        ]
 
 
 async def get_post_with_details(post_id: int) -> dict | None:
@@ -523,10 +524,9 @@ async def get_post_with_details(post_id: int) -> dict | None:
     Returns:
         게시글 상세 정보 딕셔너리, 없으면 None.
     """
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            """
                 SELECT p.id, p.title, p.content, p.image_url, p.views, p.created_at, p.updated_at,
                        u.id, u.nickname, u.profile_img, u.distro,
                        (SELECT COUNT(*) FROM post_like WHERE post_id = p.id) as likes_count,
@@ -537,28 +537,28 @@ async def get_post_with_details(post_id: int) -> dict | None:
                 LEFT JOIN category cat ON p.category_id = cat.id
                 WHERE p.id = %s AND p.deleted_at IS NULL
                 """,
-                (post_id,),
-            )
-            row = await cur.fetchone()
+            (post_id,),
+        )
+        row = await cur.fetchone()
 
-            if not row:
-                return None
+        if not row:
+            return None
 
-            return {
-                "post_id": row[0],
-                "title": row[1],
-                "content": row[2],
-                "image_url": row[3],
-                "views_count": row[4],
-                "created_at": row[5],
-                "updated_at": row[6],
-                "author": build_author_dict(row[7], row[8], row[9], row[10]),
-                "likes_count": row[11],
-                "is_pinned": bool(row[12]),
-                "category_id": row[13],
-                "category_name": row[14],
-                "bookmarks_count": row[15],
-            }
+        return {
+            "post_id": row[0],
+            "title": row[1],
+            "content": row[2],
+            "image_url": row[3],
+            "views_count": row[4],
+            "created_at": row[5],
+            "updated_at": row[6],
+            "author": build_author_dict(row[7], row[8], row[9], row[10]),
+            "likes_count": row[11],
+            "is_pinned": bool(row[12]),
+            "category_id": row[13],
+            "category_name": row[14],
+            "bookmarks_count": row[15],
+        }
 
 
 async def pin_post(post_id: int) -> bool:
@@ -626,22 +626,18 @@ async def save_post_images(post_id: int, image_urls: list[str]) -> None:
 
 async def get_post_images(post_id: int) -> list[dict]:
     """게시글의 이미지 목록을 순서대로 반환합니다."""
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            """
                 SELECT id, image_url, sort_order
                 FROM post_image
                 WHERE post_id = %s
                 ORDER BY sort_order
                 """,
-                (post_id,),
-            )
-            rows = await cur.fetchall()
-            return [
-                {"id": row[0], "image_url": row[1], "sort_order": row[2]}
-                for row in rows
-            ]
+            (post_id,),
+        )
+        rows = await cur.fetchall()
+        return [{"id": row[0], "image_url": row[1], "sort_order": row[2]} for row in rows]
 
 
 async def get_related_posts(
@@ -694,10 +690,9 @@ async def get_related_posts(
 
     params.extend([limit])
 
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                f"""
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            f"""
                 SELECT
                     p.id, p.title, p.content, p.image_url, p.views,
                     p.created_at, p.updated_at,
@@ -738,30 +733,30 @@ async def get_related_posts(
                 ORDER BY matched_tags DESC, same_category DESC, hot_score DESC
                 LIMIT %s
                 """,
-                # 파라미터 순서: cat_params(SELECT CASE), tag_params(JOIN IN), params(WHERE+LIMIT)
-                [*cat_params, *tag_params, *params],
-            )
-            rows = await cur.fetchall()
+            # 파라미터 순서: cat_params(SELECT CASE), tag_params(JOIN IN), params(WHERE+LIMIT)
+            [*cat_params, *tag_params, *params],
+        )
+        rows = await cur.fetchall()
 
-            return [
-                {
-                    "post_id": row[0],
-                    "title": row[1],
-                    "content": row[2],
-                    "image_url": row[3],
-                    "views_count": row[4],
-                    "created_at": row[5],
-                    "updated_at": row[6],
-                    "author": build_author_dict(row[7], row[8], row[9], row[10]),
-                    "likes_count": row[11],
-                    "comments_count": row[12],
-                    "is_pinned": bool(row[13]),
-                    "category_id": row[14],
-                    "category_name": row[15],
-                    "bookmarks_count": row[16],
-                }
-                for row in rows
-            ]
+        return [
+            {
+                "post_id": row[0],
+                "title": row[1],
+                "content": row[2],
+                "image_url": row[3],
+                "views_count": row[4],
+                "created_at": row[5],
+                "updated_at": row[6],
+                "author": build_author_dict(row[7], row[8], row[9], row[10]),
+                "likes_count": row[11],
+                "comments_count": row[12],
+                "is_pinned": bool(row[13]),
+                "category_id": row[14],
+                "category_name": row[15],
+                "bookmarks_count": row[16],
+            }
+            for row in rows
+        ]
 
 
 # get_comments_with_author는 comment_models.py에서 정의됨 (상단 import 참조)

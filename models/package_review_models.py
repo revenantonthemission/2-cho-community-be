@@ -4,7 +4,6 @@ from database.connection import get_connection, transactional
 from schemas.common import DEFAULT_PROFILE_IMAGE
 from utils.formatters import format_datetime
 
-
 # SQL Injection 방지: 허용된 리뷰 정렬 옵션 whitelist
 ALLOWED_REVIEW_SORT_OPTIONS = {
     "latest": "pr.created_at DESC",
@@ -56,10 +55,9 @@ async def get_review_by_id(review_id: int) -> dict | None:
     Returns:
         리뷰 딕셔너리, 없거나 삭제된 경우 None.
     """
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            """
                 SELECT pr.id, pr.package_id, pr.rating, pr.title, pr.content,
                        pr.created_at, pr.updated_at,
                        u.id, u.nickname, u.profile_img, u.distro
@@ -67,26 +65,26 @@ async def get_review_by_id(review_id: int) -> dict | None:
                 LEFT JOIN user u ON pr.user_id = u.id
                 WHERE pr.id = %s AND pr.deleted_at IS NULL
                 """,
-                (review_id,),
-            )
-            row = await cur.fetchone()
-            if not row:
-                return None
-            return {
-                "review_id": row[0],
-                "package_id": row[1],
-                "rating": row[2],
-                "title": row[3],
-                "content": row[4],
-                "created_at": format_datetime(row[5]),
-                "updated_at": format_datetime(row[6]),
-                "author": {
-                    "user_id": row[7],
-                    "nickname": row[8],
-                    "profileImageUrl": row[9] or DEFAULT_PROFILE_IMAGE,
-                    "distro": row[10],
-                },
-            }
+            (review_id,),
+        )
+        row = await cur.fetchone()
+        if not row:
+            return None
+        return {
+            "review_id": row[0],
+            "package_id": row[1],
+            "rating": row[2],
+            "title": row[3],
+            "content": row[4],
+            "created_at": format_datetime(row[5]),
+            "updated_at": format_datetime(row[6]),
+            "author": {
+                "user_id": row[7],
+                "nickname": row[8],
+                "profileImageUrl": row[9] or DEFAULT_PROFILE_IMAGE,
+                "distro": row[10],
+            },
+        }
 
 
 async def get_reviews_by_package(
@@ -106,14 +104,11 @@ async def get_reviews_by_package(
     Returns:
         리뷰 딕셔너리 목록.
     """
-    sort_clause = ALLOWED_REVIEW_SORT_OPTIONS.get(
-        sort, ALLOWED_REVIEW_SORT_OPTIONS["latest"]
-    )
+    sort_clause = ALLOWED_REVIEW_SORT_OPTIONS.get(sort, ALLOWED_REVIEW_SORT_OPTIONS["latest"])
 
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                f"""
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            f"""
                 SELECT pr.id, pr.rating, pr.title, pr.content,
                        pr.created_at, pr.updated_at,
                        u.id, u.nickname, u.profile_img, u.distro
@@ -123,27 +118,27 @@ async def get_reviews_by_package(
                 ORDER BY {sort_clause}
                 LIMIT %s OFFSET %s
                 """,
-                (package_id, limit, offset),
-            )
-            rows = await cur.fetchall()
+            (package_id, limit, offset),
+        )
+        rows = await cur.fetchall()
 
-            return [
-                {
-                    "review_id": row[0],
-                    "rating": row[1],
-                    "title": row[2],
-                    "content": row[3],
-                    "created_at": format_datetime(row[4]),
-                    "updated_at": format_datetime(row[5]),
-                    "author": {
-                        "user_id": row[6],
-                        "nickname": row[7],
-                        "profileImageUrl": row[8] or DEFAULT_PROFILE_IMAGE,
-                        "distro": row[9],
-                    },
-                }
-                for row in rows
-            ]
+        return [
+            {
+                "review_id": row[0],
+                "rating": row[1],
+                "title": row[2],
+                "content": row[3],
+                "created_at": format_datetime(row[4]),
+                "updated_at": format_datetime(row[5]),
+                "author": {
+                    "user_id": row[6],
+                    "nickname": row[7],
+                    "profileImageUrl": row[8] or DEFAULT_PROFILE_IMAGE,
+                    "distro": row[9],
+                },
+            }
+            for row in rows
+        ]
 
 
 async def get_reviews_count(package_id: int) -> int:
@@ -155,17 +150,16 @@ async def get_reviews_count(package_id: int) -> int:
     Returns:
         리뷰 수.
     """
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            """
                 SELECT COUNT(*) FROM package_review
                 WHERE package_id = %s AND deleted_at IS NULL
                 """,
-                (package_id,),
-            )
-            row = await cur.fetchone()
-            return row[0] if row else 0
+            (package_id,),
+        )
+        row = await cur.fetchone()
+        return row[0] if row else 0
 
 
 async def get_user_review(package_id: int, user_id: int) -> dict | None:
@@ -178,28 +172,27 @@ async def get_user_review(package_id: int, user_id: int) -> dict | None:
     Returns:
         리뷰 딕셔너리, 없으면 None.
     """
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            """
                 SELECT pr.id, pr.rating, pr.title, pr.content,
                        pr.created_at, pr.updated_at
                 FROM package_review pr
                 WHERE pr.package_id = %s AND pr.user_id = %s AND pr.deleted_at IS NULL
                 """,
-                (package_id, user_id),
-            )
-            row = await cur.fetchone()
-            if not row:
-                return None
-            return {
-                "review_id": row[0],
-                "rating": row[1],
-                "title": row[2],
-                "content": row[3],
-                "created_at": format_datetime(row[4]),
-                "updated_at": format_datetime(row[5]),
-            }
+            (package_id, user_id),
+        )
+        row = await cur.fetchone()
+        if not row:
+            return None
+        return {
+            "review_id": row[0],
+            "rating": row[1],
+            "title": row[2],
+            "content": row[3],
+            "created_at": format_datetime(row[4]),
+            "updated_at": format_datetime(row[5]),
+        }
 
 
 async def update_review(

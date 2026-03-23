@@ -5,8 +5,8 @@
 
 from fastapi import APIRouter, status
 from fastapi.responses import HTMLResponse
-from controllers import terms_controller
 
+from controllers import terms_controller
 
 terms_router = APIRouter(prefix="/v1/terms", tags=["terms"])
 """이용약관 관련 라우터 인스턴스."""

@@ -4,8 +4,7 @@ import re
 
 from pydantic import BaseModel, Field, field_validator
 
-
-_SLUG_RE = re.compile(r'^[a-z0-9]+(?:-[a-z0-9]+)*$')
+_SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 
 class CreateWikiPageRequest(BaseModel):

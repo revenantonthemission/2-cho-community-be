@@ -4,10 +4,10 @@ import logging
 
 from fastapi import Request
 
+from dependencies.request_context import get_request_timestamp
 from models import admin_models
 from models.user_models import User
 from schemas.common import create_response
-from dependencies.request_context import get_request_timestamp
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +65,8 @@ async def cleanup_tokens(request: Request) -> dict:
 
     logger.info(
         "토큰 정리 완료: refresh=%d, verification=%d",
-        refresh_deleted, verification_deleted,
+        refresh_deleted,
+        verification_deleted,
     )
 
     return {

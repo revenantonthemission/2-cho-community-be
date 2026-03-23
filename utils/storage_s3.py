@@ -166,11 +166,11 @@ def _url_to_key(url: str) -> str | None:
     if S3_UPLOADS_CDN_DOMAIN and S3_UPLOADS_CDN_DOMAIN in url:
         prefix = f"https://{S3_UPLOADS_CDN_DOMAIN}/"
         if url.startswith(prefix):
-            return url[len(prefix):]
+            return url[len(prefix) :]
 
     # S3 URL: https://bucket.s3.region.amazonaws.com/uploads/profiles/uuid.jpg
     s3_prefix = f"https://{S3_UPLOADS_BUCKET}.s3.{S3_REGION}.amazonaws.com/"
     if url.startswith(s3_prefix):
-        return url[len(s3_prefix):]
+        return url[len(s3_prefix) :]
 
     return None

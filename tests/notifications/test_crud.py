@@ -6,11 +6,10 @@
 import pytest
 
 from tests.conftest import (
-    create_verified_user,
-    create_test_post,
     create_test_comment,
+    create_test_post,
+    create_verified_user,
 )
-
 
 # ==========================================
 # 알림 생성 (부작용)
@@ -19,7 +18,8 @@ from tests.conftest import (
 
 @pytest.mark.asyncio
 async def test_comment_creates_notification_for_post_author(
-    client, two_users_with_post,
+    client,
+    two_users_with_post,
 ):
     """다른 사용자가 게시글에 댓글을 작성하면 작성자에게 알림이 생성된다."""
     # Arrange
@@ -43,7 +43,8 @@ async def test_comment_creates_notification_for_post_author(
 
 @pytest.mark.asyncio
 async def test_like_creates_notification_for_post_author(
-    client, two_users_with_post,
+    client,
+    two_users_with_post,
 ):
     """다른 사용자가 게시글에 좋아요를 누르면 작성자에게 알림이 생성된다."""
     # Arrange
@@ -53,7 +54,8 @@ async def test_like_creates_notification_for_post_author(
 
     # Act — 다른 사용자가 좋아요
     like_res = await client.post(
-        f"/v1/posts/{post_id}/likes", headers=other["headers"],
+        f"/v1/posts/{post_id}/likes",
+        headers=other["headers"],
     )
     assert like_res.status_code == 201
 
@@ -76,7 +78,8 @@ async def test_follow_creates_notification(client, fake):
 
     # Act — 팔로우
     follow_res = await client.post(
-        f"/v1/users/{target['user_id']}/follow", headers=follower["headers"],
+        f"/v1/users/{target['user_id']}/follow",
+        headers=follower["headers"],
     )
     assert follow_res.status_code == 201
 
@@ -99,7 +102,8 @@ async def test_self_action_does_not_create_notification(client, fake):
 
     # Act — 본인이 좋아요
     like_res = await client.post(
-        f"/v1/posts/{post_id}/likes", headers=user["headers"],
+        f"/v1/posts/{post_id}/likes",
+        headers=user["headers"],
     )
     assert like_res.status_code == 201
 
@@ -125,13 +129,16 @@ async def test_list_notifications_with_pagination(client, two_users_with_post):
     # 댓글 3개 작성 → 알림 3개
     for i in range(3):
         await create_test_comment(
-            client, other["headers"], post_id,
+            client,
+            other["headers"],
+            post_id,
             content=f"페이지네이션 테스트 댓글 {i}",
         )
 
     # Act — limit=2로 첫 페이지 조회
     res1 = await client.get(
-        "/v1/notifications/?offset=0&limit=2", headers=author["headers"],
+        "/v1/notifications/?offset=0&limit=2",
+        headers=author["headers"],
     )
     assert res1.status_code == 200
     data1 = res1.json()["data"]
@@ -141,7 +148,8 @@ async def test_list_notifications_with_pagination(client, two_users_with_post):
 
     # Act — offset=2로 나머지 조회
     res2 = await client.get(
-        "/v1/notifications/?offset=2&limit=2", headers=author["headers"],
+        "/v1/notifications/?offset=2&limit=2",
+        headers=author["headers"],
     )
     assert res2.status_code == 200
     data2 = res2.json()["data"]
@@ -171,7 +179,8 @@ async def test_delete_notification_succeeds(client, two_users_with_post):
 
     # Act
     del_res = await client.delete(
-        f"/v1/notifications/{notification_id}", headers=author["headers"],
+        f"/v1/notifications/{notification_id}",
+        headers=author["headers"],
     )
 
     # Assert
@@ -180,10 +189,7 @@ async def test_delete_notification_succeeds(client, two_users_with_post):
 
     # 삭제 후 목록에서 해당 알림이 사라졌는지 확인
     list_res2 = await client.get("/v1/notifications/", headers=author["headers"])
-    remaining_ids = [
-        n["notification_id"]
-        for n in list_res2.json()["data"]["notifications"]
-    ]
+    remaining_ids = [n["notification_id"] for n in list_res2.json()["data"]["notifications"]]
     assert notification_id not in remaining_ids
 
 

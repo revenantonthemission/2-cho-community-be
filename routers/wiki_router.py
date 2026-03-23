@@ -7,7 +7,6 @@ from dependencies.auth import get_optional_user, require_verified_email
 from models.user_models import User
 from schemas.wiki_schemas import CreateWikiPageRequest, UpdateWikiPageRequest
 
-
 wiki_router = APIRouter(prefix="/v1/wiki", tags=["wiki"])
 """위키 페이지 관련 라우터 인스턴스."""
 
@@ -36,8 +35,12 @@ async def get_wiki_pages(
         위키 페이지 목록과 페이지네이션 정보가 포함된 응답.
     """
     return await wiki_controller.get_wiki_pages(
-        offset, limit, request, sort=sort,
-        search=search, tag=tag,
+        offset,
+        limit,
+        request,
+        sort=sort,
+        search=search,
+        tag=tag,
     )
 
 
@@ -107,7 +110,10 @@ async def update_wiki_page(
         수정된 위키 페이지 정보가 포함된 응답.
     """
     return await wiki_controller.update_wiki_page(
-        slug, data, current_user, request,
+        slug,
+        data,
+        current_user,
+        request,
     )
 
 

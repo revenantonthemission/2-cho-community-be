@@ -9,23 +9,28 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from schemas._image_validators import validate_profile_image_url
 
-VALID_DISTROS = frozenset({
-    'ubuntu', 'fedora', 'arch', 'debian', 'mint',
-    'opensuse', 'rocky', 'nixos', 'gentoo', 'other',
-})
-
-_PASSWORD_PATTERN = re.compile(
-    r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,20}$"
+VALID_DISTROS = frozenset(
+    {
+        "ubuntu",
+        "fedora",
+        "arch",
+        "debian",
+        "mint",
+        "opensuse",
+        "rocky",
+        "nixos",
+        "gentoo",
+        "other",
+    }
 )
+
+_PASSWORD_PATTERN = re.compile(r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,20}$")
 _PASSWORD_ERROR = (
-    "비밀번호는 대문자, 소문자, 숫자, 특수문자(@, $, !, %, *, ?, &)를 "
-    "포함하여 8자 이상 20자 이하여야 합니다."
+    "비밀번호는 대문자, 소문자, 숫자, 특수문자(@, $, !, %, *, ?, &)를 포함하여 8자 이상 20자 이하여야 합니다."
 )
 
 _NICKNAME_PATTERN = re.compile(r"^[a-zA-Z0-9_]{3,10}$")
-_NICKNAME_ERROR = (
-    "닉네임은 3자 이상 10자 이하의 영문, 숫자, 언더바로 구성하여야 합니다."
-)
+_NICKNAME_ERROR = "닉네임은 3자 이상 10자 이하의 영문, 숫자, 언더바로 구성하여야 합니다."
 
 
 def _validate_password(v: str) -> str:
@@ -112,12 +117,10 @@ class UpdateUserRequest(BaseModel):
         """배포판 값을 검증합니다."""
         if v is None:
             return None
-        if v == '':
-            return ''  # 배포판 해제 요청
+        if v == "":
+            return ""  # 배포판 해제 요청
         if v not in VALID_DISTROS:
-            raise ValueError(
-                f"유효하지 않은 배포판입니다. 허용: {', '.join(sorted(VALID_DISTROS))}"
-            )
+            raise ValueError(f"유효하지 않은 배포판입니다. 허용: {', '.join(sorted(VALID_DISTROS))}")
         return v
 
     @field_validator("nickname")

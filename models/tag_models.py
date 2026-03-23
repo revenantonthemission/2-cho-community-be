@@ -1,6 +1,7 @@
 """tag_models: 태그 관련 데이터 모델 및 함수 모듈."""
 
 import re
+
 from database.connection import get_connection, transactional
 
 _TAG_NAME_RE = re.compile(r"[^a-z0-9가-힣ㄱ-ㅎㅏ-ㅣ_-]")
@@ -39,38 +40,37 @@ async def save_post_tags(post_id: int, tag_ids: list[int]) -> None:
 
 async def get_post_tags(post_id: int) -> list[dict]:
     """게시글의 태그 목록을 조회합니다."""
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                "SELECT t.id, t.name FROM tag t INNER JOIN post_tag pt ON t.id = pt.tag_id WHERE pt.post_id = %s ORDER BY t.name ASC",
-                (post_id,),
-            )
-            return [{"id": row[0], "name": row[1]} for row in await cur.fetchall()]
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            "SELECT t.id, t.name FROM tag t INNER JOIN post_tag pt"
+            " ON t.id = pt.tag_id WHERE pt.post_id = %s ORDER BY t.name ASC",
+            (post_id,),
+        )
+        return [{"id": row[0], "name": row[1]} for row in await cur.fetchall()]
 
 
 async def get_posts_tags(post_ids: list[int]) -> dict[int, list[dict]]:
     """여러 게시글의 태그를 벌크 조회합니다."""
     if not post_ids:
         return {}
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            placeholders = ", ".join(["%s"] * len(post_ids))
-            await cur.execute(
-                f"SELECT pt.post_id, t.id, t.name FROM post_tag pt INNER JOIN tag t ON pt.tag_id = t.id WHERE pt.post_id IN ({placeholders}) ORDER BY t.name ASC",
-                post_ids,
-            )
-            result: dict[int, list[dict]] = {pid: [] for pid in post_ids}
-            for row in await cur.fetchall():
-                result[row[0]].append({"id": row[1], "name": row[2]})
-            return result
+    async with get_connection() as conn, conn.cursor() as cur:
+        placeholders = ", ".join(["%s"] * len(post_ids))
+        await cur.execute(
+            f"SELECT pt.post_id, t.id, t.name FROM post_tag pt INNER JOIN tag t"
+            f" ON pt.tag_id = t.id WHERE pt.post_id IN ({placeholders}) ORDER BY t.name ASC",
+            post_ids,
+        )
+        result: dict[int, list[dict]] = {pid: [] for pid in post_ids}
+        for row in await cur.fetchall():
+            result[row[0]].append({"id": row[1], "name": row[2]})
+        return result
 
 
 async def search_tags(search: str, limit: int = 10) -> list[dict]:
     """태그 자동완성 검색. 게시글 수 포함."""
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            """
                 SELECT t.id, t.name, COUNT(pt.post_id) as post_count
                 FROM tag t
                 LEFT JOIN post_tag pt ON t.id = pt.tag_id
@@ -80,6 +80,6 @@ async def search_tags(search: str, limit: int = 10) -> list[dict]:
                 ORDER BY post_count DESC, t.name ASC
                 LIMIT %s
                 """,
-                (f"%{search}%", limit),
-            )
-            return [{"id": row[0], "name": row[1], "post_count": row[2]} for row in await cur.fetchall()]
+            (f"%{search}%", limit),
+        )
+        return [{"id": row[0], "name": row[1], "post_count": row[2]} for row in await cur.fetchall()]

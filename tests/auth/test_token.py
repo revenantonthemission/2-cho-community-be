@@ -6,7 +6,6 @@ from httpx import ASGITransport, AsyncClient
 from main import app
 from tests.conftest import create_verified_user
 
-
 # ---------------------------------------------------------------------------
 # Refresh Token
 # ---------------------------------------------------------------------------

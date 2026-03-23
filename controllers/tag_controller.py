@@ -1,8 +1,9 @@
 """tag_controller: 태그 관련 컨트롤러 모듈."""
 
 from fastapi import Request
-from models.tag_models import search_tags
+
 from dependencies.request_context import get_request_timestamp
+from models.tag_models import search_tags
 from schemas.common import create_response
 
 

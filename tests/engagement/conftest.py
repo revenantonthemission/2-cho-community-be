@@ -1,7 +1,8 @@
 """Engagement 도메인 -- 공통 픽스처."""
 
 import pytest_asyncio
-from tests.conftest import create_verified_user, create_test_post
+
+from tests.conftest import create_test_post, create_verified_user
 
 
 @pytest_asyncio.fixture

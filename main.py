@@ -6,32 +6,31 @@
 import logging
 import os
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from routers.auth_router import auth_router
-from routers.user_router import user_router
-from routers.post_router import post_router
-from routers.terms_router import terms_router
-from routers.category_router import category_router
-from routers.report_router import report_router
-from routers import notification_router
-from routers import draft_router
-from routers.tag_router import tag_router
-from routers.dm_router import router as dm_router
-from routers import social_auth_router
-from routers.package_router import package_router
-from routers.wiki_router import wiki_router
-from middleware import TimingMiddleware, LoggingMiddleware, RateLimitMiddleware
+from fastapi.staticfiles import StaticFiles
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+
+from core.config import settings
+from database.connection import close_db, init_db
+from middleware import LoggingMiddleware, RateLimitMiddleware, TimingMiddleware
 from middleware.exception_handler import (
     global_exception_handler,
     request_validation_exception_handler,
 )
-from core.config import settings
-from database.connection import init_db, close_db
-from fastapi.staticfiles import StaticFiles
-from fastapi.exceptions import RequestValidationError
-from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
-
+from routers import draft_router, notification_router, social_auth_router
+from routers.auth_router import auth_router
+from routers.category_router import category_router
+from routers.dm_router import router as dm_router
+from routers.package_router import package_router
+from routers.post_router import post_router
+from routers.report_router import report_router
+from routers.tag_router import tag_router
+from routers.terms_router import terms_router
+from routers.user_router import user_router
+from routers.wiki_router import wiki_router
 
 logger = logging.getLogger("api")
 
@@ -131,6 +130,7 @@ app.add_exception_handler(RequestValidationError, request_validation_exception_h
 # K8s: Prometheus 메트릭 엔드포인트
 try:
     from prometheus_fastapi_instrumentator import Instrumentator
+
     Instrumentator().instrument(app).expose(app)
 except ImportError:
     pass  # K8s 의존성 미설치 시 무시 (로컬 개발)

@@ -16,7 +16,6 @@ from schemas.package_schemas import (
 )
 from services.package_service import PackageService
 
-
 # ============ 패키지 관련 핸들러 ============
 
 
@@ -60,8 +59,11 @@ async def get_packages(
         sort = "latest"
 
     result = await PackageService.get_packages(
-        offset=offset, limit=limit, sort=sort,
-        category=category, search=search,
+        offset=offset,
+        limit=limit,
+        sort=sort,
+        category=category,
+        search=search,
     )
 
     return create_response(
@@ -98,7 +100,9 @@ async def create_package(
     timestamp = get_request_timestamp(request)
 
     package_id = await PackageService.create_package(
-        current_user.id, data, timestamp,
+        current_user.id,
+        data,
+        timestamp,
     )
 
     return create_response(
@@ -119,7 +123,10 @@ async def update_package(
     timestamp = get_request_timestamp(request)
 
     result = await PackageService.update_package(
-        package_id, current_user.id, data, timestamp,
+        package_id,
+        current_user.id,
+        data,
+        timestamp,
         is_admin=current_user.is_admin,
     )
 
@@ -168,7 +175,11 @@ async def get_reviews(
         sort = "latest"
 
     result = await PackageService.get_reviews(
-        package_id, offset, limit, sort=sort, timestamp=timestamp,
+        package_id,
+        offset,
+        limit,
+        sort=sort,
+        timestamp=timestamp,
     )
 
     return create_response(
@@ -193,7 +204,10 @@ async def create_review(
 
     try:
         review_id = await PackageService.create_review(
-            package_id, current_user.id, data, timestamp,
+            package_id,
+            current_user.id,
+            data,
+            timestamp,
         )
     except IntegrityError:
         raise HTTPException(
@@ -203,7 +217,7 @@ async def create_review(
                 "message": "이미 이 패키지에 리뷰를 작성했습니다.",
                 "timestamp": timestamp,
             },
-        )
+        ) from None
 
     return create_response(
         "REVIEW_CREATED",
@@ -224,7 +238,11 @@ async def update_review(
     timestamp = get_request_timestamp(request)
 
     result = await PackageService.update_review(
-        package_id, review_id, current_user.id, data, timestamp,
+        package_id,
+        review_id,
+        current_user.id,
+        data,
+        timestamp,
     )
 
     return create_response(
@@ -245,8 +263,11 @@ async def delete_review(
     timestamp = get_request_timestamp(request)
 
     await PackageService.delete_review(
-        package_id, review_id, current_user.id,
-        is_admin=current_user.is_admin, timestamp=timestamp,
+        package_id,
+        review_id,
+        current_user.id,
+        is_admin=current_user.is_admin,
+        timestamp=timestamp,
     )
 
     return create_response(

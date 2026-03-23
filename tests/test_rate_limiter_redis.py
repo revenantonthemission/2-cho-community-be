@@ -1,6 +1,7 @@
 # tests/test_rate_limiter_redis.py
-import pytest
 from unittest.mock import AsyncMock, patch
+
+import pytest
 
 pytest.importorskip("redis", reason="redis는 K8s optional dependency")
 
@@ -14,12 +15,11 @@ async def test_redis_rate_limiter_allows_under_limit():
 
     with patch("middleware.rate_limiter_redis.get_redis", return_value=mock_redis):
         from middleware.rate_limiter_redis import RedisRateLimiter
+
         limiter = RedisRateLimiter(redis_url="redis://localhost:6379")
         limiter._redis = mock_redis
 
-        is_limited, remaining = await limiter.is_rate_limited(
-            "127.0.0.1:POST:/v1/auth/session", 5, 60
-        )
+        is_limited, remaining = await limiter.is_rate_limited("127.0.0.1:POST:/v1/auth/session", 5, 60)
         assert is_limited is False
         assert remaining == 2  # 5 - 3
 
@@ -32,12 +32,11 @@ async def test_redis_rate_limiter_blocks_over_limit():
 
     with patch("middleware.rate_limiter_redis.get_redis", return_value=mock_redis):
         from middleware.rate_limiter_redis import RedisRateLimiter
+
         limiter = RedisRateLimiter(redis_url="redis://localhost:6379")
         limiter._redis = mock_redis
 
-        is_limited, remaining = await limiter.is_rate_limited(
-            "127.0.0.1:POST:/v1/auth/session", 5, 60
-        )
+        is_limited, remaining = await limiter.is_rate_limited("127.0.0.1:POST:/v1/auth/session", 5, 60)
         assert is_limited is True
         assert remaining == 0
 
@@ -50,12 +49,11 @@ async def test_redis_rate_limiter_fail_open():
 
     with patch("middleware.rate_limiter_redis.get_redis", return_value=mock_redis):
         from middleware.rate_limiter_redis import RedisRateLimiter
+
         limiter = RedisRateLimiter(redis_url="redis://localhost:6379")
         limiter._redis = mock_redis
 
-        is_limited, remaining = await limiter.is_rate_limited(
-            "127.0.0.1:POST:/v1/auth/session", 5, 60
-        )
+        is_limited, remaining = await limiter.is_rate_limited("127.0.0.1:POST:/v1/auth/session", 5, 60)
         assert is_limited is False
         assert remaining == 5
 
@@ -68,6 +66,7 @@ async def test_redis_rate_limiter_sets_expire_on_first_request():
 
     with patch("middleware.rate_limiter_redis.get_redis", return_value=mock_redis):
         from middleware.rate_limiter_redis import RedisRateLimiter
+
         limiter = RedisRateLimiter(redis_url="redis://localhost:6379")
         limiter._redis = mock_redis
 

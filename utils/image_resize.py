@@ -52,21 +52,19 @@ def resize_image(
         if original_width > max_size[0] or original_height > max_size[1]:
             img.thumbnail(max_size, Image.Resampling.LANCZOS)
             needs_resize = True
-    elif max_width:
-        if original_width > max_width:
-            ratio = max_width / original_width
-            new_height = int(original_height * ratio)
-            img = img.resize((max_width, new_height), Image.Resampling.LANCZOS)
-            needs_resize = True
+    elif max_width and original_width > max_width:
+        ratio = max_width / original_width
+        new_height = int(original_height * ratio)
+        img = img.resize((max_width, new_height), Image.Resampling.LANCZOS)
+        needs_resize = True
 
     if not needs_resize:
         return content
 
     # RGBA → RGB 변환 (JPEG 저장용)
     output_format = img.format or "JPEG"
-    if output_format.upper() in ("JPEG", "JPG"):
-        if img.mode in ("RGBA", "P"):
-            img = img.convert("RGB")
+    if output_format.upper() in ("JPEG", "JPG") and img.mode in ("RGBA", "P"):
+        img = img.convert("RGB")
 
     buf = io.BytesIO()
     save_kwargs: dict = {}
@@ -81,9 +79,12 @@ def resize_image(
 
     logger.info(
         "이미지 리사이징 완료: %dx%d → %dx%d (%.1fKB → %.1fKB)",
-        original_width, original_height,
-        img.size[0], img.size[1],
-        len(content) / 1024, len(result) / 1024,
+        original_width,
+        original_height,
+        img.size[0],
+        img.size[1],
+        len(content) / 1024,
+        len(result) / 1024,
     )
     return result
 

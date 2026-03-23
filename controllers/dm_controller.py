@@ -11,9 +11,7 @@ from services import dm_service
 from utils.formatters import format_datetime
 
 
-async def create_conversation(
-    recipient_id: int, current_user: User, request: Request
-) -> dict | JSONResponse:
+async def create_conversation(recipient_id: int, current_user: User, request: Request) -> dict | JSONResponse:
     """대화를 생성하거나 기존 대화를 반환합니다."""
     timestamp = get_request_timestamp(request)
 
@@ -47,14 +45,10 @@ async def create_conversation(
     return JSONResponse(content=body, status_code=200)
 
 
-async def get_conversations(
-    current_user: User, request: Request, offset: int = 0, limit: int = 20
-) -> dict:
+async def get_conversations(current_user: User, request: Request, offset: int = 0, limit: int = 20) -> dict:
     """대화 목록을 조회합니다."""
     timestamp = get_request_timestamp(request)
-    conversations, total_count = await dm_service.get_conversations(
-        current_user.id, timestamp, offset, limit
-    )
+    conversations, total_count = await dm_service.get_conversations(current_user.id, timestamp, offset, limit)
     has_more = offset + limit < total_count
     return create_response(
         "CONVERSATIONS_LOADED",
@@ -94,9 +88,7 @@ async def get_messages(
     )
 
 
-async def send_message(
-    conversation_id: int, content: str, current_user: User, request: Request
-) -> dict:
+async def send_message(conversation_id: int, content: str, current_user: User, request: Request) -> dict:
     """메시지를 전송합니다."""
     timestamp = get_request_timestamp(request)
 
@@ -112,15 +104,11 @@ async def send_message(
     )
 
 
-async def mark_read(
-    conversation_id: int, current_user: User, request: Request
-) -> dict:
+async def mark_read(conversation_id: int, current_user: User, request: Request) -> dict:
     """대화의 메시지를 읽음 처리합니다."""
     timestamp = get_request_timestamp(request)
 
-    read_count = await dm_service.mark_read(
-        conversation_id, current_user.id, timestamp
-    )
+    read_count = await dm_service.mark_read(conversation_id, current_user.id, timestamp)
 
     return create_response(
         "MESSAGES_READ",
@@ -130,15 +118,11 @@ async def mark_read(
     )
 
 
-async def delete_message(
-    conversation_id: int, message_id: int, current_user: User, request: Request
-) -> dict:
+async def delete_message(conversation_id: int, message_id: int, current_user: User, request: Request) -> dict:
     """메시지를 삭제합니다 (soft delete)."""
     timestamp = get_request_timestamp(request)
 
-    await dm_service.delete_message_with_push(
-        conversation_id, message_id, current_user.id, timestamp
-    )
+    await dm_service.delete_message_with_push(conversation_id, message_id, current_user.id, timestamp)
 
     return create_response(
         "MESSAGE_DELETED",
@@ -159,15 +143,11 @@ async def get_unread_count(current_user: User, request: Request) -> dict:
     )
 
 
-async def delete_conversation(
-    conversation_id: int, current_user: User, request: Request
-) -> dict:
+async def delete_conversation(conversation_id: int, current_user: User, request: Request) -> dict:
     """대화를 삭제합니다."""
     timestamp = get_request_timestamp(request)
 
-    await dm_service.delete_conversation_with_validation(
-        conversation_id, current_user.id, timestamp
-    )
+    await dm_service.delete_conversation_with_validation(conversation_id, current_user.id, timestamp)
 
     return create_response(
         "CONVERSATION_DELETED",

@@ -1,11 +1,11 @@
 """Engagement 도메인 -- 투표(Poll) 테스트."""
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
-from datetime import datetime, timedelta, timezone
 from httpx import AsyncClient
 
-from tests.conftest import create_verified_user, create_test_post
-
+from tests.conftest import create_test_post, create_verified_user
 
 # ---------------------------------------------------------------------------
 # 헬퍼
@@ -41,9 +41,7 @@ async def _create_post_with_poll(
     return res.json()["data"]
 
 
-async def _get_poll_option_id(
-    client: AsyncClient, headers: dict, post_id: int, index: int = 0
-) -> int:
+async def _get_poll_option_id(client: AsyncClient, headers: dict, post_id: int, index: int = 0) -> int:
     """게시글 상세에서 투표 옵션 ID를 가져온다."""
     detail = await client.get(f"/v1/posts/{post_id}", headers=headers)
     assert detail.status_code == 200
@@ -237,12 +235,10 @@ async def test_poll_with_expiry(client: AsyncClient, fake):
     """만료일이 설정된 투표가 정상 생성되고, is_expired=False이다."""
     # Arrange
     user = await create_verified_user(client, fake)
-    future = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
+    future = (datetime.now(UTC) + timedelta(days=7)).isoformat()
 
     # Act
-    post_data = await _create_post_with_poll(
-        client, user["headers"], expires_at=future
-    )
+    post_data = await _create_post_with_poll(client, user["headers"], expires_at=future)
     post_id = post_data["post_id"]
 
     # Assert
@@ -336,10 +332,8 @@ async def test_cancel_vote_expired_poll_returns_400(client: AsyncClient, fake):
     """만료된 투표의 취소 시 400을 반환한다."""
     # Arrange
     user = await create_verified_user(client, fake)
-    past = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
-    post_data = await _create_post_with_poll(
-        client, user["headers"], expires_at=past
-    )
+    past = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
+    post_data = await _create_post_with_poll(client, user["headers"], expires_at=past)
     post_id = post_data["post_id"]
 
     # Act
@@ -504,10 +498,8 @@ async def test_change_vote_expired_poll_returns_400(client: AsyncClient, fake):
     """만료된 투표를 변경하면 400을 반환한다."""
     # Arrange
     user = await create_verified_user(client, fake)
-    past = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
-    post_data = await _create_post_with_poll(
-        client, user["headers"], expires_at=past
-    )
+    past = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
+    post_data = await _create_post_with_poll(client, user["headers"], expires_at=past)
     post_id = post_data["post_id"]
 
     # Act

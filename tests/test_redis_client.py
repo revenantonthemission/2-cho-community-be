@@ -1,6 +1,7 @@
 # tests/test_redis_client.py
-import pytest
 from unittest.mock import AsyncMock, patch
+
+import pytest
 
 pytest.importorskip("redis", reason="redis는 K8s optional dependency")
 
@@ -12,16 +13,15 @@ async def test_get_redis_returns_client():
         mock_client = AsyncMock()
         mock_redis.from_url.return_value = mock_client
 
-        from utils.redis_client import get_redis, close_redis
         # 모듈 레벨 캐시 초기화
         import utils.redis_client as mod
+        from utils.redis_client import close_redis, get_redis
+
         mod._redis_client = None
 
         client = await get_redis("redis://localhost:6379")
         assert client is mock_client
-        mock_redis.from_url.assert_called_once_with(
-            "redis://localhost:6379", decode_responses=True
-        )
+        mock_redis.from_url.assert_called_once_with("redis://localhost:6379", decode_responses=True)
 
         # 두 번째 호출은 캐싱된 클라이언트 반환
         client2 = await get_redis("redis://localhost:6379")

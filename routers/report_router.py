@@ -3,8 +3,9 @@
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Query, Request, status
-from controllers import report_controller, suspension_controller, admin_controller
-from dependencies.auth import require_verified_email, require_admin, require_admin_or_internal
+
+from controllers import admin_controller, report_controller, suspension_controller
+from dependencies.auth import require_admin, require_admin_or_internal, require_verified_email
 from models.user_models import User
 from schemas.report_schemas import CreateReportRequest, ResolveReportRequest
 from schemas.suspension_schemas import SuspendUserRequest
@@ -34,7 +35,9 @@ async def get_reports(
     current_user: User = Depends(require_admin),
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
-    report_status: Literal["pending", "resolved", "dismissed"] | None = Query(None, alias="status", description="필터: pending, resolved, dismissed"),
+    report_status: Literal["pending", "resolved", "dismissed"] | None = Query(
+        None, alias="status", description="필터: pending, resolved, dismissed"
+    ),
 ) -> dict:
     """신고 목록을 조회합니다 (관리자 전용)."""
     return await report_controller.get_reports(offset, limit, request, report_status)
@@ -48,9 +51,7 @@ async def resolve_report(
     current_user: User = Depends(require_admin),
 ) -> dict:
     """신고를 처리합니다 (관리자 전용)."""
-    return await report_controller.resolve_report(
-        report_id, report_data, current_user, request
-    )
+    return await report_controller.resolve_report(report_id, report_data, current_user, request)
 
 
 # ============ 관리자 사용자 관리 ============
@@ -67,9 +68,7 @@ async def suspend_user(
     current_user: User = Depends(require_admin),
 ) -> dict:
     """사용자를 정지합니다 (관리자 전용)."""
-    return await suspension_controller.suspend_user(
-        user_id, suspend_data, current_user, request
-    )
+    return await suspension_controller.suspend_user(user_id, suspend_data, current_user, request)
 
 
 @report_router.delete(
@@ -82,9 +81,7 @@ async def unsuspend_user(
     current_user: User = Depends(require_admin),
 ) -> dict:
     """사용자 정지를 해제합니다 (관리자 전용)."""
-    return await suspension_controller.unsuspend_user(
-        user_id, current_user, request
-    )
+    return await suspension_controller.unsuspend_user(user_id, current_user, request)
 
 
 # ============ 관리자 대시보드 ============
@@ -108,9 +105,7 @@ async def get_admin_users(
     search: str | None = Query(None, description="닉네임/이메일 검색"),
 ) -> dict:
     """사용자 목록을 조회합니다 (관리자 전용)."""
-    return await admin_controller.get_users(
-        current_user, request, offset, limit, search
-    )
+    return await admin_controller.get_users(current_user, request, offset, limit, search)
 
 
 # ============ 관리자 추천 피드 ============

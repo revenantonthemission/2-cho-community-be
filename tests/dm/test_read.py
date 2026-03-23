@@ -4,10 +4,10 @@ import pytest
 
 from tests.conftest import create_verified_user
 
-
 # ---------------------------------------------------------------------------
 # 헬퍼
 # ---------------------------------------------------------------------------
+
 
 async def _create_conversation(user_a: dict, user_b: dict) -> int:
     """두 사용자 간 대화를 생성하고 conversation_id를 반환한다."""

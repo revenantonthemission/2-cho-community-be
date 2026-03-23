@@ -1,6 +1,7 @@
 """category_router: 카테고리 관련 라우터 모듈."""
 
 from fastapi import APIRouter, Request, status
+
 from controllers import category_controller
 
 category_router = APIRouter(prefix="/v1/categories", tags=["categories"])

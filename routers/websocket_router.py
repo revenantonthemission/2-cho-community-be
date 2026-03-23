@@ -45,21 +45,15 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         # 인증 대기 (타임아웃)
         try:
-            raw = await asyncio.wait_for(
-                websocket.receive_text(), timeout=_AUTH_TIMEOUT_SEC
-            )
+            raw = await asyncio.wait_for(websocket.receive_text(), timeout=_AUTH_TIMEOUT_SEC)
             msg = json.loads(raw)
-        except asyncio.TimeoutError:
-            await websocket.send_text(
-                json.dumps({"type": "auth_error", "message": "인증 타임아웃"})
-            )
+        except TimeoutError:
+            await websocket.send_text(json.dumps({"type": "auth_error", "message": "인증 타임아웃"}))
             await websocket.close()
             return
 
         if msg.get("type") != "auth" or not msg.get("token"):
-            await websocket.send_text(
-                json.dumps({"type": "auth_error", "message": "인증 필요"})
-            )
+            await websocket.send_text(json.dumps({"type": "auth_error", "message": "인증 필요"}))
             await websocket.close()
             return
 
@@ -67,9 +61,7 @@ async def websocket_endpoint(websocket: WebSocket):
             payload = decode_access_token(msg["token"])
             user_id = int(payload["sub"])
         except Exception:
-            await websocket.send_text(
-                json.dumps({"type": "auth_error", "message": "인증 실패"})
-            )
+            await websocket.send_text(json.dumps({"type": "auth_error", "message": "인증 실패"}))
             await websocket.close()
             return
 
@@ -78,9 +70,7 @@ async def websocket_endpoint(websocket: WebSocket):
             _connections[user_id] = set()
         _connections[user_id].add(websocket)
 
-        await websocket.send_text(
-            json.dumps({"type": "auth_ok", "user_id": user_id})
-        )
+        await websocket.send_text(json.dumps({"type": "auth_ok", "user_id": user_id}))
         logger.info("로컬 WebSocket 연결: user_id=%d", user_id)
 
         # 메시지 루프 (ping/pong)

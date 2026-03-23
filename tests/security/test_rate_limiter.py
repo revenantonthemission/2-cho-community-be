@@ -3,12 +3,12 @@
 DB 없이 인메모리 Rate Limiter의 핵심 동작을 검증한다.
 """
 
-import pytest
 from datetime import datetime, timedelta
 
-from middleware.rate_limiter_memory import MemoryRateLimiter
-from middleware.rate_limiter import is_valid_ip
+import pytest
 
+from middleware.rate_limiter import is_valid_ip
+from middleware.rate_limiter_memory import MemoryRateLimiter
 
 # ---------------------------------------------------------------------------
 # 기본 동작
@@ -26,9 +26,7 @@ async def test_allows_within_limit():
     # Act — 5회 요청 (제한 이내)
     results = []
     for _ in range(max_requests):
-        limited, remaining = await limiter.is_rate_limited(
-            "192.168.1.1", max_requests, window
-        )
+        limited, remaining = await limiter.is_rate_limited("192.168.1.1", max_requests, window)
         results.append((limited, remaining))
 
     # Assert — 모두 허용, remaining이 4→0으로 감소
@@ -50,9 +48,7 @@ async def test_blocks_over_limit():
     for _ in range(max_requests):
         await limiter.is_rate_limited("10.0.0.1", max_requests, window)
 
-    limited, remaining = await limiter.is_rate_limited(
-        "10.0.0.1", max_requests, window
-    )
+    limited, remaining = await limiter.is_rate_limited("10.0.0.1", max_requests, window)
 
     # Assert
     assert limited is True
@@ -75,9 +71,7 @@ async def test_resets_after_window():
     past = datetime.now() - timedelta(seconds=window + 1)
     limiter._requests["10.0.0.2"] = [past, past]
 
-    limited, remaining = await limiter.is_rate_limited(
-        "10.0.0.2", max_requests, window
-    )
+    limited, remaining = await limiter.is_rate_limited("10.0.0.2", max_requests, window)
 
     # Assert — 윈도우 경과 후 다시 허용
     assert limited is False
@@ -102,9 +96,7 @@ async def test_different_keys_independent():
         await limiter.is_rate_limited("1.1.1.1", max_requests, window)
 
     # Act — IP-B: 별도 카운터이므로 허용
-    limited, remaining = await limiter.is_rate_limited(
-        "2.2.2.2", max_requests, window
-    )
+    limited, remaining = await limiter.is_rate_limited("2.2.2.2", max_requests, window)
 
     # Assert
     assert limited is False

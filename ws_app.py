@@ -1,4 +1,5 @@
 """K8s WebSocket 서버 — Redis pub/sub 기반 실시간 알림"""
+
 import asyncio
 import json
 import logging
@@ -46,9 +47,12 @@ async def _register_connection(conn_id: str, user_id: int):
     """Redis에 연결 등록"""
     try:
         r = _get_redis()
-        await r.hset(f"ws:conn:{conn_id}", mapping={  # type: ignore[misc]
-            "user_id": str(user_id),
-        })
+        await r.hset(
+            f"ws:conn:{conn_id}",
+            mapping={  # type: ignore[misc]
+                "user_id": str(user_id),
+            },
+        )
         await r.expire(f"ws:conn:{conn_id}", 3600)
         await r.sadd(f"ws:user:{user_id}", conn_id)  # type: ignore[misc]
         await r.expire(f"ws:user:{user_id}", 3600)
@@ -92,21 +96,25 @@ async def _handle_message(ws: WebSocket, data: dict, conn_id: str, user_id: int)
     elif msg_type in ("typing_start", "typing_stop"):
         recipient_id = data.get("recipient_id")
         if recipient_id:
-            payload = json.dumps({
-                "type": msg_type,
-                "sender_id": user_id,
-                "conversation_id": data.get("conversation_id"),
-            })
+            payload = json.dumps(
+                {
+                    "type": msg_type,
+                    "sender_id": user_id,
+                    "conversation_id": data.get("conversation_id"),
+                }
+            )
             await _get_redis().publish(f"notify:{recipient_id}", payload)
 
     elif msg_type in ("message_deleted", "message_read"):
         recipient_id = data.get("recipient_id")
         if recipient_id:
-            payload = json.dumps({
-                "type": msg_type,
-                "sender_id": user_id,
-                **{k: v for k, v in data.items() if k not in ("type", "recipient_id")},
-            })
+            payload = json.dumps(
+                {
+                    "type": msg_type,
+                    "sender_id": user_id,
+                    **{k: v for k, v in data.items() if k not in ("type", "recipient_id")},
+                }
+            )
             await _get_redis().publish(f"notify:{recipient_id}", payload)
 
 
@@ -121,7 +129,7 @@ async def websocket_endpoint(ws: WebSocket):
         # 인증 대기 (AUTH_TIMEOUT 초)
         try:
             auth_data = await asyncio.wait_for(ws.receive_json(), timeout=AUTH_TIMEOUT)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             await ws.send_json({"type": "auth_error", "message": "auth timeout"})
             await ws.close()
             return

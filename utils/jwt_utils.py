@@ -5,7 +5,7 @@ Access Token (HS256 JWT) / Refresh Token (opaque random) 발급 및 검증.
 
 import hashlib
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import jwt
 from fastapi import HTTPException, status
@@ -16,7 +16,7 @@ _JWT_ALGORITHM = "HS256"
 
 
 def _now_utc() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def create_access_token(user_id: int) -> str:
@@ -29,9 +29,7 @@ def create_access_token(user_id: int) -> str:
     payload = {
         "sub": str(user_id),
         "iat": int(now.timestamp()),
-        "exp": int(
-            (now + timedelta(minutes=settings.JWT_ACCESS_EXPIRE_MINUTES)).timestamp()
-        ),
+        "exp": int((now + timedelta(minutes=settings.JWT_ACCESS_EXPIRE_MINUTES)).timestamp()),
         "type": "access",
     }
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=_JWT_ALGORITHM)
@@ -66,7 +64,7 @@ def decode_access_token(token: str) -> dict:
                 "error": "token_expired",
                 "timestamp": _now_utc().strftime("%Y-%m-%dT%H:%M:%SZ"),
             },
-        )
+        ) from None
     except jwt.PyJWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -74,7 +72,7 @@ def decode_access_token(token: str) -> dict:
                 "error": "token_invalid",
                 "timestamp": _now_utc().strftime("%Y-%m-%dT%H:%M:%SZ"),
             },
-        )
+        ) from None
 
     if payload.get("type") != "access":
         raise HTTPException(
@@ -104,6 +102,6 @@ def decode_access_token(token: str) -> dict:
                 "error": "token_invalid",
                 "timestamp": _now_utc().strftime("%Y-%m-%dT%H:%M:%SZ"),
             },
-        )
+        ) from None
 
     return payload

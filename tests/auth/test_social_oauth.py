@@ -5,7 +5,7 @@ GitHub OAuth 프로바이더 메서드 레벨 모킹(Approach B)을 사용하여
 """
 
 from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
@@ -94,9 +94,7 @@ async def social_callback(
 @pytest.mark.asyncio
 async def test_authorize_redirects_to_provider(client: AsyncClient):
     """GET /authorize가 302로 GitHub URL 리다이렉트 + social_state 쿠키를 설정한다."""
-    resp = await client.get(
-        "/v1/auth/social/github/authorize", follow_redirects=False
-    )
+    resp = await client.get("/v1/auth/social/github/authorize", follow_redirects=False)
     assert resp.status_code == 302
 
     location = resp.headers["location"]
@@ -156,9 +154,7 @@ async def test_callback_deletes_state_cookie(client: AsyncClient):
     assert resp.status_code == 302
 
     set_cookie_headers = resp.headers.get_list("set-cookie")
-    state_cookies = [
-        h for h in set_cookie_headers if h.startswith("social_state")
-    ]
+    state_cookies = [h for h in set_cookie_headers if h.startswith("social_state")]
     assert len(state_cookies) > 0
 
     state_cookie = state_cookies[0].lower()
@@ -177,9 +173,7 @@ async def test_callback_existing_social_user_redirects_to_main(
 ):
     """기존 사용자(nickname_set=True)는 /main으로 리다이렉트된다."""
     nickname = user_models.generate_temp_nickname()
-    user = await user_models.add_social_user(
-        email="existing_github@test.com", nickname=nickname
-    )
+    user = await user_models.add_social_user(email="existing_github@test.com", nickname=nickname)
     await user_models.update_nickname_set(user.id, "완성닉네임")
     await social_account_models.create(
         user_id=user.id,
@@ -210,9 +204,7 @@ async def test_callback_existing_social_user_without_nickname_redirects_to_signu
 ):
     """기존 사용자(nickname_set=False)는 /social-signup으로 리다이렉트된다."""
     nickname = user_models.generate_temp_nickname()
-    user = await user_models.add_social_user(
-        email="no_nick_gh@test.com", nickname=nickname
-    )
+    user = await user_models.add_social_user(email="no_nick_gh@test.com", nickname=nickname)
     await social_account_models.create(
         user_id=user.id,
         provider="github",
@@ -242,9 +234,7 @@ async def test_callback_existing_social_user_without_nickname_redirects_to_signu
 
 
 @pytest.mark.asyncio
-async def test_callback_links_existing_local_account(
-    client: AsyncClient, fake: Any
-):
+async def test_callback_links_existing_local_account(client: AsyncClient, fake: Any):
     """소셜 이메일이 기존 로컬 계정과 일치하면 연동하고 /main으로 리다이렉트된다."""
     local_user = await create_verified_user(client, fake)
     local_email = local_user["email"]
@@ -335,9 +325,7 @@ async def test_callback_provider_error_redirects_with_error(
 
     mock_request = httpx.Request("POST", "https://github.com/login/oauth/access_token")
     mock_response = httpx.Response(400, request=mock_request)
-    provider_exc = httpx.HTTPStatusError(
-        "Bad Request", request=mock_request, response=mock_response
-    )
+    provider_exc = httpx.HTTPStatusError("Bad Request", request=mock_request, response=mock_response)
 
     with patch(
         "services.social_auth.github.GitHubProvider.exchange_code",
@@ -356,9 +344,7 @@ async def test_callback_suspended_user_redirects_with_error(
 ):
     """정지된 사용자 → /login?error=suspended."""
     nickname = user_models.generate_temp_nickname()
-    user = await user_models.add_social_user(
-        email="suspended_gh@test.com", nickname=nickname
-    )
+    user = await user_models.add_social_user(email="suspended_gh@test.com", nickname=nickname)
     await social_account_models.create(
         user_id=user.id,
         provider="github",
@@ -366,13 +352,12 @@ async def test_callback_suspended_user_redirects_with_error(
         provider_email="suspended_gh@test.com",
     )
 
-    suspended_until = datetime.now(timezone.utc) + timedelta(days=30)
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                "UPDATE user SET suspended_until = %s WHERE id = %s",
-                (suspended_until, user.id),
-            )
+    suspended_until = datetime.now(UTC) + timedelta(days=30)
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            "UPDATE user SET suspended_until = %s WHERE id = %s",
+            (suspended_until, user.id),
+        )
 
     suspended_info = SocialUserInfo(
         provider="github",

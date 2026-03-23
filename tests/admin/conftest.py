@@ -1,6 +1,7 @@
 """Admin 도메인 -- 공통 픽스처."""
 
 import pytest_asyncio
+
 from tests.conftest import create_admin_user, create_verified_user
 
 

@@ -1,7 +1,7 @@
 """Redis 기반 Rate Limiter — Fixed Window Counter (INCR + EXPIRE)"""
+
 import logging
 import time
-from typing import Tuple
 
 from utils.redis_client import get_redis
 
@@ -18,9 +18,7 @@ class RedisRateLimiter:
             self._redis = await get_redis(self._redis_url)
         return self._redis
 
-    async def is_rate_limited(
-        self, ip: str, max_requests: int, window_seconds: int
-    ) -> Tuple[bool, int]:
+    async def is_rate_limited(self, ip: str, max_requests: int, window_seconds: int) -> tuple[bool, int]:
         try:
             redis = await self._get_redis()
             bucket_id = int(time.time()) // window_seconds

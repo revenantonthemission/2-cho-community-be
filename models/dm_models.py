@@ -40,9 +40,7 @@ def _normalize_participants(a: int, b: int) -> tuple[int, int]:
     return (min(a, b), max(a, b))
 
 
-async def get_or_create_conversation(
-    user_id: int, recipient_id: int
-) -> tuple[Conversation, bool]:
+async def get_or_create_conversation(user_id: int, recipient_id: int) -> tuple[Conversation, bool]:
     """대화를 조회하거나 새로 생성합니다.
 
     삭제된 대화가 있으면 재활성화합니다.
@@ -109,45 +107,41 @@ async def get_or_create_conversation(
 
 async def get_conversation_by_id(conversation_id: int) -> Conversation | None:
     """대화를 ID로 조회합니다. 삭제된 대화는 제외합니다."""
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            """
                 SELECT id, participant1_id, participant2_id,
                        last_message_at, created_at, deleted_at
                 FROM dm_conversation
                 WHERE id = %s AND deleted_at IS NULL
                 """,
-                (conversation_id,),
-            )
-            row = await cur.fetchone()
-            return _row_to_conversation(row) if row else None
+            (conversation_id,),
+        )
+        row = await cur.fetchone()
+        return _row_to_conversation(row) if row else None
 
 
-async def get_conversations(
-    user_id: int, offset: int = 0, limit: int = 20
-) -> tuple[list[dict], int]:
+async def get_conversations(user_id: int, offset: int = 0, limit: int = 20) -> tuple[list[dict], int]:
     """사용자의 대화 목록을 페이지네이션하여 반환합니다.
 
     각 대화에 상대방 정보, 마지막 메시지, 읽지 않은 수를 포함합니다.
     """
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            # 총 대화 수
-            await cur.execute(
-                """
+    async with get_connection() as conn, conn.cursor() as cur:
+        # 총 대화 수
+        await cur.execute(
+            """
                 SELECT COUNT(*)
                 FROM dm_conversation
                 WHERE (participant1_id = %s OR participant2_id = %s)
                   AND deleted_at IS NULL
                 """,
-                (user_id, user_id),
-            )
-            total_count = (await cur.fetchone())[0]
+            (user_id, user_id),
+        )
+        total_count = (await cur.fetchone())[0]
 
-            # 대화 목록 + 상대방 정보 + 마지막 메시지 + 읽지 않은 수
-            await cur.execute(
-                """
+        # 대화 목록 + 상대방 정보 + 마지막 메시지 + 읽지 않은 수
+        await cur.execute(
+            """
                 SELECT
                     c.id,
                     c.last_message_at,
@@ -189,9 +183,9 @@ async def get_conversations(
                 ORDER BY COALESCE(c.last_message_at, c.created_at) DESC
                 LIMIT %s OFFSET %s
                 """,
-                (user_id, user_id, user_id, user_id, limit, offset),
-            )
-            rows = await cur.fetchall()
+            (user_id, user_id, user_id, user_id, limit, offset),
+        )
+        rows = await cur.fetchall()
 
     conversations = []
     for row in rows:
@@ -222,25 +216,25 @@ async def get_conversations(
                     "is_deleted": False,
                 }
 
-        conversations.append({
-            "id": row[0],
-            "last_message_at": format_datetime(row[1]),
-            "created_at": format_datetime(row[2]),
-            "other_user": {
-                "user_id": row[3],
-                "nickname": other_nickname,
-                "profile_image_url": other_profile,
-            },
-            "last_message": last_message,
-            "unread_count": row[9],
-        })
+        conversations.append(
+            {
+                "id": row[0],
+                "last_message_at": format_datetime(row[1]),
+                "created_at": format_datetime(row[2]),
+                "other_user": {
+                    "user_id": row[3],
+                    "nickname": other_nickname,
+                    "profile_image_url": other_profile,
+                },
+                "last_message": last_message,
+                "unread_count": row[9],
+            }
+        )
 
     return conversations, total_count
 
 
-async def send_message(
-    conversation_id: int, sender_id: int, content: str
-) -> dict:
+async def send_message(conversation_id: int, sender_id: int, content: str) -> dict:
     """메시지를 전송합니다.
 
     메시지 삽입과 대화의 last_message_at 업데이트를 트랜잭션으로 처리합니다.
@@ -288,20 +282,17 @@ async def send_message(
         }
 
 
-async def get_messages(
-    conversation_id: int, offset: int = 0, limit: int = 50
-) -> tuple[list[dict], int]:
+async def get_messages(conversation_id: int, offset: int = 0, limit: int = 50) -> tuple[list[dict], int]:
     """대화의 메시지 목록을 페이지네이션하여 반환합니다."""
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                "SELECT COUNT(*) FROM dm_message WHERE conversation_id = %s",
-                (conversation_id,),
-            )
-            total_count = (await cur.fetchone())[0]
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            "SELECT COUNT(*) FROM dm_message WHERE conversation_id = %s",
+            (conversation_id,),
+        )
+        total_count = (await cur.fetchone())[0]
 
-            await cur.execute(
-                """
+        await cur.execute(
+            """
                 SELECT m.id, m.sender_id, u.nickname, u.profile_img,
                        m.content, m.is_read, m.created_at, m.deleted_at
                 FROM dm_message m
@@ -310,23 +301,25 @@ async def get_messages(
                 ORDER BY m.created_at ASC
                 LIMIT %s OFFSET %s
                 """,
-                (conversation_id, limit, offset),
-            )
-            rows = await cur.fetchall()
+            (conversation_id, limit, offset),
+        )
+        rows = await cur.fetchall()
 
     messages = []
     for row in rows:
         is_deleted = row[7] is not None
-        messages.append({
-            "id": row[0],
-            "sender_id": row[1],
-            "sender_nickname": row[2] or "탈퇴한 사용자",
-            "sender_profile_image": row[3] or DEFAULT_PROFILE_IMAGE,
-            "content": None if is_deleted else row[4],
-            "is_read": bool(row[5]),
-            "created_at": format_datetime(row[6]),
-            "is_deleted": is_deleted,
-        })
+        messages.append(
+            {
+                "id": row[0],
+                "sender_id": row[1],
+                "sender_nickname": row[2] or "탈퇴한 사용자",
+                "sender_profile_image": row[3] or DEFAULT_PROFILE_IMAGE,
+                "content": None if is_deleted else row[4],
+                "is_read": bool(row[5]),
+                "created_at": format_datetime(row[6]),
+                "is_deleted": is_deleted,
+            }
+        )
 
     return messages, total_count
 
@@ -354,10 +347,9 @@ async def mark_as_read(conversation_id: int, reader_id: int) -> int:
 
 async def get_unread_conversation_count(user_id: int) -> int:
     """읽지 않은 메시지가 있는 대화 수를 반환합니다."""
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            """
                 SELECT COUNT(DISTINCT c.id)
                 FROM dm_conversation c
                 JOIN dm_message m ON m.conversation_id = c.id
@@ -367,14 +359,12 @@ async def get_unread_conversation_count(user_id: int) -> int:
                   AND m.is_read = 0
                   AND m.deleted_at IS NULL
                 """,
-                (user_id, user_id, user_id),
-            )
-            return (await cur.fetchone())[0]
+            (user_id, user_id, user_id),
+        )
+        return (await cur.fetchone())[0]
 
 
-async def delete_message(
-    conversation_id: int, message_id: int, sender_id: int
-) -> dict | None:
+async def delete_message(conversation_id: int, message_id: int, sender_id: int) -> dict | None:
     """메시지를 soft delete합니다. 본인 메시지만 삭제 가능."""
     async with transactional() as cur:
         await cur.execute(

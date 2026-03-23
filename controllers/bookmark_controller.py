@@ -2,9 +2,9 @@
 
 from fastapi import Request
 
+from dependencies.request_context import get_request_timestamp
 from models.user_models import User
 from schemas.common import create_response
-from dependencies.request_context import get_request_timestamp
 from services.bookmark_service import BookmarkService
 
 
@@ -24,9 +24,7 @@ async def bookmark_post(
         북마크 개수가 포함된 응답 딕셔너리.
     """
     timestamp = get_request_timestamp(request)
-    result = await BookmarkService.add_bookmark(
-        post_id, current_user.id, current_user.nickname, timestamp
-    )
+    result = await BookmarkService.add_bookmark(post_id, current_user.id, current_user.nickname, timestamp)
     return create_response(
         "BOOKMARK_ADDED",
         "북마크가 추가되었습니다.",
@@ -51,9 +49,7 @@ async def unbookmark_post(
         북마크 개수가 포함된 응답 딕셔너리.
     """
     timestamp = get_request_timestamp(request)
-    result = await BookmarkService.remove_bookmark(
-        post_id, current_user.id, timestamp
-    )
+    result = await BookmarkService.remove_bookmark(post_id, current_user.id, timestamp)
     return create_response(
         "BOOKMARK_REMOVED",
         "북마크가 해제되었습니다.",

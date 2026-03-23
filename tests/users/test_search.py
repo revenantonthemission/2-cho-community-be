@@ -5,7 +5,6 @@ from httpx import AsyncClient
 
 from tests.conftest import create_verified_user
 
-
 # ---------------------------------------------------------------------------
 # 닉네임 검색
 # ---------------------------------------------------------------------------
@@ -54,9 +53,7 @@ async def test_search_users_no_results(client: AsyncClient, fake):
     searcher = await create_verified_user(client, fake)
 
     # Act
-    res = await searcher["client"].get(
-        "/v1/users/search", params={"q": "nonexistent999"}
-    )
+    res = await searcher["client"].get("/v1/users/search", params={"q": "nonexistent999"})
 
     # Assert
     assert res.status_code == 200

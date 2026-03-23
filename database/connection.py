@@ -3,12 +3,15 @@
 aiomysql을 사용하여 비동기 MySQL 연결 풀을 관리합니다.
 """
 
-import aiomysql
-from typing import AsyncGenerator
+import logging
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+
+import aiomysql
 
 from core.config import settings
 
+logger = logging.getLogger(__name__)
 
 # 전역 연결 풀
 _pool: aiomysql.Pool | None = None
@@ -39,12 +42,12 @@ async def init_db() -> None:
             # 트랜잭션 격리 수준 설정
             init_command="SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED",
         )
-        print(
+        logger.info(
             f"MySQL 연결 풀 초기화 완료: {settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME} "
             f"(격리 수준: READ COMMITTED, 풀 크기: 5-50)"
         )
     except Exception as e:
-        print(f"MySQL 연결 풀 초기화 실패: {e}")
+        logger.error(f"MySQL 연결 풀 초기화 실패: {e}")
         raise
 
 
@@ -58,7 +61,7 @@ async def close_db() -> None:
         _pool.close()
         await _pool.wait_closed()
         _pool = None
-        print("MySQL 연결 풀 종료")
+        logger.info("MySQL 연결 풀 종료")
 
 
 def get_pool() -> aiomysql.Pool:
@@ -122,12 +125,11 @@ async def test_connection() -> bool:
         연결 성공 여부.
     """
     try:
-        async with get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute("SELECT 1")
-                result = await cur.fetchone()
-                print(f"데이터베이스 연결 테스트 성공: {result}")
-                return True
+        async with get_connection() as conn, conn.cursor() as cur:
+            await cur.execute("SELECT 1")
+            result = await cur.fetchone()
+            logger.info(f"데이터베이스 연결 테스트 성공: {result}")
+            return True
     except Exception as e:
-        print(f"데이터베이스 연결 테스트 실패: {e}")
+        logger.error(f"데이터베이스 연결 테스트 실패: {e}")
         return False

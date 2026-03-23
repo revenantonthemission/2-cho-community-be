@@ -6,7 +6,7 @@ GET /v1/posts/?following=true 쿼리 파라미터로
 
 import pytest
 
-from tests.conftest import create_verified_user, create_test_post
+from tests.conftest import create_test_post, create_verified_user
 
 
 @pytest.mark.asyncio
@@ -49,12 +49,8 @@ async def test_following_feed_with_category_filter(client, fake):
     user2 = await create_verified_user(client, fake)
 
     # user2가 다른 카테고리에 게시글 작성
-    post_cat1 = await create_test_post(
-        client, user2["headers"], title="자유게시판 글", category_id=1
-    )
-    post_cat2 = await create_test_post(
-        client, user2["headers"], title="질문답변 글", category_id=2
-    )
+    post_cat1 = await create_test_post(client, user2["headers"], title="자유게시판 글", category_id=1)
+    post_cat2 = await create_test_post(client, user2["headers"], title="질문답변 글", category_id=2)
 
     # user1이 user2를 팔로우
     res = await client.post(
@@ -107,12 +103,8 @@ async def test_following_feed_sorting(client, fake):
     user2 = await create_verified_user(client, fake)
 
     # user2가 게시글 2개 작성
-    await create_test_post(
-        client, user2["headers"], title="첫 번째 글"
-    )
-    await create_test_post(
-        client, user2["headers"], title="두 번째 글"
-    )
+    await create_test_post(client, user2["headers"], title="첫 번째 글")
+    await create_test_post(client, user2["headers"], title="두 번째 글")
 
     # user1이 user2를 팔로우
     res = await client.post(

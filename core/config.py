@@ -72,9 +72,7 @@ class Settings(BaseSettings):
 
     WS_BACKEND: str = "redis"
 
-    model_config = SettingsConfigDict(
-        env_file=str(_ENV_FILE), env_file_encoding="utf-8", extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_file=str(_ENV_FILE), env_file_encoding="utf-8", extra="ignore")
 
 
 settings = Settings()  # type: ignore[call-arg]  # pydantic-settings는 .env에서 환경 변수를 불러옴.

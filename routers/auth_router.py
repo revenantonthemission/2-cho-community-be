@@ -5,11 +5,11 @@
 """
 
 from fastapi import APIRouter, Depends, Request, Response, status
+
 from controllers import auth_controller
 from dependencies.auth import get_current_user
 from models.user_models import User
 from schemas.auth_schemas import LoginRequest, VerifyEmailRequest
-
 
 auth_router = APIRouter(prefix="/v1/auth", tags=["auth"])
 
@@ -17,9 +17,7 @@ auth_router = APIRouter(prefix="/v1/auth", tags=["auth"])
 # NOTE: /session 경로는 프론트엔드 호환성을 위해 유지합니다.
 # JWT 기반 인증이지만, 기존 프론트엔드가 이 경로를 사용합니다.
 @auth_router.post("/session", status_code=status.HTTP_200_OK)
-async def login(
-    credentials: LoginRequest, request: Request, response: Response
-) -> dict:
+async def login(credentials: LoginRequest, request: Request, response: Response) -> dict:
     """이메일과 비밀번호로 로그인합니다.
 
     Args:
@@ -69,9 +67,7 @@ async def refresh_token(request: Request, response: Response) -> dict:
 
 
 @auth_router.get("/me", status_code=status.HTTP_200_OK)
-async def get_my_info(
-    request: Request, current_user: User = Depends(get_current_user)
-) -> dict:
+async def get_my_info(request: Request, current_user: User = Depends(get_current_user)) -> dict:
     """현재 로그인 중인 사용자의 정보를 조회합니다.
 
     Args:
@@ -99,9 +95,7 @@ async def verify_email(body: VerifyEmailRequest, request: Request) -> dict:
 
 
 @auth_router.post("/resend-verification", status_code=status.HTTP_200_OK)
-async def resend_verification(
-    request: Request, current_user: User = Depends(get_current_user)
-) -> dict:
+async def resend_verification(request: Request, current_user: User = Depends(get_current_user)) -> dict:
     """이메일 인증 메일을 재발송합니다.
 
     Args:

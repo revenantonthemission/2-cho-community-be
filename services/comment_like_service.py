@@ -2,10 +2,10 @@
 
 from pymysql.err import IntegrityError
 
-from models import post_models, comment_like_models
+from models import comment_like_models, post_models
 from models.comment_models import get_comment_by_id
 from utils.error_codes import ErrorCode
-from utils.exceptions import not_found_error, conflict_error, safe_notify
+from utils.exceptions import conflict_error, not_found_error, safe_notify
 
 
 class CommentLikeService:
@@ -47,13 +47,9 @@ class CommentLikeService:
         try:
             await comment_like_models.add_comment_like(comment_id, user_id)
         except IntegrityError:
-            raise conflict_error(
-                ErrorCode.ALREADY_COMMENT_LIKED, timestamp, "이미 좋아요를 누른 댓글입니다."
-            )
+            raise conflict_error(ErrorCode.ALREADY_COMMENT_LIKED, timestamp, "이미 좋아요를 누른 댓글입니다.") from None
 
-        likes_count = await comment_like_models.get_comment_likes_count(
-            comment_id
-        )
+        likes_count = await comment_like_models.get_comment_likes_count(comment_id)
 
         # 자기 댓글이 아닌 경우 알림 생성
         if comment.author_id and comment.author_id != user_id:
@@ -97,14 +93,10 @@ class CommentLikeService:
         if not comment or comment.post_id != post_id:
             raise not_found_error("comment", timestamp)
 
-        removed = await comment_like_models.remove_comment_like(
-            comment_id, user_id
-        )
+        removed = await comment_like_models.remove_comment_like(comment_id, user_id)
         if not removed:
             raise not_found_error("comment_like", timestamp)
 
-        likes_count = await comment_like_models.get_comment_likes_count(
-            comment_id
-        )
+        likes_count = await comment_like_models.get_comment_likes_count(comment_id)
 
         return {"likes_count": likes_count}

@@ -3,8 +3,8 @@
 from fastapi import HTTPException, Request, status
 
 from dependencies.request_context import get_request_timestamp
-from models.wiki_models import ALLOWED_SORT_OPTIONS, get_popular_wiki_tags
 from models.user_models import User
+from models.wiki_models import ALLOWED_SORT_OPTIONS, get_popular_wiki_tags
 from schemas.common import create_response
 from schemas.wiki_schemas import CreateWikiPageRequest, UpdateWikiPageRequest
 from services.wiki_service import WikiService
@@ -50,8 +50,11 @@ async def get_wiki_pages(
         sort = "latest"
 
     result = await WikiService.get_wiki_pages(
-        offset=offset, limit=limit, sort=sort,
-        search=search, tag=tag,
+        offset=offset,
+        limit=limit,
+        sort=sort,
+        search=search,
+        tag=tag,
     )
 
     return create_response(
@@ -100,7 +103,9 @@ async def create_wiki_page(
     timestamp = get_request_timestamp(request)
 
     wiki_page_id = await WikiService.create_wiki_page(
-        current_user.id, data, timestamp,
+        current_user.id,
+        data,
+        timestamp,
     )
 
     return create_response(
@@ -121,7 +126,10 @@ async def update_wiki_page(
     timestamp = get_request_timestamp(request)
 
     result = await WikiService.update_wiki_page(
-        slug, current_user.id, data, timestamp,
+        slug,
+        current_user.id,
+        data,
+        timestamp,
     )
 
     return create_response(
@@ -141,8 +149,10 @@ async def delete_wiki_page(
     timestamp = get_request_timestamp(request)
 
     await WikiService.delete_wiki_page(
-        slug, current_user.id,
-        is_admin=current_user.is_admin, timestamp=timestamp,
+        slug,
+        current_user.id,
+        is_admin=current_user.is_admin,
+        timestamp=timestamp,
     )
 
     return create_response(

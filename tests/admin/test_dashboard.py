@@ -3,7 +3,6 @@
 import pytest
 from httpx import AsyncClient
 
-
 # ---------------------------------------------------------------------------
 # 대시보드 통계
 # ---------------------------------------------------------------------------
@@ -67,12 +66,14 @@ async def test_admin_user_search(client: AsyncClient, admin):
 
 @pytest.mark.asyncio
 async def test_non_admin_dashboard_returns_403(
-    client: AsyncClient, regular_user,
+    client: AsyncClient,
+    regular_user,
 ):
     """일반 사용자가 대시보드에 접근하면 403을 반환한다."""
     # Act
     res = await client.get(
-        "/v1/admin/dashboard", headers=regular_user["headers"],
+        "/v1/admin/dashboard",
+        headers=regular_user["headers"],
     )
 
     # Assert

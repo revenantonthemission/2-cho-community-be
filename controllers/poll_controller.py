@@ -2,10 +2,10 @@
 
 from fastapi import Request
 
-from models.user_models import User
-from schemas.poll_schemas import PollVoteRequest
-from schemas.common import create_response
 from dependencies.request_context import get_request_timestamp
+from models.user_models import User
+from schemas.common import create_response
+from schemas.poll_schemas import PollVoteRequest
 from services.poll_service import PollService
 
 
@@ -18,9 +18,7 @@ async def vote_on_poll(
     """게시글의 투표에 참여합니다."""
     timestamp = get_request_timestamp(request)
 
-    await PollService.vote_on_poll(
-        post_id, vote_data.option_id, current_user.id, timestamp
-    )
+    await PollService.vote_on_poll(post_id, vote_data.option_id, current_user.id, timestamp)
 
     return create_response(
         "POLL_VOTED",
@@ -55,9 +53,7 @@ async def change_vote(
     """투표를 변경합니다."""
     timestamp = get_request_timestamp(request)
 
-    await PollService.change_vote(
-        post_id, vote_data.option_id, current_user.id, timestamp
-    )
+    await PollService.change_vote(post_id, vote_data.option_id, current_user.id, timestamp)
 
     return create_response(
         "POLL_VOTE_CHANGED",

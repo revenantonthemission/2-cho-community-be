@@ -16,9 +16,7 @@ async def create_conversation(
     request: Request,
     current_user: User = Depends(require_verified_email),
 ):
-    return await dm_controller.create_conversation(
-        body.recipient_id, current_user, request
-    )
+    return await dm_controller.create_conversation(body.recipient_id, current_user, request)
 
 
 # 정적 경로를 동적 경로보다 먼저 등록 (FastAPI 라우트 순서)
@@ -37,9 +35,7 @@ async def get_conversations(
     limit: int = Query(20, ge=1, le=100),
     current_user: User = Depends(require_verified_email),
 ):
-    return await dm_controller.get_conversations(
-        current_user, request, offset, limit
-    )
+    return await dm_controller.get_conversations(current_user, request, offset, limit)
 
 
 @router.get("/{conversation_id}")
@@ -50,9 +46,7 @@ async def get_messages(
     limit: int = Query(50, ge=1, le=100),
     current_user: User = Depends(require_verified_email),
 ):
-    return await dm_controller.get_messages(
-        conversation_id, current_user, request, offset, limit
-    )
+    return await dm_controller.get_messages(conversation_id, current_user, request, offset, limit)
 
 
 @router.post("/{conversation_id}/messages", status_code=201)
@@ -62,9 +56,7 @@ async def send_message(
     request: Request,
     current_user: User = Depends(require_verified_email),
 ):
-    return await dm_controller.send_message(
-        conversation_id, body.content, current_user, request
-    )
+    return await dm_controller.send_message(conversation_id, body.content, current_user, request)
 
 
 @router.delete("/{conversation_id}/messages/{message_id}")
@@ -74,9 +66,7 @@ async def delete_message(
     request: Request,
     current_user: User = Depends(require_verified_email),
 ):
-    return await dm_controller.delete_message(
-        conversation_id, message_id, current_user, request
-    )
+    return await dm_controller.delete_message(conversation_id, message_id, current_user, request)
 
 
 @router.patch("/{conversation_id}/read")
@@ -94,6 +84,4 @@ async def delete_conversation(
     request: Request,
     current_user: User = Depends(require_verified_email),
 ):
-    return await dm_controller.delete_conversation(
-        conversation_id, current_user, request
-    )
+    return await dm_controller.delete_conversation(conversation_id, current_user, request)

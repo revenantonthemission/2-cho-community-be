@@ -2,20 +2,17 @@
 
 import logging
 
-from typing import Dict, List, Optional
-
-from models import post_models, tag_models, poll_models, follow_models, notification_models, category_models
-from schemas.responses.post_responses import PostListResult
-from models.user_models import User
-from models.like_models import get_like
-from models.bookmark_models import get_bookmark
+from models import category_models, follow_models, notification_models, poll_models, post_models, tag_models
 from models.block_models import get_blocked_user_ids
+from models.bookmark_models import get_bookmark
+from models.like_models import get_like
+from models.user_models import User, get_user_by_nickname
 from schemas.post_schemas import CreatePostRequest
-from utils.formatters import format_datetime
+from schemas.responses.post_responses import PostListResult
 from utils.error_codes import ErrorCode
-from utils.exceptions import not_found_error, forbidden_error, bad_request_error, safe_notify
+from utils.exceptions import bad_request_error, forbidden_error, not_found_error, safe_notify
+from utils.formatters import format_datetime
 from utils.mention import extract_mentions
-from models.user_models import get_user_by_nickname
 
 
 class PostService:
@@ -25,12 +22,12 @@ class PostService:
     async def get_posts(
         offset: int,
         limit: int,
-        search: Optional[str] = None,
+        search: str | None = None,
         sort: str = "latest",
-        author_id: Optional[int] = None,
-        category_id: Optional[int] = None,
-        current_user: Optional[User] = None,
-        tag: Optional[str] = None,
+        author_id: int | None = None,
+        category_id: int | None = None,
+        current_user: User | None = None,
+        tag: str | None = None,
         following: bool = False,
     ) -> PostListResult:
         """게시글 목록 조회 및 가공."""
@@ -55,6 +52,7 @@ class PostService:
                 effective_sort = "latest"
             else:
                 from models.affinity_models import user_has_scores
+
                 if not await user_has_scores(current_user.id):
                     effective_sort = "latest"
 
@@ -63,15 +61,23 @@ class PostService:
 
         # 1. DB 조회
         posts_data = await post_models.get_posts_with_details(
-            offset, fetch_limit, search=search, sort=effective_sort,
-            author_id=author_id, category_id=category_id,
-            blocked_user_ids=blocked_ids, tag=tag,
+            offset,
+            fetch_limit,
+            search=search,
+            sort=effective_sort,
+            author_id=author_id,
+            category_id=category_id,
+            blocked_user_ids=blocked_ids,
+            tag=tag,
             author_ids=author_ids,
             current_user_id=current_user.id if current_user and effective_sort == "for_you" else None,
         )
         total_count = await post_models.get_total_posts_count(
-            search=search, author_id=author_id, category_id=category_id,
-            blocked_user_ids=blocked_ids, tag=tag,
+            search=search,
+            author_id=author_id,
+            category_id=category_id,
+            blocked_user_ids=blocked_ids,
+            tag=tag,
             author_ids=author_ids,
         )
 
@@ -135,9 +141,11 @@ class PostService:
 
     @staticmethod
     async def get_post_detail(
-        post_id: int, current_user: Optional[User], timestamp: str,
+        post_id: int,
+        current_user: User | None,
+        timestamp: str,
         comment_sort: str = "oldest",
-    ) -> Dict:
+    ) -> dict:
         """게시글 상세 조회 및 조회수 증가 처리."""
         # 1. 게시글 존재 확인
         post_data = await post_models.get_post_with_details(post_id)
@@ -145,9 +153,8 @@ class PostService:
             raise not_found_error("post", timestamp)
 
         # 2. 조회수 증가 (로그인 사용자, 하루 1회)
-        if current_user:
-            if await post_models.increment_view_count(post_id, current_user.id):
-                post_data["views_count"] += 1
+        if current_user and await post_models.increment_view_count(post_id, current_user.id):
+            post_data["views_count"] += 1
 
         # 3. 로그인 사용자 상태 플래그 + 차단 목록
         blocked_ids: set[int] | None = None
@@ -162,9 +169,7 @@ class PostService:
 
             # 게시글 작성자 차단 여부
             author_id = post_data.get("author", {}).get("user_id")
-            post_data["is_blocked"] = (
-                bool(blocked_ids) and author_id in blocked_ids
-            )
+            post_data["is_blocked"] = bool(blocked_ids) and author_id in blocked_ids
 
             if not blocked_ids:
                 blocked_ids = None
@@ -226,9 +231,7 @@ class PostService:
         if post_data.category_id is not None and not is_admin:
             category = await category_models.get_category_by_id(post_data.category_id)
             if category and category.slug == "notice":
-                raise forbidden_error(
-                    "create", "", "공지사항은 관리자만 작성할 수 있습니다."
-                )
+                raise forbidden_error("create", "", "공지사항은 관리자만 작성할 수 있습니다.")
 
         # image_urls 우선, 없으면 image_url 단일 필드 사용 (하위 호환)
         primary_image_url = post_data.image_url
@@ -244,9 +247,7 @@ class PostService:
         )
 
         # 다중 이미지 저장
-        image_list = post_data.image_urls or (
-            [post_data.image_url] if post_data.image_url else []
-        )
+        image_list = post_data.image_urls or ([post_data.image_url] if post_data.image_url else [])
         if image_list:
             await post_models.save_post_images(post.id, image_list)
 
@@ -276,9 +277,7 @@ class PostService:
                     actor_nickname=actor_nickname,
                 )
         except Exception:
-            logging.getLogger(__name__).warning(
-                "팔로우 알림 생성 실패", exc_info=True
-            )
+            logging.getLogger(__name__).warning("팔로우 알림 생성 실패", exc_info=True)
 
         # 게시글 본문 멘션 알림 (자기 자신 제외는 create_notification 내부에서 처리)
         nicknames = extract_mentions(post_data.content)
@@ -286,9 +285,7 @@ class PostService:
             try:
                 mentioned_user = await get_user_by_nickname(nickname)
             except Exception:
-                logging.getLogger(__name__).warning(
-                    "멘션 사용자 조회 실패: %s", nickname, exc_info=True
-                )
+                logging.getLogger(__name__).warning("멘션 사용자 조회 실패: %s", nickname, exc_info=True)
                 continue
             if mentioned_user:
                 await safe_notify(
@@ -305,15 +302,15 @@ class PostService:
     async def update_post(
         post_id: int,
         user_id: int,
-        title: Optional[str],
-        content: Optional[str],
-        image_url: Optional[str],
+        title: str | None,
+        content: str | None,
+        image_url: str | None,
         timestamp: str,
-        category_id: Optional[int] = None,
-        image_urls: Optional[list[str]] = None,
-        tags: Optional[list[str]] = None,
+        category_id: int | None = None,
+        image_urls: list[str] | None = None,
+        tags: list[str] | None = None,
         actor_nickname: str | None = None,
-    ) -> Dict:
+    ) -> dict:
         """게시글 수정."""
         # 1. 존재 확인
         post = await post_models.get_post_by_id(post_id)
@@ -322,9 +319,7 @@ class PostService:
 
         # 2. 권한 확인
         if post.author_id != user_id:
-            raise forbidden_error(
-                "edit", timestamp, "게시글 작성자만 수정할 수 있습니다."
-            )
+            raise forbidden_error("edit", timestamp, "게시글 작성자만 수정할 수 있습니다.")
 
         # 3. 변경사항 확인
         if all(v is None for v in (title, content, image_url, category_id, image_urls, tags)):
@@ -361,9 +356,7 @@ class PostService:
                 try:
                     mentioned_user = await get_user_by_nickname(nickname)
                 except Exception:
-                    logging.getLogger(__name__).warning(
-                        "멘션 사용자 조회 실패: %s", nickname, exc_info=True
-                    )
+                    logging.getLogger(__name__).warning("멘션 사용자 조회 실패: %s", nickname, exc_info=True)
                     continue
                 if mentioned_user:
                     await safe_notify(
@@ -396,9 +389,7 @@ class PostService:
 
         # 2. 권한 확인 (관리자는 모든 게시글 삭제 가능)
         if not is_admin and post.author_id != user_id:
-            raise forbidden_error(
-                "delete", timestamp, "게시글 작성자만 삭제할 수 있습니다."
-            )
+            raise forbidden_error("delete", timestamp, "게시글 작성자만 삭제할 수 있습니다.")
 
         # 3. DB 삭제
         await post_models.delete_post(post_id)
@@ -406,9 +397,9 @@ class PostService:
     @staticmethod
     async def get_related_posts(
         post_id: int,
-        current_user: Optional[User] = None,
+        current_user: User | None = None,
         limit: int = 5,
-    ) -> Optional[List[Dict]]:
+    ) -> list[dict] | None:
         """현재 게시글과 관련된 게시글 목록을 조회합니다.
 
         태그/카테고리 기반 관련도 정렬 후 반환합니다.

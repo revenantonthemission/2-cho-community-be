@@ -7,11 +7,18 @@ from database.connection import get_connection, transactional
 from schemas.common import build_author_dict
 from utils.formatters import format_datetime
 
-
-PACKAGE_CATEGORIES = frozenset({
-    'editor', 'terminal', 'devtool', 'system',
-    'desktop', 'utility', 'multimedia', 'security',
-})
+PACKAGE_CATEGORIES = frozenset(
+    {
+        "editor",
+        "terminal",
+        "devtool",
+        "system",
+        "desktop",
+        "utility",
+        "multimedia",
+        "security",
+    }
+)
 
 # SQL Injection 방지: 허용된 정렬 옵션 whitelist
 ALLOWED_SORT_OPTIONS = {
@@ -23,8 +30,12 @@ ALLOWED_SORT_OPTIONS = {
 
 # SQL Injection 방지: 허용된 UPDATE 컬럼명 whitelist
 ALLOWED_PACKAGE_COLUMNS = {
-    'display_name', 'description', 'homepage_url',
-    'category', 'package_manager', 'updated_at',
+    "display_name",
+    "description",
+    "homepage_url",
+    "category",
+    "package_manager",
+    "updated_at",
 }
 
 
@@ -74,8 +85,7 @@ async def create_package(
                                  category, package_manager, created_by)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
             """,
-            (name, display_name, description, homepage_url,
-             category, package_manager, created_by),
+            (name, display_name, description, homepage_url, category, package_manager, created_by),
         )
         return cur.lastrowid
 
@@ -89,26 +99,31 @@ async def get_package_by_id(package_id: int) -> Package | None:
     Returns:
         패키지 객체, 없으면 None.
     """
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            """
                 SELECT id, name, display_name, description, homepage_url,
                        category, package_manager, created_by, created_at, updated_at
                 FROM package
                 WHERE id = %s
                 """,
-                (package_id,),
-            )
-            row = await cur.fetchone()
-            if not row:
-                return None
-            return Package(
-                id=row[0], name=row[1], display_name=row[2],
-                description=row[3], homepage_url=row[4],
-                category=row[5], package_manager=row[6],
-                created_by=row[7], created_at=row[8], updated_at=row[9],
-            )
+            (package_id,),
+        )
+        row = await cur.fetchone()
+        if not row:
+            return None
+        return Package(
+            id=row[0],
+            name=row[1],
+            display_name=row[2],
+            description=row[3],
+            homepage_url=row[4],
+            category=row[5],
+            package_manager=row[6],
+            created_by=row[7],
+            created_at=row[8],
+            updated_at=row[9],
+        )
 
 
 async def get_package_by_name(name: str) -> Package | None:
@@ -120,26 +135,31 @@ async def get_package_by_name(name: str) -> Package | None:
     Returns:
         패키지 객체, 없으면 None.
     """
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            """
                 SELECT id, name, display_name, description, homepage_url,
                        category, package_manager, created_by, created_at, updated_at
                 FROM package
                 WHERE name = %s
                 """,
-                (name,),
-            )
-            row = await cur.fetchone()
-            if not row:
-                return None
-            return Package(
-                id=row[0], name=row[1], display_name=row[2],
-                description=row[3], homepage_url=row[4],
-                category=row[5], package_manager=row[6],
-                created_by=row[7], created_at=row[8], updated_at=row[9],
-            )
+            (name,),
+        )
+        row = await cur.fetchone()
+        if not row:
+            return None
+        return Package(
+            id=row[0],
+            name=row[1],
+            display_name=row[2],
+            description=row[3],
+            homepage_url=row[4],
+            category=row[5],
+            package_manager=row[6],
+            created_by=row[7],
+            created_at=row[8],
+            updated_at=row[9],
+        )
 
 
 async def get_packages_with_stats(
@@ -179,10 +199,9 @@ async def get_packages_with_stats(
 
     params.extend([limit, offset])
 
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                f"""
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            f"""
                 SELECT p.id, p.name, p.display_name, p.description, p.homepage_url,
                        p.category, p.package_manager, p.created_at,
                        u.id AS creator_id, u.nickname AS creator_nickname,
@@ -202,26 +221,26 @@ async def get_packages_with_stats(
                 ORDER BY {sort_clause}
                 LIMIT %s OFFSET %s
                 """,
-                params,
-            )
-            rows = await cur.fetchall()
+            params,
+        )
+        rows = await cur.fetchall()
 
-            return [
-                {
-                    "package_id": row[0],
-                    "name": row[1],
-                    "display_name": row[2],
-                    "description": row[3],
-                    "homepage_url": row[4],
-                    "category": row[5],
-                    "package_manager": row[6],
-                    "created_at": format_datetime(row[7]),
-                    "creator": build_author_dict(row[8], row[9], None),
-                    "avg_rating": float(row[10]),
-                    "reviews_count": row[11],
-                }
-                for row in rows
-            ]
+        return [
+            {
+                "package_id": row[0],
+                "name": row[1],
+                "display_name": row[2],
+                "description": row[3],
+                "homepage_url": row[4],
+                "category": row[5],
+                "package_manager": row[6],
+                "created_at": format_datetime(row[7]),
+                "creator": build_author_dict(row[8], row[9], None),
+                "avg_rating": float(row[10]),
+                "reviews_count": row[11],
+            }
+            for row in rows
+        ]
 
 
 async def get_packages_count(
@@ -249,14 +268,13 @@ async def get_packages_count(
         like_pattern = f"%{search}%"
         params.extend([like_pattern, like_pattern, like_pattern])
 
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                f"SELECT COUNT(*) FROM package WHERE {where}",
-                params,
-            )
-            row = await cur.fetchone()
-            return row[0] if row else 0
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            f"SELECT COUNT(*) FROM package WHERE {where}",
+            params,
+        )
+        row = await cur.fetchone()
+        return row[0] if row else 0
 
 
 async def update_package(package_id: int, **kwargs: str | None) -> bool:

@@ -3,8 +3,7 @@
 import pytest
 from httpx import AsyncClient
 
-from tests.conftest import create_verified_user, create_test_post
-
+from tests.conftest import create_test_post, create_verified_user
 
 # ---------------------------------------------------------------------------
 # 기본 목록 조회
@@ -89,9 +88,7 @@ async def test_list_posts_filter_by_tag(client: AsyncClient, fake):
 async def test_list_posts_search_by_title(client: AsyncClient, fake):
     """search 파라미터로 제목을 검색할 수 있다."""
     user = await create_verified_user(client, fake)
-    await create_test_post(
-        client, user["headers"], title="고유한검색키워드 테스트 게시글"
-    )
+    await create_test_post(client, user["headers"], title="고유한검색키워드 테스트 게시글")
     await create_test_post(client, user["headers"], title="관련없는 게시글입니다")
 
     res = await client.get("/v1/posts/?search=고유한검색키워드")
@@ -104,9 +101,7 @@ async def test_list_posts_search_by_title(client: AsyncClient, fake):
 async def test_list_posts_search_by_content(client: AsyncClient, fake):
     """search 파라미터로 내용을 검색할 수 있다."""
     user = await create_verified_user(client, fake)
-    await create_test_post(
-        client, user["headers"], content="이것은유니크내용검색어입니다"
-    )
+    await create_test_post(client, user["headers"], content="이것은유니크내용검색어입니다")
 
     res = await client.get("/v1/posts/?search=유니크내용검색어")
     assert res.status_code == 200
@@ -194,9 +189,7 @@ async def test_list_posts_excludes_blocked_users(client: AsyncClient, fake):
     blocked_post_id = post["post_id"]
 
     # user1이 user2를 차단
-    block_res = await client.post(
-        f"/v1/users/{user2['user_id']}/block", headers=user1["headers"]
-    )
+    block_res = await client.post(f"/v1/users/{user2['user_id']}/block", headers=user1["headers"])
     assert block_res.status_code == 201
 
     # user1이 목록 조회 시 user2의 게시글이 제외되어야 함

@@ -6,7 +6,7 @@ SHA-256 해시 패턴은 refresh_token과 동일합니다.
 
 import logging
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from database.connection import get_connection, transactional
 from utils.jwt_utils import hash_refresh_token
@@ -29,7 +29,7 @@ async def create_verification_token(user_id: int) -> str:
     """
     raw_token = secrets.token_urlsafe(64)
     token_hash = hash_refresh_token(raw_token)
-    expires_at = datetime.now(timezone.utc) + timedelta(hours=_VERIFICATION_EXPIRE_HOURS)
+    expires_at = datetime.now(UTC) + timedelta(hours=_VERIFICATION_EXPIRE_HOURS)
 
     async with transactional() as cur:
         await cur.execute(
@@ -75,9 +75,9 @@ async def verify_token(raw_token: str) -> int | None:
 
         # MySQL TIMESTAMP는 timezone-naive로 반환될 수 있음
         if expires_at.tzinfo is None:
-            expires_at = expires_at.replace(tzinfo=timezone.utc)
+            expires_at = expires_at.replace(tzinfo=UTC)
 
-        if expires_at < datetime.now(timezone.utc):
+        if expires_at < datetime.now(UTC):
             # 만료된 토큰 삭제
             await cur.execute(
                 "DELETE FROM email_verification WHERE token_hash = %s",
@@ -107,14 +107,13 @@ async def is_user_verified(user_id: int) -> bool:
     Returns:
         인증 완료 시 True, 미인증 또는 사용자 미존재 시 False.
     """
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                "SELECT email_verified FROM user WHERE id = %s AND deleted_at IS NULL",
-                (user_id,),
-            )
-            row = await cur.fetchone()
-            return bool(row[0]) if row else False
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            "SELECT email_verified FROM user WHERE id = %s AND deleted_at IS NULL",
+            (user_id,),
+        )
+        row = await cur.fetchone()
+        return bool(row[0]) if row else False
 
 
 async def cleanup_expired_verification_tokens() -> int:
@@ -123,12 +122,11 @@ async def cleanup_expired_verification_tokens() -> int:
     Returns:
         삭제된 토큰 수.
     """
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                "DELETE FROM email_verification WHERE expires_at < %s",
-                (datetime.now(timezone.utc),),
-            )
-            deleted = cur.rowcount
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            "DELETE FROM email_verification WHERE expires_at < %s",
+            (datetime.now(UTC),),
+        )
+        deleted = cur.rowcount
     logger.info("만료된 이메일 인증 토큰 %d개 정리 완료", deleted)
     return deleted

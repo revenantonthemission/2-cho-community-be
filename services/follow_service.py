@@ -50,7 +50,7 @@ class FollowService:
         try:
             await follow_models.add_follow(user_id, target_id)
         except IntegrityError:
-            raise conflict_error(ErrorCode.ALREADY_FOLLOWING, timestamp, "이미 팔로우한 사용자입니다.")
+            raise conflict_error(ErrorCode.ALREADY_FOLLOWING, timestamp, "이미 팔로우한 사용자입니다.") from None
 
         # 팔로우 알림 (자기 자신 제외는 정의상 보장됨)
         await safe_notify(
@@ -96,9 +96,7 @@ class FollowService:
         Returns:
             팔로잉 목록과 페이지네이션 정보.
         """
-        following, total_count = await follow_models.get_my_following(
-            user_id, offset, limit
-        )
+        following, total_count = await follow_models.get_my_following(user_id, offset, limit)
         has_more = offset + limit < total_count
 
         for item in following:
@@ -125,9 +123,7 @@ class FollowService:
         Returns:
             팔로워 목록과 페이지네이션 정보.
         """
-        followers, total_count = await follow_models.get_my_followers(
-            user_id, offset, limit
-        )
+        followers, total_count = await follow_models.get_my_followers(user_id, offset, limit)
         has_more = offset + limit < total_count
 
         for item in followers:

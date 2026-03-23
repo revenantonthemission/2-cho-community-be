@@ -8,12 +8,13 @@
 - "unknown" IP에 대한 엄격한 제한
 """
 
+import ipaddress
+import logging
+import re
+
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
-import logging
-import ipaddress
-import re
 
 from core.config import settings
 from middleware.rate_limiter_base import RateLimiterProtocol
@@ -58,6 +59,7 @@ def _create_rate_limiter() -> RateLimiterProtocol:
 
     if backend == "redis":
         from middleware.rate_limiter_redis import RedisRateLimiter
+
         return RedisRateLimiter(redis_url=settings.REDIS_URL)
 
     raise ValueError(f"지원하지 않는 Rate Limiter 백엔드: {backend}")
@@ -155,9 +157,7 @@ def get_client_ip(request: Request) -> str:
 
         # 유효한 IP가 없는 경우
         if not ips:
-            logger.warning(
-                f"X-Forwarded-For 헤더에 유효한 IP 없음: {x_forwarded_for}"
-            )
+            logger.warning(f"X-Forwarded-For 헤더에 유효한 IP 없음: {x_forwarded_for}")
             # Fallback: 직접 연결 IP 확인
             if request.client and request.client.host:
                 return request.client.host
@@ -171,9 +171,7 @@ def get_client_ip(request: Request) -> str:
                     logger.debug(f"실제 클라이언트 IP 추출: {ip} (프록시 검증 완료)")
                     return ip
             # 모든 IP가 신뢰된 프록시인 경우 첫 번째 IP 반환
-            logger.warning(
-                f"모든 IP가 신뢰된 프록시: {ips}, 첫 번째 IP 반환"
-            )
+            logger.warning(f"모든 IP가 신뢰된 프록시: {ips}, 첫 번째 IP 반환")
             return ips[0]
 
         # 신뢰된 프록시 미설정 시 첫 번째 IP 반환 (기본 동작)
@@ -233,9 +231,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # 엔드포인트별 설정 확인 (METHOD:path 키 우선, path만 있는 키 fallback)
         method_key = f"{request.method}:{normalized}"
-        config = RATE_LIMIT_CONFIG.get(
-            method_key, RATE_LIMIT_CONFIG.get(normalized, DEFAULT_RATE_LIMIT)
-        )
+        config = RATE_LIMIT_CONFIG.get(method_key, RATE_LIMIT_CONFIG.get(normalized, DEFAULT_RATE_LIMIT))
 
         # 같은 엔드포인트의 다른 ID 요청을 하나로 합산
         rate_key = f"{client_ip}:{request.method}:{normalized}"

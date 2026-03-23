@@ -13,7 +13,10 @@ ALLOWED_SORT_OPTIONS = {
 
 
 async def create_wiki_page(
-    title: str, slug: str, content: str, author_id: int,
+    title: str,
+    slug: str,
+    content: str,
+    author_id: int,
 ) -> int:
     """새 위키 페이지를 생성합니다.
 
@@ -46,10 +49,9 @@ async def get_wiki_page_by_slug(slug: str) -> dict | None:
     Returns:
         위키 페이지 딕셔너리, 없으면 None.
     """
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            """
                 SELECT wp.id, wp.title, wp.slug, wp.content,
                        wp.author_id, wp.last_edited_by, wp.views_count,
                        wp.created_at, wp.updated_at,
@@ -60,24 +62,24 @@ async def get_wiki_page_by_slug(slug: str) -> dict | None:
                 LEFT JOIN user ed ON wp.last_edited_by = ed.id
                 WHERE wp.slug = %s AND wp.deleted_at IS NULL
                 """,
-                (slug,),
-            )
-            row = await cur.fetchone()
-            if not row:
-                return None
-            return {
-                "wiki_page_id": row[0],
-                "title": row[1],
-                "slug": row[2],
-                "content": row[3],
-                "author_id": row[4],
-                "last_edited_by": row[5],
-                "views_count": row[6],
-                "created_at": format_datetime(row[7]),
-                "updated_at": format_datetime(row[8]),
-                "author": build_author_dict(row[4], row[9], row[10], row[11]),
-                "editor_nickname": row[12],
-            }
+            (slug,),
+        )
+        row = await cur.fetchone()
+        if not row:
+            return None
+        return {
+            "wiki_page_id": row[0],
+            "title": row[1],
+            "slug": row[2],
+            "content": row[3],
+            "author_id": row[4],
+            "last_edited_by": row[5],
+            "views_count": row[6],
+            "created_at": format_datetime(row[7]),
+            "updated_at": format_datetime(row[8]),
+            "author": build_author_dict(row[4], row[9], row[10], row[11]),
+            "editor_nickname": row[12],
+        }
 
 
 async def get_wiki_page_by_id(wiki_page_id: int) -> dict | None:
@@ -89,31 +91,30 @@ async def get_wiki_page_by_id(wiki_page_id: int) -> dict | None:
     Returns:
         위키 페이지 딕셔너리, 없으면 None.
     """
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            """
                 SELECT id, title, slug, content, author_id,
                        last_edited_by, views_count, created_at, updated_at
                 FROM wiki_page
                 WHERE id = %s AND deleted_at IS NULL
                 """,
-                (wiki_page_id,),
-            )
-            row = await cur.fetchone()
-            if not row:
-                return None
-            return {
-                "wiki_page_id": row[0],
-                "title": row[1],
-                "slug": row[2],
-                "content": row[3],
-                "author_id": row[4],
-                "last_edited_by": row[5],
-                "views_count": row[6],
-                "created_at": format_datetime(row[7]),
-                "updated_at": format_datetime(row[8]),
-            }
+            (wiki_page_id,),
+        )
+        row = await cur.fetchone()
+        if not row:
+            return None
+        return {
+            "wiki_page_id": row[0],
+            "title": row[1],
+            "slug": row[2],
+            "content": row[3],
+            "author_id": row[4],
+            "last_edited_by": row[5],
+            "views_count": row[6],
+            "created_at": format_datetime(row[7]),
+            "updated_at": format_datetime(row[8]),
+        }
 
 
 async def slug_exists(slug: str, exclude_id: int | None = None) -> bool:
@@ -126,27 +127,26 @@ async def slug_exists(slug: str, exclude_id: int | None = None) -> bool:
     Returns:
         중복이면 True.
     """
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            if exclude_id is not None:
-                await cur.execute(
-                    """
+    async with get_connection() as conn, conn.cursor() as cur:
+        if exclude_id is not None:
+            await cur.execute(
+                """
                     SELECT 1 FROM wiki_page
                     WHERE slug = %s AND id != %s AND deleted_at IS NULL
                     LIMIT 1
                     """,
-                    (slug, exclude_id),
-                )
-            else:
-                await cur.execute(
-                    """
+                (slug, exclude_id),
+            )
+        else:
+            await cur.execute(
+                """
                     SELECT 1 FROM wiki_page
                     WHERE slug = %s AND deleted_at IS NULL
                     LIMIT 1
                     """,
-                    (slug,),
-                )
-            return await cur.fetchone() is not None
+                (slug,),
+            )
+        return await cur.fetchone() is not None
 
 
 async def get_wiki_pages(
@@ -175,10 +175,7 @@ async def get_wiki_pages(
     params: list = []
 
     if tag:
-        joins += (
-            " INNER JOIN wiki_page_tag wpt ON wp.id = wpt.wiki_page_id"
-            " INNER JOIN tag t ON wpt.tag_id = t.id"
-        )
+        joins += " INNER JOIN wiki_page_tag wpt ON wp.id = wpt.wiki_page_id INNER JOIN tag t ON wpt.tag_id = t.id"
         where += " AND t.name = %s"
         params.append(tag)
 
@@ -188,10 +185,9 @@ async def get_wiki_pages(
 
     params.extend([limit, offset])
 
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                f"""
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            f"""
                 SELECT wp.id, wp.title, wp.slug, wp.views_count,
                        wp.created_at, wp.updated_at,
                        u.id AS author_id, u.nickname, u.profile_img, u.distro
@@ -201,22 +197,22 @@ async def get_wiki_pages(
                 ORDER BY {sort_clause}
                 LIMIT %s OFFSET %s
                 """,
-                params,
-            )
-            rows = await cur.fetchall()
+            params,
+        )
+        rows = await cur.fetchall()
 
-            return [
-                {
-                    "wiki_page_id": row[0],
-                    "title": row[1],
-                    "slug": row[2],
-                    "views_count": row[3],
-                    "created_at": format_datetime(row[4]),
-                    "updated_at": format_datetime(row[5]),
-                    "author": build_author_dict(row[6], row[7], row[8], row[9]),
-                }
-                for row in rows
-            ]
+        return [
+            {
+                "wiki_page_id": row[0],
+                "title": row[1],
+                "slug": row[2],
+                "views_count": row[3],
+                "created_at": format_datetime(row[4]),
+                "updated_at": format_datetime(row[5]),
+                "author": build_author_dict(row[6], row[7], row[8], row[9]),
+            }
+            for row in rows
+        ]
 
 
 async def get_wiki_pages_count(
@@ -237,10 +233,7 @@ async def get_wiki_pages_count(
     params: list = []
 
     if tag:
-        joins += (
-            " INNER JOIN wiki_page_tag wpt ON wp.id = wpt.wiki_page_id"
-            " INNER JOIN tag t ON wpt.tag_id = t.id"
-        )
+        joins += " INNER JOIN wiki_page_tag wpt ON wp.id = wpt.wiki_page_id INNER JOIN tag t ON wpt.tag_id = t.id"
         where += " AND t.name = %s"
         params.append(tag)
 
@@ -248,18 +241,17 @@ async def get_wiki_pages_count(
         where += " AND MATCH(wp.title, wp.content) AGAINST(%s IN BOOLEAN MODE)"
         params.append(search)
 
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                f"""
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            f"""
                 SELECT COUNT(*) FROM wiki_page wp
                 {joins}
                 WHERE {where}
                 """,
-                params,
-            )
-            row = await cur.fetchone()
-            return row[0] if row else 0
+            params,
+        )
+        row = await cur.fetchone()
+        return row[0] if row else 0
 
 
 async def update_wiki_page(
@@ -370,10 +362,9 @@ async def get_popular_wiki_tags(limit: int = 10) -> list[dict]:
     Returns:
         태그 딕셔너리 목록 (name, page_count 포함).
     """
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            """
                 SELECT t.id, t.name, COUNT(wpt.wiki_page_id) AS page_count
                 FROM tag t
                 INNER JOIN wiki_page_tag wpt ON t.id = wpt.tag_id
@@ -382,12 +373,9 @@ async def get_popular_wiki_tags(limit: int = 10) -> list[dict]:
                 ORDER BY page_count DESC, t.name ASC
                 LIMIT %s
                 """,
-                (limit,),
-            )
-            return [
-                {"id": row[0], "name": row[1], "page_count": row[2]}
-                for row in await cur.fetchall()
-            ]
+            (limit,),
+        )
+        return [{"id": row[0], "name": row[1], "page_count": row[2]} for row in await cur.fetchall()]
 
 
 async def get_wiki_page_tags(wiki_page_id: int) -> list[dict]:
@@ -399,19 +387,18 @@ async def get_wiki_page_tags(wiki_page_id: int) -> list[dict]:
     Returns:
         태그 딕셔너리 목록.
     """
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            """
                 SELECT t.id, t.name
                 FROM tag t
                 INNER JOIN wiki_page_tag wpt ON t.id = wpt.tag_id
                 WHERE wpt.wiki_page_id = %s
                 ORDER BY t.name ASC
                 """,
-                (wiki_page_id,),
-            )
-            return [{"id": row[0], "name": row[1]} for row in await cur.fetchall()]
+            (wiki_page_id,),
+        )
+        return [{"id": row[0], "name": row[1]} for row in await cur.fetchall()]
 
 
 async def get_wiki_pages_tags(wiki_page_ids: list[int]) -> dict[int, list[dict]]:
@@ -425,20 +412,19 @@ async def get_wiki_pages_tags(wiki_page_ids: list[int]) -> dict[int, list[dict]]
     """
     if not wiki_page_ids:
         return {}
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            placeholders = ", ".join(["%s"] * len(wiki_page_ids))
-            await cur.execute(
-                f"""
+    async with get_connection() as conn, conn.cursor() as cur:
+        placeholders = ", ".join(["%s"] * len(wiki_page_ids))
+        await cur.execute(
+            f"""
                 SELECT wpt.wiki_page_id, t.id, t.name
                 FROM wiki_page_tag wpt
                 INNER JOIN tag t ON wpt.tag_id = t.id
                 WHERE wpt.wiki_page_id IN ({placeholders})
                 ORDER BY t.name ASC
                 """,
-                wiki_page_ids,
-            )
-            result: dict[int, list[dict]] = {pid: [] for pid in wiki_page_ids}
-            for row in await cur.fetchall():
-                result[row[0]].append({"id": row[1], "name": row[2]})
-            return result
+            wiki_page_ids,
+        )
+        result: dict[int, list[dict]] = {pid: [] for pid in wiki_page_ids}
+        for row in await cur.fetchall():
+            result[row[0]].append({"id": row[1], "name": row[2]})
+        return result

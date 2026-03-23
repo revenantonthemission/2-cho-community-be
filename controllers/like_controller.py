@@ -2,9 +2,9 @@
 
 from fastapi import Request
 
+from dependencies.request_context import get_request_timestamp
 from models.user_models import User
 from schemas.common import create_response
-from dependencies.request_context import get_request_timestamp
 from services.like_service import LikeService
 
 
@@ -24,9 +24,7 @@ async def like_post(
         좋아요 개수가 포함된 응답 딕셔너리.
     """
     timestamp = get_request_timestamp(request)
-    result = await LikeService.like_post(
-        post_id, current_user.id, current_user.nickname, timestamp
-    )
+    result = await LikeService.like_post(post_id, current_user.id, current_user.nickname, timestamp)
     return create_response(
         "LIKE_ADDED",
         "좋아요가 추가되었습니다.",

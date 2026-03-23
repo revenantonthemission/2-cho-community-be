@@ -2,9 +2,9 @@
 
 from fastapi import Request
 
+from dependencies.request_context import get_request_timestamp
 from models.user_models import User
 from schemas.common import create_response
-from dependencies.request_context import get_request_timestamp
 from services.block_service import BlockService
 
 
@@ -59,9 +59,7 @@ async def get_my_blocks(
     """차단 목록을 조회합니다."""
     timestamp = get_request_timestamp(request)
 
-    data = await BlockService.get_blocked_users(
-        current_user.id, offset, limit
-    )
+    data = await BlockService.get_blocked_users(current_user.id, offset, limit)
 
     return create_response(
         "MY_BLOCKS_LOADED",

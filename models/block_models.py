@@ -55,8 +55,7 @@ async def add_block(blocker_id: int, blocked_id: int) -> Block:
 
         if not row:
             raise RuntimeError(
-                f"차단 삽입 직후 조회 실패: block_id={block_id}, "
-                f"blocker_id={blocker_id}, blocked_id={blocked_id}"
+                f"차단 삽입 직후 조회 실패: block_id={block_id}, blocker_id={blocker_id}, blocked_id={blocked_id}"
             )
 
         return _row_to_block(row)
@@ -81,30 +80,26 @@ async def remove_block(blocker_id: int, blocked_id: int) -> bool:
 
 async def get_blocked_user_ids(blocker_id: int) -> set[int]:
     """차단한 사용자 ID 집합을 반환합니다."""
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                "SELECT blocked_id FROM user_block WHERE blocker_id = %s",
-                (blocker_id,),
-            )
-            rows = await cur.fetchall()
-            return {row[0] for row in rows}
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            "SELECT blocked_id FROM user_block WHERE blocker_id = %s",
+            (blocker_id,),
+        )
+        rows = await cur.fetchall()
+        return {row[0] for row in rows}
 
 
-async def get_my_blocks(
-    blocker_id: int, offset: int = 0, limit: int = 10
-) -> tuple[list[dict], int]:
+async def get_my_blocks(blocker_id: int, offset: int = 0, limit: int = 10) -> tuple[list[dict], int]:
     """차단 목록을 페이지네이션하여 반환합니다."""
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                "SELECT COUNT(*) FROM user_block WHERE blocker_id = %s",
-                (blocker_id,),
-            )
-            total_count = (await cur.fetchone())[0]
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            "SELECT COUNT(*) FROM user_block WHERE blocker_id = %s",
+            (blocker_id,),
+        )
+        total_count = (await cur.fetchone())[0]
 
-            await cur.execute(
-                """
+        await cur.execute(
+            """
                 SELECT ub.id, ub.blocked_id, u.nickname, u.profile_img, ub.created_at
                 FROM user_block ub
                 JOIN user u ON ub.blocked_id = u.id
@@ -112,18 +107,20 @@ async def get_my_blocks(
                 ORDER BY ub.created_at DESC
                 LIMIT %s OFFSET %s
                 """,
-                (blocker_id, limit, offset),
-            )
-            rows = await cur.fetchall()
+            (blocker_id, limit, offset),
+        )
+        rows = await cur.fetchall()
 
     blocks = []
     for row in rows:
-        blocks.append({
-            "block_id": row[0],
-            "user_id": row[1],
-            "nickname": row[2],
-            "profile_img": row[3],
-            "created_at": row[4],
-        })
+        blocks.append(
+            {
+                "block_id": row[0],
+                "user_id": row[1],
+                "nickname": row[2],
+                "profile_img": row[3],
+                "created_at": row[4],
+            }
+        )
 
     return blocks, total_count

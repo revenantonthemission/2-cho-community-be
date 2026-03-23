@@ -2,21 +2,20 @@
 
 import asyncio
 import logging
-from typing import Optional
 
 from core.config import settings
 from models import user_models, verification_models
 from models.user_models import User
 from schemas.user_schemas import CreateUserRequest
 from utils.email import send_email
-from utils.password import hash_password, verify_password
-from utils.temp_password import generate_temp_password
 from utils.error_codes import ErrorCode
 from utils.exceptions import (
-    not_found_error,
     bad_request_error,
     conflict_error,
+    not_found_error,
 )
+from utils.password import hash_password, verify_password
+from utils.temp_password import generate_temp_password
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +32,7 @@ class UserService:
         return user
 
     @staticmethod
-    async def create_user(
-        user_data: CreateUserRequest, profile_image_url: Optional[str], timestamp: str
-    ) -> User:
+    async def create_user(user_data: CreateUserRequest, profile_image_url: str | None, timestamp: str) -> User:
         """사용자 생성 (회원가입)."""
         # 1. 이메일 중복 확인
         if await user_models.get_user_by_email(user_data.email):
@@ -95,9 +92,9 @@ class UserService:
     @staticmethod
     async def update_user(
         user_id: int,
-        nickname: Optional[str],
-        profile_image_url: Optional[str],
-        distro: Optional[str],
+        nickname: str | None,
+        profile_image_url: str | None,
+        distro: str | None,
         current_user: User,
         timestamp: str,
     ) -> User:
@@ -114,7 +111,9 @@ class UserService:
 
         # 3. 정보 수정
         updated_user = await user_models.update_user(
-            user_id, nickname=nickname, profile_image_url=profile_image_url,
+            user_id,
+            nickname=nickname,
+            profile_image_url=profile_image_url,
             distro=distro,
         )
 
@@ -137,9 +136,7 @@ class UserService:
     ) -> None:
         """비밀번호 변경."""
         # 1. 현재 비밀번호 확인
-        if not await asyncio.to_thread(
-            verify_password, current_password, stored_password_hash
-        ):
+        if not await asyncio.to_thread(verify_password, current_password, stored_password_hash):
             raise bad_request_error(ErrorCode.INVALID_PASSWORD, timestamp)
 
         # 2. 새 비밀번호 확인
@@ -167,11 +164,10 @@ class UserService:
             raise bad_request_error(ErrorCode.INACTIVE_USER, timestamp)
 
         # 2. 비밀번호 확인 (소셜 전용 계정은 비밀번호 검증 생략)
-        if current_user.password is not None:
-            if not password or not await asyncio.to_thread(
-                verify_password, password, current_user.password
-            ):
-                raise bad_request_error(ErrorCode.INVALID_PASSWORD, timestamp)
+        if current_user.password is not None and (
+            not password or not await asyncio.to_thread(verify_password, password, current_user.password)
+        ):
+            raise bad_request_error(ErrorCode.INVALID_PASSWORD, timestamp)
 
         # 3. 탈퇴 처리 (익명화 등은 모델의 withdraw_user 위임)
         # models.withdraw_user는 트랜잭션 내에서 연결 끊기, 리프레시 토큰 삭제, 익명화를 수행함

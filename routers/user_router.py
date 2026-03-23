@@ -6,26 +6,26 @@
 from fastapi import (
     APIRouter,
     Depends,
-    Query,
-    Request,
-    status,
-    UploadFile,
     File,
     Form,
     HTTPException,
+    Query,
+    Request,
+    UploadFile,
+    status,
 )
 from pydantic import ValidationError
-from controllers import user_controller, activity_controller, block_controller, follow_controller
+
+from controllers import activity_controller, block_controller, follow_controller, user_controller
 from dependencies.auth import get_current_user, get_optional_user, require_verified_email
 from models.user_models import User
+from schemas.recovery_schemas import FindEmailRequest, FindPasswordRequest
 from schemas.user_schemas import (
+    ChangePasswordRequest,
     CreateUserRequest,
     UpdateUserRequest,
-    ChangePasswordRequest,
     WithdrawRequest,
 )
-from schemas.recovery_schemas import FindEmailRequest, FindPasswordRequest
-
 
 user_router = APIRouter(prefix="/v1/users", tags=["users"])
 """사용자 관련 라우터 인스턴스."""
@@ -69,7 +69,7 @@ async def create_user(
                 "message": str(e),
                 "errors": e.errors(include_url=False, include_context=False),
             },
-        )
+        ) from e
     return await user_controller.create_user(user_data, profile_image, request)
 
 
@@ -104,9 +104,7 @@ async def reset_password(body: FindPasswordRequest, request: Request) -> dict:
 
 
 @user_router.get("/me", status_code=status.HTTP_200_OK)
-async def get_my_info(
-    request: Request, current_user: User = Depends(get_current_user)
-) -> dict:
+async def get_my_info(request: Request, current_user: User = Depends(get_current_user)) -> dict:
     """현재 로그인 중인 사용자의 정보를 조회합니다.
 
     Args:
@@ -158,9 +156,7 @@ async def get_my_comments(
     Returns:
         내가 쓴 댓글 목록과 페이지네이션 정보가 포함된 응답.
     """
-    return await activity_controller.get_my_comments(
-        current_user, request, offset, limit
-    )
+    return await activity_controller.get_my_comments(current_user, request, offset, limit)
 
 
 @user_router.get("/me/likes", status_code=status.HTTP_200_OK)
@@ -192,9 +188,7 @@ async def get_my_bookmarks(
     current_user: User = Depends(get_current_user),
 ) -> dict:
     """북마크한 글 목록을 조회합니다."""
-    return await activity_controller.get_my_bookmarks(
-        current_user, request, offset, limit
-    )
+    return await activity_controller.get_my_bookmarks(current_user, request, offset, limit)
 
 
 @user_router.get("/me/blocks", status_code=status.HTTP_200_OK)
@@ -205,9 +199,7 @@ async def get_my_blocks(
     current_user: User = Depends(get_current_user),
 ) -> dict:
     """차단 목록을 조회합니다."""
-    return await block_controller.get_my_blocks(
-        current_user, request, offset, limit
-    )
+    return await block_controller.get_my_blocks(current_user, request, offset, limit)
 
 
 @user_router.get("/me/following", status_code=status.HTTP_200_OK)
@@ -218,9 +210,7 @@ async def get_my_following(
     current_user: User = Depends(get_current_user),
 ) -> dict:
     """팔로잉 목록을 조회합니다."""
-    return await follow_controller.get_my_following(
-        current_user, request, offset, limit
-    )
+    return await follow_controller.get_my_following(current_user, request, offset, limit)
 
 
 @user_router.get("/me/followers", status_code=status.HTTP_200_OK)
@@ -231,9 +221,7 @@ async def get_my_followers(
     current_user: User = Depends(get_current_user),
 ) -> dict:
     """팔로워 목록을 조회합니다."""
-    return await follow_controller.get_my_followers(
-        current_user, request, offset, limit
-    )
+    return await follow_controller.get_my_followers(current_user, request, offset, limit)
 
 
 @user_router.get("/search", status_code=status.HTTP_200_OK)
@@ -244,9 +232,7 @@ async def search_users(
     current_user: User = Depends(get_current_user),
 ) -> dict:
     """사용자 닉네임 검색 (멘션 자동완성용)."""
-    return await user_controller.search_users(
-        q=q, limit=limit, current_user=current_user, request=request
-    )
+    return await user_controller.search_users(q=q, limit=limit, current_user=current_user, request=request)
 
 
 @user_router.get("/{user_id}", status_code=status.HTTP_200_OK)

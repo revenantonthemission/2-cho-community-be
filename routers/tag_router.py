@@ -1,6 +1,7 @@
 """tag_router: 태그 관련 라우터 모듈."""
 
-from fastapi import APIRouter, Request, Query, status
+from fastapi import APIRouter, Query, Request, status
+
 from controllers import tag_controller
 
 tag_router = APIRouter(prefix="/v1/tags", tags=["tags"])

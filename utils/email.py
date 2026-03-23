@@ -36,7 +36,7 @@ def _send_via_ses(to: str, subject: str, body: str) -> None:
 
     Lambda 런타임에 boto3가 기본 포함되어 있으므로 조건부 import 사용.
     """
-    import boto3  # noqa: PLC0415
+    import boto3
 
     client = boto3.client("ses", region_name=settings.SES_REGION)
     client.send_email(

@@ -3,8 +3,7 @@
 import pytest
 from httpx import AsyncClient
 
-from tests.conftest import create_verified_user, create_test_post, create_test_comment
-
+from tests.conftest import create_test_comment, create_test_post, create_verified_user
 
 # ---------------------------------------------------------------------------
 # 대댓글 생성
@@ -94,7 +93,10 @@ async def test_deleted_parent_shows_placeholder(client: AsyncClient, fake):
     post = await create_test_post(client, user["headers"])
     post_id = post["post_id"]
     parent = await create_test_comment(
-        client, user["headers"], post_id, content="부모 댓글",
+        client,
+        user["headers"],
+        post_id,
+        content="부모 댓글",
     )
     parent_id = parent["comment_id"]
 
@@ -155,7 +157,10 @@ async def test_comment_tree_structure(client: AsyncClient, fake):
     post_id = post["post_id"]
 
     parent = await create_test_comment(
-        client, user["headers"], post_id, content="부모 댓글",
+        client,
+        user["headers"],
+        post_id,
+        content="부모 댓글",
     )
     parent_id = parent["comment_id"]
 
@@ -176,7 +181,5 @@ async def test_comment_tree_structure(client: AsyncClient, fake):
     assert parent_comment["parent_id"] is None
 
     # 대댓글은 부모의 replies 리스트에 포함
-    reply_comment = next(
-        r for r in parent_comment["replies"] if r["comment_id"] == reply_id
-    )
+    reply_comment = next(r for r in parent_comment["replies"] if r["comment_id"] == reply_id)
     assert reply_comment["parent_id"] == parent_id

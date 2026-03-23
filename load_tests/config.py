@@ -20,9 +20,9 @@ REQUEST_TIMEOUT = 10
 
 # ── 사용자 행동 대기 시간 (초) ─────────────────────────────
 # Locust between(min, max): 균등 분포로 태스크 간 대기
-READER_WAIT = (1, 3)     # 독자: 빠르게 페이지 넘김
-WRITER_WAIT = (8, 20)    # 작성자: 글 작성에 시간 소요 + Rate Limit 준수
-ACTIVE_WAIT = (2, 5)     # 활성 사용자: 댓글/좋아요 인터랙션
+READER_WAIT = (1, 3)  # 독자: 빠르게 페이지 넘김
+WRITER_WAIT = (8, 20)  # 작성자: 글 작성에 시간 소요 + Rate Limit 준수
+ACTIVE_WAIT = (2, 5)  # 활성 사용자: 댓글/좋아요 인터랙션
 
 # ── Rate Limit 재시도 대기 (초) ─────────────────────────────
 # POST /v1/auth/session = 5회/분/Pod (인메모리 카운터, Pod마다 독립)

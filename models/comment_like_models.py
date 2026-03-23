@@ -31,30 +31,28 @@ def _row_to_comment_like(row: tuple) -> CommentLike:
 
 async def get_comment_like(comment_id: int, user_id: int) -> CommentLike | None:
     """특정 사용자가 특정 댓글에 남긴 좋아요를 조회합니다."""
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            """
                 SELECT id, user_id, comment_id, created_at
                 FROM comment_like
                 WHERE comment_id = %s AND user_id = %s
                 """,
-                (comment_id, user_id),
-            )
-            row = await cur.fetchone()
-            return _row_to_comment_like(row) if row else None
+            (comment_id, user_id),
+        )
+        row = await cur.fetchone()
+        return _row_to_comment_like(row) if row else None
 
 
 async def get_comment_likes_count(comment_id: int) -> int:
     """댓글의 좋아요 수를 조회합니다."""
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                "SELECT COUNT(*) FROM comment_like WHERE comment_id = %s",
-                (comment_id,),
-            )
-            row = await cur.fetchone()
-            return row[0] if row else 0
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            "SELECT COUNT(*) FROM comment_like WHERE comment_id = %s",
+            (comment_id,),
+        )
+        row = await cur.fetchone()
+        return row[0] if row else 0
 
 
 async def get_liked_comment_ids(user_id: int, post_id: int) -> set[int]:
@@ -62,19 +60,18 @@ async def get_liked_comment_ids(user_id: int, post_id: int) -> set[int]:
 
     N+1 방지를 위한 벌크 조회.
     """
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            """
                 SELECT cl.comment_id
                 FROM comment_like cl
                 JOIN comment c ON cl.comment_id = c.id
                 WHERE cl.user_id = %s AND c.post_id = %s
                 """,
-                (user_id, post_id),
-            )
-            rows = await cur.fetchall()
-            return {row[0] for row in rows}
+            (user_id, post_id),
+        )
+        rows = await cur.fetchall()
+        return {row[0] for row in rows}
 
 
 async def add_comment_like(comment_id: int, user_id: int) -> CommentLike:
@@ -106,8 +103,7 @@ async def add_comment_like(comment_id: int, user_id: int) -> CommentLike:
 
         if not row:
             raise RuntimeError(
-                f"댓글 좋아요 삽입 직후 조회 실패: like_id={like_id}, "
-                f"comment_id={comment_id}, user_id={user_id}"
+                f"댓글 좋아요 삽입 직후 조회 실패: like_id={like_id}, comment_id={comment_id}, user_id={user_id}"
             )
 
         return _row_to_comment_like(row)

@@ -1,13 +1,13 @@
 from fastapi import HTTPException, Request, UploadFile, status
+
+from dependencies.request_context import get_request_timestamp
 from models.post_models import ALLOWED_SORT_OPTIONS
 from models.user_models import User
-from schemas.post_schemas import CreatePostRequest, UpdatePostRequest
 from schemas.common import create_response
-from dependencies.request_context import get_request_timestamp
-from utils.upload import save_file
-from utils.exceptions import not_found_error
+from schemas.post_schemas import CreatePostRequest, UpdatePostRequest
 from services.post_service import PostService
-
+from utils.exceptions import not_found_error
+from utils.upload import save_file
 
 # ============ 게시글 관련 핸들러 ============
 
@@ -73,9 +73,14 @@ async def get_posts(
 
     # Service Layer 호출
     result = await PostService.get_posts(
-        offset, limit, search=search, sort=sort,
-        author_id=author_id, category_id=category_id,
-        current_user=current_user, tag=tag,
+        offset,
+        limit,
+        search=search,
+        sort=sort,
+        author_id=author_id,
+        category_id=category_id,
+        current_user=current_user,
+        tag=tag,
         following=following,
     )
 
@@ -102,7 +107,9 @@ async def get_posts(
 
 
 async def get_post(
-    post_id: int, request: Request, current_user: User | None = None,
+    post_id: int,
+    request: Request,
+    current_user: User | None = None,
     comment_sort: str = "oldest",
 ) -> dict:
     """
@@ -131,9 +138,7 @@ async def get_post(
         )
 
     # Service Layer 호출
-    result_data = await PostService.get_post_detail(
-        post_id, current_user, timestamp, comment_sort=comment_sort
-    )
+    result_data = await PostService.get_post_detail(post_id, current_user, timestamp, comment_sort=comment_sort)
 
     return create_response(
         "POST_RETRIEVED",
@@ -163,7 +168,9 @@ async def create_post(
 
     # Service Layer 호출
     post_id = await PostService.create_post(
-        current_user.id, post_data, is_admin=current_user.is_admin,
+        current_user.id,
+        post_data,
+        is_admin=current_user.is_admin,
         actor_nickname=current_user.nickname,
     )
 
@@ -243,12 +250,13 @@ async def delete_post(
 
     # Service Layer 호출
     await PostService.delete_post(
-        post_id, current_user.id, timestamp, is_admin=current_user.is_admin,
+        post_id,
+        current_user.id,
+        timestamp,
+        is_admin=current_user.is_admin,
     )
 
-    return create_response(
-        "POST_DELETED", "게시글이 삭제되었습니다.", timestamp=timestamp
-    )
+    return create_response("POST_DELETED", "게시글이 삭제되었습니다.", timestamp=timestamp)
 
 
 async def upload_image(
@@ -307,7 +315,9 @@ async def get_related_posts(
     timestamp = get_request_timestamp(request)
 
     posts = await PostService.get_related_posts(
-        post_id, current_user=current_user, limit=limit,
+        post_id,
+        current_user=current_user,
+        limit=limit,
     )
 
     if posts is None:
@@ -331,9 +341,7 @@ async def pin_post(
 
     await PostService.pin_post(post_id, timestamp)
 
-    return create_response(
-        "POST_PINNED", "게시글이 고정되었습니다.", timestamp=timestamp
-    )
+    return create_response("POST_PINNED", "게시글이 고정되었습니다.", timestamp=timestamp)
 
 
 async def unpin_post(
@@ -346,6 +354,4 @@ async def unpin_post(
 
     await PostService.unpin_post(post_id, timestamp)
 
-    return create_response(
-        "POST_UNPINNED", "게시글 고정이 해제되었습니다.", timestamp=timestamp
-    )
+    return create_response("POST_UNPINNED", "게시글 고정이 해제되었습니다.", timestamp=timestamp)

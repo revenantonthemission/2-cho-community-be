@@ -6,8 +6,7 @@ from httpx import ASGITransport, AsyncClient
 from database.connection import get_connection
 from main import app
 from models.verification_models import create_verification_token
-from tests.conftest import create_verified_user, _make_user_payload
-
+from tests.conftest import _make_user_payload, create_verified_user
 
 # ---------------------------------------------------------------------------
 # 헬퍼: 미인증 사용자 생성 + 로그인
@@ -93,13 +92,11 @@ async def test_verify_email_with_expired_token_fails(client: AsyncClient, fake):
 
     # 인증 토큰 생성 후 만료 시간을 과거로 변경
     raw_token = await create_verification_token(unverified["user_id"])
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                "UPDATE email_verification SET expires_at = '2020-01-01 00:00:00' "
-                "WHERE user_id = %s",
-                (unverified["user_id"],),
-            )
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            "UPDATE email_verification SET expires_at = '2020-01-01 00:00:00' WHERE user_id = %s",
+            (unverified["user_id"],),
+        )
 
     res = await client.post(
         "/v1/auth/verify-email",
@@ -202,9 +199,7 @@ async def test_unverified_user_cannot_follow(client: AsyncClient, fake):
     verified = await create_verified_user(client, fake)
     unverified = await _create_unverified_user(client, fake)
 
-    res = await unverified["client"].post(
-        f"/v1/users/{verified['user_id']}/follow"
-    )
+    res = await unverified["client"].post(f"/v1/users/{verified['user_id']}/follow")
 
     assert res.status_code == 403
     assert res.json()["detail"]["error"] == "email_not_verified"

@@ -32,24 +32,20 @@ def _row_to_category(row: tuple) -> Category:
 
 async def get_all_categories() -> list[Category]:
     """모든 카테고리를 정렬 순서대로 조회합니다."""
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                "SELECT id, name, slug, description, sort_order, created_at "
-                "FROM category ORDER BY sort_order ASC"
-            )
-            rows = await cur.fetchall()
-            return [_row_to_category(row) for row in rows]
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            "SELECT id, name, slug, description, sort_order, created_at FROM category ORDER BY sort_order ASC"
+        )
+        rows = await cur.fetchall()
+        return [_row_to_category(row) for row in rows]
 
 
 async def get_category_by_id(category_id: int) -> Category | None:
     """ID로 카테고리를 조회합니다."""
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                "SELECT id, name, slug, description, sort_order, created_at "
-                "FROM category WHERE id = %s",
-                (category_id,),
-            )
-            row = await cur.fetchone()
-            return _row_to_category(row) if row else None
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            "SELECT id, name, slug, description, sort_order, created_at FROM category WHERE id = %s",
+            (category_id,),
+        )
+        row = await cur.fetchone()
+        return _row_to_category(row) if row else None

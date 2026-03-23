@@ -48,18 +48,17 @@ async def get_like(post_id: int, user_id: int) -> Like | None:
     Returns:
         좋아요 객체, 없으면 None.
     """
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            """
                 SELECT id, user_id, post_id, created_at
                 FROM post_like
                 WHERE post_id = %s AND user_id = %s
                 """,
-                (post_id, user_id),
-            )
-            row = await cur.fetchone()
-            return _row_to_like(row) if row else None
+            (post_id, user_id),
+        )
+        row = await cur.fetchone()
+        return _row_to_like(row) if row else None
 
 
 async def get_post_likes_count(post_id: int) -> int:
@@ -71,16 +70,15 @@ async def get_post_likes_count(post_id: int) -> int:
     Returns:
         좋아요 개수.
     """
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            """
                 SELECT COUNT(*) FROM post_like WHERE post_id = %s
                 """,
-                (post_id,),
-            )
-            row = await cur.fetchone()
-            return row[0] if row else 0
+            (post_id,),
+        )
+        row = await cur.fetchone()
+        return row[0] if row else 0
 
 
 async def add_like(post_id: int, user_id: int) -> Like:
@@ -122,10 +120,7 @@ async def add_like(post_id: int, user_id: int) -> Like:
         row = await cur.fetchone()
 
         if not row:
-            raise RuntimeError(
-                f"좋아요 삽입 직후 조회 실패: like_id={like_id}, "
-                f"post_id={post_id}, user_id={user_id}"
-            )
+            raise RuntimeError(f"좋아요 삽입 직후 조회 실패: like_id={like_id}, post_id={post_id}, user_id={user_id}")
 
         return _row_to_like(row)
 

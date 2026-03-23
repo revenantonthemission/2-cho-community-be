@@ -6,11 +6,10 @@
 import pytest
 
 from tests.conftest import (
-    create_verified_user,
-    create_test_post,
     create_test_comment,
+    create_test_post,
+    create_verified_user,
 )
-
 
 # ---------------------------------------------------------------------------
 # 차단 / 해제
@@ -112,9 +111,7 @@ async def test_blocked_user_posts_excluded_from_list(client, fake):
     user2 = await create_verified_user(client, fake)
 
     # user2가 게시글 작성
-    await create_test_post(
-        user2["client"], user2["headers"], title="차단 테스트 게시글"
-    )
+    await create_test_post(user2["client"], user2["headers"], title="차단 테스트 게시글")
 
     # user1이 user2 차단
     await user1["client"].post(f"/v1/users/{user2['user_id']}/block")
@@ -137,14 +134,10 @@ async def test_blocked_user_comments_filtered(client, fake):
     user2 = await create_verified_user(client, fake)
 
     # user1이 게시글 작성
-    post = await create_test_post(
-        user1["client"], user1["headers"], title="댓글 필터 테스트"
-    )
+    post = await create_test_post(user1["client"], user1["headers"], title="댓글 필터 테스트")
 
     # user2가 댓글 작성
-    await create_test_comment(
-        user2["client"], user2["headers"], post["post_id"], content="차단될 댓글"
-    )
+    await create_test_comment(user2["client"], user2["headers"], post["post_id"], content="차단될 댓글")
 
     # user1이 user2 차단
     await user1["client"].post(f"/v1/users/{user2['user_id']}/block")

@@ -32,19 +32,15 @@ def validate_upload_image_url(v: str | None) -> str | None:
         return None
     if ".." in v:
         raise ValueError("이미지 URL에 잘못된 경로 문자가 포함되어 있습니다.")
-    allowed = ("/uploads/",) + _S3_PREFIXES
+    allowed = ("/uploads/", *_S3_PREFIXES)
     if not any(v.startswith(prefix) for prefix in allowed):
         raise ValueError("이미지 URL은 업로드된 파일 경로만 허용됩니다.")
     if not any(v.lower().endswith(ext) for ext in _ALLOWED_IMAGE_EXTENSIONS):
-        raise ValueError(
-            "이미지는 .jpg, .jpeg, .png, .gif, .webp 형식만 허용됩니다."
-        )
+        raise ValueError("이미지는 .jpg, .jpeg, .png, .gif, .webp 형식만 허용됩니다.")
     return v
 
 
-def validate_upload_image_url_list(
-    v: list[str] | None, max_count: int = 5
-) -> list[str] | None:
+def validate_upload_image_url_list(v: list[str] | None, max_count: int = 5) -> list[str] | None:
     """업로드된 이미지 URL 리스트를 검증합니다 (다중 이미지용).
 
     각 URL에 대해 validate_upload_image_url을 적용합니다.

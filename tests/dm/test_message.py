@@ -2,10 +2,10 @@
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # 헬퍼
 # ---------------------------------------------------------------------------
+
 
 async def _create_conversation(user_a: dict, user_b: dict) -> int:
     """두 사용자 간 대화를 생성하고 conversation_id를 반환한다."""
@@ -94,7 +94,7 @@ async def test_delete_message_soft_deletes(two_users):
 
     get_res = await user_a["client"].get(f"/v1/dms/{conv_id}")
     messages = get_res.json()["data"]["messages"]
-    deleted = [m for m in messages if m["id"] == msg_id][0]
+    deleted = next(m for m in messages if m["id"] == msg_id)
     assert deleted["is_deleted"] is True
     assert deleted["content"] is None
 

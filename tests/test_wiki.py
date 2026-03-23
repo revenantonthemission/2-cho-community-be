@@ -1,15 +1,15 @@
 """위키 페이지 API 통합 테스트."""
 
 import pytest
-from httpx import AsyncClient
 from faker import Faker
+from httpx import AsyncClient
 
 from tests.conftest import create_verified_user
-
 
 # ---------------------------------------------------------------------------
 # 헬퍼
 # ---------------------------------------------------------------------------
+
 
 async def _create_wiki_page(
     client: AsyncClient,
@@ -116,7 +116,10 @@ async def test_list_wiki_pages_pagination(client: AsyncClient, fake: Faker):
     user = await create_verified_user(client, fake)
     for i in range(3):
         r = await _create_wiki_page(
-            client, user["token"], slug=f"page-{i}", title=f"페이지 {i}",
+            client,
+            user["token"],
+            slug=f"page-{i}",
+            title=f"페이지 {i}",
         )
         assert r.status_code == 201
 
@@ -140,10 +143,16 @@ async def test_list_wiki_pages_tag_filter(client: AsyncClient, fake: Faker):
     """태그로 필터링이 동작한다."""
     user = await create_verified_user(client, fake)
     await _create_wiki_page(
-        client, user["token"], slug="tagged-page", tags=["ubuntu"],
+        client,
+        user["token"],
+        slug="tagged-page",
+        tags=["ubuntu"],
     )
     await _create_wiki_page(
-        client, user["token"], slug="other-page", tags=["fedora"],
+        client,
+        user["token"],
+        slug="other-page",
+        tags=["fedora"],
     )
 
     resp = await client.get("/v1/wiki/", params={"tag": "ubuntu"})
@@ -280,7 +289,8 @@ async def test_delete_wiki_page_by_author(client: AsyncClient, fake: Faker):
 
 @pytest.mark.asyncio
 async def test_delete_wiki_page_by_other_user_forbidden(
-    client: AsyncClient, fake: Faker,
+    client: AsyncClient,
+    fake: Faker,
 ):
     """작성자가 아닌 사용자는 삭제할 수 없다 (403)."""
     author = await create_verified_user(client, fake)

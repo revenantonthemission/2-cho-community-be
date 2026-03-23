@@ -4,8 +4,8 @@
 """
 
 from pathlib import Path
-from fastapi import HTTPException, status
 
+from fastapi import HTTPException, status
 
 # 프로젝트 루트 디렉터리 경로
 PROJECT_ROOT = Path(__file__).parent.parent

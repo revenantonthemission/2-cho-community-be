@@ -29,11 +29,15 @@ class WikiService:
             위키 페이지 목록과 페이지네이션 정보.
         """
         wiki_pages = await wiki_models.get_wiki_pages(
-            offset=offset, limit=limit, sort=sort,
-            search=search, tag=tag,
+            offset=offset,
+            limit=limit,
+            sort=sort,
+            search=search,
+            tag=tag,
         )
         total_count = await wiki_models.get_wiki_pages_count(
-            search=search, tag=tag,
+            search=search,
+            tag=tag,
         )
         has_more = offset + limit < total_count
 
@@ -96,7 +100,8 @@ class WikiService:
         # 슬러그 중복 검사
         if await wiki_models.slug_exists(data.slug):
             raise bad_request_error(
-                "SLUG_DUPLICATE", timestamp,
+                "SLUG_DUPLICATE",
+                timestamp,
                 "이미 사용 중인 슬러그입니다.",
             )
 
@@ -190,7 +195,8 @@ class WikiService:
         # 권한 확인: 작성자 본인 또는 관리자
         if not is_admin and page["author_id"] != user_id:
             raise forbidden_error(
-                "delete", timestamp,
+                "delete",
+                timestamp,
                 "위키 페이지 작성자 또는 관리자만 삭제할 수 있습니다.",
             )
 

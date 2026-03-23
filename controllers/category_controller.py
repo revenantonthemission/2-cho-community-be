@@ -1,9 +1,10 @@
 """category_controller: 카테고리 관련 컨트롤러 모듈."""
 
 from fastapi import Request
+
+from dependencies.request_context import get_request_timestamp
 from models import category_models
 from schemas.common import create_response
-from dependencies.request_context import get_request_timestamp
 
 
 async def get_categories(request: Request) -> dict:

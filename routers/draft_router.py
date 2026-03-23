@@ -5,8 +5,8 @@ from pydantic import BaseModel
 
 from dependencies.auth import get_current_user
 from dependencies.request_context import get_request_timestamp
+from models.draft_models import delete_draft, get_draft, save_draft
 from models.user_models import User
-from models.draft_models import get_draft, save_draft, delete_draft
 from schemas.common import create_response
 
 router = APIRouter(prefix="/v1/drafts", tags=["drafts"])
@@ -51,7 +51,8 @@ async def save_my_draft(
         category_id=body.category_id,
     )
     return create_response(
-        "DRAFT_SAVED", "임시저장되었습니다.",
+        "DRAFT_SAVED",
+        "임시저장되었습니다.",
         data={"draft": draft},
         timestamp=timestamp,
     )
@@ -66,6 +67,7 @@ async def delete_my_draft(
     timestamp = get_request_timestamp(request)
     await delete_draft(current_user.id)
     return create_response(
-        "DRAFT_DELETED", "임시저장이 삭제되었습니다.",
+        "DRAFT_DELETED",
+        "임시저장이 삭제되었습니다.",
         timestamp=timestamp,
     )

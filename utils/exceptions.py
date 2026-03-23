@@ -34,9 +34,7 @@ def not_found_error(resource: ErrorCode | str, timestamp: str) -> HTTPException:
     )
 
 
-def forbidden_error(
-    action: ErrorCode | str, timestamp: str, message: str | None = None
-) -> HTTPException:
+def forbidden_error(action: ErrorCode | str, timestamp: str, message: str | None = None) -> HTTPException:
     """권한이 없을 때 403 에러를 생성합니다.
 
     Args:
@@ -59,9 +57,7 @@ def forbidden_error(
     )
 
 
-def bad_request_error(
-    error_code: ErrorCode | str, timestamp: str, message: str | None = None
-) -> HTTPException:
+def bad_request_error(error_code: ErrorCode | str, timestamp: str, message: str | None = None) -> HTTPException:
     """잘못된 요청에 대한 400 에러를 생성합니다.
 
     Args:
@@ -84,9 +80,7 @@ def bad_request_error(
     )
 
 
-def conflict_error(
-    error_code: ErrorCode | str, timestamp: str, message: str
-) -> HTTPException:
+def conflict_error(error_code: ErrorCode | str, timestamp: str, message: str) -> HTTPException:
     """409 Conflict 에러 (중복 좋아요, 북마크, 팔로우 등)
 
     Args:
@@ -106,7 +100,7 @@ def conflict_error(
 async def safe_notify(
     *,
     user_id: int,
-    notification_type: Literal['comment', 'like', 'mention', 'follow', 'bookmark'],
+    notification_type: Literal["comment", "like", "mention", "follow", "bookmark"],
     actor_id: int,
     actor_nickname: str,
     post_id: int | None = None,

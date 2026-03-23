@@ -7,9 +7,9 @@ GET /v1/posts/?sort=... 쿼리 파라미터로
 import pytest
 
 from tests.conftest import (
-    create_verified_user,
-    create_test_post,
     create_test_comment,
+    create_test_post,
+    create_verified_user,
 )
 
 
@@ -18,12 +18,8 @@ async def test_sort_by_latest(client, fake):
     """기본 정렬(latest): 최신 게시글이 먼저 반환된다."""
     user = await create_verified_user(client, fake)
 
-    post_old = await create_test_post(
-        client, user["headers"], title="오래된 글"
-    )
-    post_new = await create_test_post(
-        client, user["headers"], title="최신 글"
-    )
+    post_old = await create_test_post(client, user["headers"], title="오래된 글")
+    post_new = await create_test_post(client, user["headers"], title="최신 글")
 
     res = await client.get("/v1/posts/", params={"sort": "latest"})
     assert res.status_code == 200
@@ -42,12 +38,8 @@ async def test_sort_by_likes(client, fake):
     user1 = await create_verified_user(client, fake)
     user2 = await create_verified_user(client, fake)
 
-    post_no_like = await create_test_post(
-        client, user1["headers"], title="좋아요 없는 글"
-    )
-    post_liked = await create_test_post(
-        client, user1["headers"], title="좋아요 있는 글"
-    )
+    post_no_like = await create_test_post(client, user1["headers"], title="좋아요 없는 글")
+    post_liked = await create_test_post(client, user1["headers"], title="좋아요 있는 글")
 
     # user2가 post_liked에 좋아요
     like_res = await client.post(
@@ -73,12 +65,8 @@ async def test_sort_by_views(client, fake):
     user1 = await create_verified_user(client, fake)
     user2 = await create_verified_user(client, fake)
 
-    post_low_views = await create_test_post(
-        client, user1["headers"], title="조회수 적은 글"
-    )
-    post_high_views = await create_test_post(
-        client, user1["headers"], title="조회수 많은 글"
-    )
+    post_low_views = await create_test_post(client, user1["headers"], title="조회수 적은 글")
+    post_high_views = await create_test_post(client, user1["headers"], title="조회수 많은 글")
 
     # user2가 post_high_views를 여러 번 조회하여 조회수 증가
     # (조회수는 게시글 상세 조회 시 증가)
@@ -104,12 +92,8 @@ async def test_sort_by_comments(client, fake):
     """comments 정렬: 댓글이 많은 게시글이 먼저 반환된다."""
     user = await create_verified_user(client, fake)
 
-    post_no_comment = await create_test_post(
-        client, user["headers"], title="댓글 없는 글"
-    )
-    post_with_comments = await create_test_post(
-        client, user["headers"], title="댓글 있는 글"
-    )
+    post_no_comment = await create_test_post(client, user["headers"], title="댓글 없는 글")
+    post_with_comments = await create_test_post(client, user["headers"], title="댓글 있는 글")
 
     # 댓글 3개 추가
     for i in range(3):
@@ -151,23 +135,15 @@ async def test_invalid_sort_falls_back_to_latest(client, fake):
     """유효하지 않은 정렬 옵션은 latest로 폴백한다."""
     user = await create_verified_user(client, fake)
 
-    await create_test_post(
-        client, user["headers"], title="오래된 글"
-    )
-    await create_test_post(
-        client, user["headers"], title="최신 글"
-    )
+    await create_test_post(client, user["headers"], title="오래된 글")
+    await create_test_post(client, user["headers"], title="최신 글")
 
     # 유효하지 않은 정렬 옵션
-    res_invalid = await client.get(
-        "/v1/posts/", params={"sort": "invalid_sort_option"}
-    )
+    res_invalid = await client.get("/v1/posts/", params={"sort": "invalid_sort_option"})
     assert res_invalid.status_code == 200
 
     # latest 정렬
-    res_latest = await client.get(
-        "/v1/posts/", params={"sort": "latest"}
-    )
+    res_latest = await client.get("/v1/posts/", params={"sort": "latest"})
     assert res_latest.status_code == 200
 
     # 동일한 순서

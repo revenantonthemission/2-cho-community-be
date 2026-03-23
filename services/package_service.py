@@ -7,8 +7,8 @@ from schemas.package_schemas import (
     UpdatePackageRequest,
     UpdateReviewRequest,
 )
+from utils.exceptions import bad_request_error, forbidden_error, not_found_error
 from utils.formatters import format_datetime
-from utils.exceptions import not_found_error, forbidden_error, bad_request_error
 
 
 class PackageService:
@@ -35,11 +35,15 @@ class PackageService:
             패키지 목록과 페이지네이션 정보.
         """
         packages = await package_models.get_packages_with_stats(
-            offset=offset, limit=limit, sort=sort,
-            category=category, search=search,
+            offset=offset,
+            limit=limit,
+            sort=sort,
+            category=category,
+            search=search,
         )
         total_count = await package_models.get_packages_count(
-            category=category, search=search,
+            category=category,
+            search=search,
         )
         has_more = offset + limit < total_count
 
@@ -105,7 +109,8 @@ class PackageService:
         existing = await package_models.get_package_by_name(data.name)
         if existing:
             raise bad_request_error(
-                "PACKAGE_NAME_DUPLICATE", timestamp,
+                "PACKAGE_NAME_DUPLICATE",
+                timestamp,
                 "이미 등록된 패키지 이름입니다.",
             )
 
@@ -146,14 +151,16 @@ class PackageService:
         # 권한 확인: 등록자 본인 또는 관리자
         if not is_admin and package.created_by != user_id:
             raise forbidden_error(
-                "update", timestamp,
+                "update",
+                timestamp,
                 "패키지 등록자 또는 관리자만 수정할 수 있습니다.",
             )
 
         update_fields = data.model_dump(exclude_none=True)
         if not update_fields:
             raise bad_request_error(
-                "NO_CHANGES_PROVIDED", timestamp,
+                "NO_CHANGES_PROVIDED",
+                timestamp,
                 "수정할 내용이 없습니다.",
             )
 
@@ -233,7 +240,10 @@ class PackageService:
             raise not_found_error("package", timestamp)
 
         reviews = await package_review_models.get_reviews_by_package(
-            package_id=package_id, offset=offset, limit=limit, sort=sort,
+            package_id=package_id,
+            offset=offset,
+            limit=limit,
+            sort=sort,
         )
         total_count = await package_review_models.get_reviews_count(package_id)
         has_more = offset + limit < total_count
@@ -275,14 +285,16 @@ class PackageService:
         # 권한 확인: 작성자 본인만 수정 가능
         if review["author"]["user_id"] != user_id:
             raise forbidden_error(
-                "update", timestamp,
+                "update",
+                timestamp,
                 "리뷰 작성자만 수정할 수 있습니다.",
             )
 
         update_fields = data.model_dump(exclude_none=True)
         if not update_fields:
             raise bad_request_error(
-                "NO_CHANGES_PROVIDED", timestamp,
+                "NO_CHANGES_PROVIDED",
+                timestamp,
                 "수정할 내용이 없습니다.",
             )
 
@@ -323,7 +335,8 @@ class PackageService:
         # 권한 확인: 작성자 본인 또는 관리자
         if not is_admin and review["author"]["user_id"] != user_id:
             raise forbidden_error(
-                "delete", timestamp,
+                "delete",
+                timestamp,
                 "리뷰 작성자 또는 관리자만 삭제할 수 있습니다.",
             )
 

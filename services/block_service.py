@@ -43,7 +43,7 @@ class BlockService:
         try:
             await block_models.add_block(user_id, target_id)
         except IntegrityError:
-            raise conflict_error(ErrorCode.ALREADY_BLOCKED, timestamp, "이미 차단한 사용자입니다.")
+            raise conflict_error(ErrorCode.ALREADY_BLOCKED, timestamp, "이미 차단한 사용자입니다.") from None
 
     @staticmethod
     async def unblock_user(
@@ -81,9 +81,7 @@ class BlockService:
         Returns:
             차단 목록과 페이지네이션 정보.
         """
-        blocks, total_count = await block_models.get_my_blocks(
-            user_id, offset, limit
-        )
+        blocks, total_count = await block_models.get_my_blocks(user_id, offset, limit)
         has_more = offset + limit < total_count
 
         for block in blocks:

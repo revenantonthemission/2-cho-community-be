@@ -5,10 +5,10 @@
 
 import logging
 import time
+
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
-
 
 # 로거 설정
 logger = logging.getLogger("api")
@@ -17,9 +17,7 @@ logger.setLevel(logging.INFO)
 # 콘솔 핸들러 추가 (없는 경우)
 if not logger.handlers:
     handler = logging.StreamHandler()
-    handler.setFormatter(
-        logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-    )
+    handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
     logger.addHandler(handler)
 
 
@@ -56,9 +54,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
 
         # 응답 정보 로깅
         logger.info(
-            f"<- {request.method} {request.url.path} - "
-            f"Status: {response.status_code} - "
-            f"Time: {process_time:.3f}s"
+            f"<- {request.method} {request.url.path} - Status: {response.status_code} - Time: {process_time:.3f}s"
         )
 
         return response

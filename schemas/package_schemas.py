@@ -2,11 +2,18 @@
 
 from pydantic import BaseModel, Field, field_validator
 
-
-VALID_PACKAGE_CATEGORIES = frozenset({
-    'editor', 'terminal', 'devtool', 'system',
-    'desktop', 'utility', 'multimedia', 'security',
-})
+VALID_PACKAGE_CATEGORIES = frozenset(
+    {
+        "editor",
+        "terminal",
+        "devtool",
+        "system",
+        "desktop",
+        "utility",
+        "multimedia",
+        "security",
+    }
+)
 
 
 class CreatePackageRequest(BaseModel):

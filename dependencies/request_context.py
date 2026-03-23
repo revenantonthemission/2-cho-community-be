@@ -3,7 +3,8 @@
 미들웨어에서 설정한 요청 정보에 대한 접근을 제공합니다.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 from fastapi import Request
 
 
@@ -22,7 +23,7 @@ def get_request_timestamp(request: Request) -> str:
     if hasattr(request.state, "request_time"):
         return request.state.request_time.strftime("%Y-%m-%dT%H:%M:%SZ")
     # 미들웨어가 설정되지 않은 경우 폴백
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def get_request_time(request: Request) -> datetime:
@@ -39,4 +40,4 @@ def get_request_time(request: Request) -> datetime:
     """
     if hasattr(request.state, "request_time"):
         return request.state.request_time
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)

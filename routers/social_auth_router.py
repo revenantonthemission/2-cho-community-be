@@ -6,7 +6,7 @@
 import hashlib
 import hmac
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from fastapi import APIRouter, Cookie, Depends, Query, status
@@ -36,9 +36,7 @@ def _make_state() -> tuple[str, str]:
         (state_raw, full_state) 튜플. full_state = "raw:sig".
     """
     state_raw = uuid4().hex
-    state_sig = hmac.new(
-        settings.SECRET_KEY.encode(), state_raw.encode(), hashlib.sha256
-    ).hexdigest()
+    state_sig = hmac.new(settings.SECRET_KEY.encode(), state_raw.encode(), hashlib.sha256).hexdigest()
     return state_raw, f"{state_raw}:{state_sig}"
 
 
@@ -54,9 +52,7 @@ def _verify_state(state_param: str, cookie_raw: str) -> bool:
         return False
 
     # HMAC 서명 검증
-    expected_sig = hmac.new(
-        settings.SECRET_KEY.encode(), raw.encode(), hashlib.sha256
-    ).hexdigest()
+    expected_sig = hmac.new(settings.SECRET_KEY.encode(), raw.encode(), hashlib.sha256).hexdigest()
     return hmac.compare_digest(sig, expected_sig)
 
 
@@ -73,21 +69,15 @@ def _set_refresh_cookie(response: RedirectResponse, token: str) -> None:
     )
 
 
-async def _issue_tokens_and_redirect(
-    user: User, redirect_path: str
-) -> RedirectResponse:
+async def _issue_tokens_and_redirect(user: User, redirect_path: str) -> RedirectResponse:
     """JWT를 발급하고 프론트엔드로 리다이렉트합니다."""
     access_token = create_access_token(user_id=user.id)
     raw_refresh = create_refresh_token()
-    expires_at = datetime.now(timezone.utc) + timedelta(
-        days=settings.JWT_REFRESH_EXPIRE_DAYS
-    )
+    expires_at = datetime.now(UTC) + timedelta(days=settings.JWT_REFRESH_EXPIRE_DAYS)
     await token_models.create_refresh_token(user.id, raw_refresh, expires_at)
 
     redirect_url = f"{settings.FRONTEND_URL}{redirect_path}?access_token={access_token}"
-    response = RedirectResponse(
-        url=redirect_url, status_code=status.HTTP_302_FOUND
-    )
+    response = RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
     _set_refresh_cookie(response, raw_refresh)
     return response
 
@@ -174,9 +164,7 @@ async def callback(
     # (아래에서 모든 응답에 삭제 적용)
 
     # Branch 1: 이미 연동된 소셜 계정이 있는 경우
-    social_account = await social_account_models.get_by_provider(
-        user_info.provider, user_info.provider_id
-    )
+    social_account = await social_account_models.get_by_provider(user_info.provider, user_info.provider_id)
     if social_account:
         user = await user_models.get_user_by_id(social_account["user_id"])
         if not user:
@@ -258,9 +246,7 @@ async def complete_signup(
             data={},
         )
 
-    updated_user = await user_models.update_nickname_set(
-        current_user.id, body.nickname
-    )
+    updated_user = await user_models.update_nickname_set(current_user.id, body.nickname)
     if not updated_user:
         return create_response(
             "USER_NOT_FOUND",

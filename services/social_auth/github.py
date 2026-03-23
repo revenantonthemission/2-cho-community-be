@@ -58,9 +58,7 @@ class GitHubProvider:
 
             # 이메일 비공개 사용자: /user/emails에서 primary+verified 이메일 조회
             if not email:
-                email, email_verified = await self._fetch_primary_email(
-                    client, headers
-                )
+                email, email_verified = await self._fetch_primary_email(client, headers)
 
         return SocialUserInfo(
             provider="github",
@@ -71,9 +69,7 @@ class GitHubProvider:
         )
 
     @staticmethod
-    async def _fetch_primary_email(
-        client: httpx.AsyncClient, headers: dict[str, str]
-    ) -> tuple[str | None, bool]:
+    async def _fetch_primary_email(client: httpx.AsyncClient, headers: dict[str, str]) -> tuple[str | None, bool]:
         """GitHub /user/emails에서 primary+verified 이메일을 가져옵니다."""
         resp = await client.get(GITHUB_EMAILS_URL, headers=headers)
         resp.raise_for_status()

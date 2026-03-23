@@ -4,13 +4,12 @@ Path Traversal, MIME 검증, 매직 넘버 검증 등 보안 로직을 검증한
 tmp_path + monkeypatch로 실제 파일시스템을 격리한다.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from fastapi import HTTPException, UploadFile
 
-from utils.storage import save_uploaded_file, delete_file
-
+from utils.storage import delete_file, save_uploaded_file
 
 # ---------------------------------------------------------------------------
 # 헬퍼: UploadFile mock 생성
@@ -20,7 +19,7 @@ from utils.storage import save_uploaded_file, delete_file
 def _make_upload_file(
     filename: str = "test.jpg",
     content_type: str = "image/jpeg",
-    content: bytes = b"\xFF\xD8\xFF\xE0" + b"\x00" * 100,
+    content: bytes = b"\xff\xd8\xff\xe0" + b"\x00" * 100,
 ) -> MagicMock:
     """테스트용 UploadFile mock을 생성한다."""
     mock = MagicMock(spec=UploadFile)

@@ -3,15 +3,16 @@
 처리되지 않은 예외를 일관된 형식의 응답으로 변환합니다.
 """
 
-import uuid
 import logging
 import traceback
-from fastapi import Request, status
-from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
-from fastapi.encoders import jsonable_encoder
-from dependencies.request_context import get_request_timestamp
+import uuid
 
+from fastapi import Request, status
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+
+from dependencies.request_context import get_request_timestamp
 
 logger = logging.getLogger("api")
 
@@ -52,9 +53,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     )
 
 
-async def request_validation_exception_handler(
-    request: Request, exc: RequestValidationError
-) -> JSONResponse:
+async def request_validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     """요청 데이터 유효성 검사 예외 처리 핸들러.
 
     Pydantic 유효성 검사 실패 시 호출됩니다.

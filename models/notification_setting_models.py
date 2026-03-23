@@ -26,18 +26,17 @@ _TYPE_TO_COLUMN = {
 
 async def get_notification_settings(user_id: int) -> dict[str, bool]:
     """사용자의 알림 설정을 조회합니다. 행이 없으면 기본값 반환."""
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            """
                 SELECT comment_enabled, like_enabled, mention_enabled,
                        follow_enabled, bookmark_enabled
                 FROM notification_setting
                 WHERE user_id = %s
                 """,
-                (user_id,),
-            )
-            row = await cur.fetchone()
+            (user_id,),
+        )
+        row = await cur.fetchone()
 
     if not row:
         return dict(DEFAULT_SETTINGS)
@@ -51,9 +50,7 @@ async def get_notification_settings(user_id: int) -> dict[str, bool]:
     }
 
 
-async def update_notification_settings(
-    user_id: int, settings: dict[str, bool]
-) -> dict[str, bool]:
+async def update_notification_settings(user_id: int, settings: dict[str, bool]) -> dict[str, bool]:
     """알림 설정을 업데이트합니다 (UPSERT)."""
     merged = dict(DEFAULT_SETTINGS)
     for key, value in settings.items():
@@ -93,13 +90,12 @@ async def is_notification_muted(user_id: int, notification_type: str) -> bool:
     if not column:
         return False
 
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                f"SELECT {column} FROM notification_setting WHERE user_id = %s",
-                (user_id,),
-            )
-            row = await cur.fetchone()
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            f"SELECT {column} FROM notification_setting WHERE user_id = %s",
+            (user_id,),
+        )
+        row = await cur.fetchone()
 
     # 행이 없으면 기본 활성화
     if not row:

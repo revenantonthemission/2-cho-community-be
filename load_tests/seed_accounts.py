@@ -27,10 +27,10 @@ load_tests/config.py에 정의된 계정 패턴(user1@example.com ~ user250@exam
 
 import argparse
 import asyncio
+import random
 import sys
 import time
 from datetime import datetime, timedelta
-import random
 
 from load_tests.config import (
     ACCOUNT_COUNT,
@@ -39,10 +39,10 @@ from load_tests.config import (
     ACCOUNT_START_INDEX,
 )
 
-
 # ============================================================
 # 모드 1: API를 통한 시딩
 # ============================================================
+
 
 def seed_via_api(host: str) -> None:
     """회원가입 API(POST /v1/users/)를 통해 계정을 생성합니다.
@@ -63,9 +63,11 @@ def seed_via_api(host: str) -> None:
 
     print("=== API 모드: 부하 테스트 계정 시딩 ===")
     print(f"대상: {base_url}")
-    print(f"계정: {total}개 "
-          f"({ACCOUNT_EMAIL_PATTERN.format(ACCOUNT_START_INDEX)} ~ "
-          f"{ACCOUNT_EMAIL_PATTERN.format(end - 1)})")
+    print(
+        f"계정: {total}개 "
+        f"({ACCOUNT_EMAIL_PATTERN.format(ACCOUNT_START_INDEX)} ~ "
+        f"{ACCOUNT_EMAIL_PATTERN.format(end - 1)})"
+    )
     print(f"비밀번호: {ACCOUNT_PASSWORD}")
     print()
     print("Rate Limit에 의해 15~25분 소요될 수 있습니다.")
@@ -77,7 +79,7 @@ def seed_via_api(host: str) -> None:
     for i in range(ACCOUNT_START_INDEX, end):
         email = ACCOUNT_EMAIL_PATTERN.format(i)
         nickname = f"user_{i:05d}"
-        done = (i - ACCOUNT_START_INDEX)
+        done = i - ACCOUNT_START_INDEX
         progress = done / total * 100
 
         # 경과 시간 및 ETA 계산
@@ -93,7 +95,8 @@ def seed_via_api(host: str) -> None:
             f"(생성: {created}, 건너뜀: {skipped}, "
             f"429대기: {rate_limited_waits}회, "
             f"남은시간: {eta_str})",
-            end="", flush=True,
+            end="",
+            flush=True,
         )
 
         # 재시도 루프 (429 Rate Limit 대응)
@@ -129,17 +132,16 @@ def seed_via_api(host: str) -> None:
                 retry_after = int(resp.headers.get("Retry-After", 65))
                 rate_limited_waits += 1
                 print(
-                    f"\n  429 Rate Limited ({email}). "
-                    f"{retry_after}초 대기 중...",
-                    end="", flush=True,
+                    f"\n  429 Rate Limited ({email}). {retry_after}초 대기 중...",
+                    end="",
+                    flush=True,
                 )
                 time.sleep(retry_after)
                 # 줄바꿈 없이 다시 진행률 표시
 
             else:
                 body = resp.text[:150] if resp.text else "(빈 응답)"
-                print(f"\n  예상치 못한 오류 ({email}): "
-                      f"HTTP {resp.status_code}: {body}")
+                print(f"\n  예상치 못한 오류 ({email}): HTTP {resp.status_code}: {body}")
                 # 계속 진행 (다음 계정으로)
                 break
 
@@ -159,6 +161,7 @@ def seed_via_api(host: str) -> None:
 # ============================================================
 # 모드 2: DB 직접 접속
 # ============================================================
+
 
 async def seed_via_db(
     db_host: str,
@@ -180,16 +183,16 @@ async def seed_via_db(
     print(f"대상: {db_user}@{db_host}:{db_port}/{db_name}")
 
     end = ACCOUNT_START_INDEX + ACCOUNT_COUNT
-    print(f"계정: {ACCOUNT_COUNT}개 "
-          f"({ACCOUNT_EMAIL_PATTERN.format(ACCOUNT_START_INDEX)} ~ "
-          f"{ACCOUNT_EMAIL_PATTERN.format(end - 1)})")
+    print(
+        f"계정: {ACCOUNT_COUNT}개 "
+        f"({ACCOUNT_EMAIL_PATTERN.format(ACCOUNT_START_INDEX)} ~ "
+        f"{ACCOUNT_EMAIL_PATTERN.format(end - 1)})"
+    )
     print()
 
     # 비밀번호 해싱 (1회)
     print(f"비밀번호 해싱 중... ('{ACCOUNT_PASSWORD}')")
-    hashed = bcrypt.hashpw(
-        ACCOUNT_PASSWORD.encode("utf-8"), bcrypt.gensalt()
-    ).decode("utf-8")
+    hashed = bcrypt.hashpw(ACCOUNT_PASSWORD.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
     print(f"해시 완료: {hashed[:20]}...")
     print()
 
@@ -240,10 +243,7 @@ async def seed_via_db(
             inserted = cur.rowcount
 
         async with conn.cursor() as cur:
-            await cur.execute(
-                "SELECT COUNT(*) FROM user WHERE email LIKE 'user%@example.com' "
-                "AND deleted_at IS NULL"
-            )
+            await cur.execute("SELECT COUNT(*) FROM user WHERE email LIKE 'user%@example.com' AND deleted_at IS NULL")
             row = await cur.fetchone()
             total_in_db = row[0] if row else 0
 
@@ -264,12 +264,15 @@ async def seed_via_db(
 # CLI
 # ============================================================
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="부하 테스트 계정을 대상 환경에 시딩합니다.",
     )
     parser.add_argument(
-        "--mode", choices=["api", "db"], default="api",
+        "--mode",
+        choices=["api", "db"],
+        default="api",
         help="시딩 방식: api(회원가입 API) 또는 db(직접 DB 접속) (기본: api)",
     )
 
@@ -293,13 +296,15 @@ def main() -> None:
     elif args.mode == "db":
         if not args.db_user or not args.db_name:
             parser.error("DB 모드에서는 --db-user와 --db-name이 필수입니다.")
-        asyncio.run(seed_via_db(
-            db_host=args.db_host,
-            db_port=args.db_port,
-            db_user=args.db_user,
-            db_password=args.db_password,
-            db_name=args.db_name,
-        ))
+        asyncio.run(
+            seed_via_db(
+                db_host=args.db_host,
+                db_port=args.db_port,
+                db_user=args.db_user,
+                db_password=args.db_password,
+                db_name=args.db_name,
+            )
+        )
 
 
 if __name__ == "__main__":

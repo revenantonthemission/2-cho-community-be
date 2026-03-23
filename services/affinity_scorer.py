@@ -7,7 +7,6 @@ from dataclasses import dataclass, field
 
 from models.affinity_models import UserSignals
 
-
 # 신호 가중치 — 튜닝 시 이 상수만 수정
 SIGNAL_WEIGHTS = {
     "liked_tag": 3.0,

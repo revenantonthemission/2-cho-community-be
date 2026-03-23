@@ -34,6 +34,7 @@ class CreatePostRequest(BaseModel):
         if v is None:
             return None
         from models.tag_models import normalize_tag_name
+
         normalized = []
         seen: set[str] = set()
         for tag in v:
@@ -122,6 +123,7 @@ class UpdatePostRequest(BaseModel):
         if v is None:
             return None
         from models.tag_models import normalize_tag_name
+
         normalized = []
         seen: set[str] = set()
         for tag in v:

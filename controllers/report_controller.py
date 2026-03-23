@@ -3,10 +3,10 @@
 from fastapi import HTTPException, Request, status
 from pymysql.err import IntegrityError
 
-from models.user_models import User
-from schemas.report_schemas import CreateReportRequest, ResolveReportRequest
-from schemas.common import create_response
 from dependencies.request_context import get_request_timestamp
+from models.user_models import User
+from schemas.common import create_response
+from schemas.report_schemas import CreateReportRequest, ResolveReportRequest
 from services.report_service import ReportService
 from utils.error_codes import ErrorCode
 from utils.exceptions import conflict_error
@@ -30,7 +30,7 @@ async def create_report(
             timestamp=timestamp,
         )
     except IntegrityError:
-        raise conflict_error(ErrorCode.REPORT_ALREADY_EXISTS, timestamp, "이미 신고한 콘텐츠입니다.")
+        raise conflict_error(ErrorCode.REPORT_ALREADY_EXISTS, timestamp, "이미 신고한 콘텐츠입니다.") from None
 
     return create_response(
         "REPORT_CREATED",
@@ -62,7 +62,9 @@ async def get_reports(
         )
 
     reports_data, total_count, has_more = await ReportService.get_reports(
-        status=report_status, offset=offset, limit=limit,
+        status=report_status,
+        offset=offset,
+        limit=limit,
     )
 
     return create_response(

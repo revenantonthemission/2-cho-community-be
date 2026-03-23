@@ -2,9 +2,9 @@
 
 from fastapi import Request
 
+from dependencies.request_context import get_request_timestamp
 from models.user_models import User
 from schemas.common import create_response
-from dependencies.request_context import get_request_timestamp
 from services.follow_service import FollowService
 
 

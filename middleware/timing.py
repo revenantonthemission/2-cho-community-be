@@ -3,7 +3,8 @@
 각 요청에 타임스탬프를 주입하여 일관된 시간 정보를 제공합니다.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
@@ -30,7 +31,7 @@ class TimingMiddleware(BaseHTTPMiddleware):
             HTTP 응답.
         """
         # UTC 시간으로 요청 시간 기록
-        request.state.request_time = datetime.now(timezone.utc)
+        request.state.request_time = datetime.now(UTC)
 
         # 다음 미들웨어/라우터로 요청 전달
         response = await call_next(request)

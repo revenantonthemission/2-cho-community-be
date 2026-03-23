@@ -4,7 +4,7 @@ JWT Bearer Token 기반 사용자 인증 및 권한 확인 기능을 제공합�
 """
 
 import hmac
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import Depends, HTTPException, Request, status
 
@@ -20,7 +20,7 @@ def _extract_bearer_token(request: Request) -> str | None:
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
         return None
-    token = auth_header[len("Bearer "):]
+    token = auth_header[len("Bearer ") :]
     return token if token else None
 
 
@@ -51,9 +51,7 @@ async def _validate_token(request: Request) -> User | None:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={
                 "error": "unauthorized",
-                "timestamp": datetime.now(timezone.utc).strftime(
-                    "%Y-%m-%dT%H:%M:%SZ"
-                ),
+                "timestamp": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
             },
         )
 
@@ -64,11 +62,11 @@ async def _validate_token(request: Request) -> User | None:
             detail={
                 "error": "account_suspended",
                 "message": "계정이 정지되었습니다.",
-                "suspended_until": user.suspended_until.strftime("%Y-%m-%dT%H:%M:%SZ") if user.suspended_until else None,
-                "suspended_reason": user.suspended_reason,
-                "timestamp": datetime.now(timezone.utc).strftime(
-                    "%Y-%m-%dT%H:%M:%SZ"
+                "suspended_until": (
+                    user.suspended_until.strftime("%Y-%m-%dT%H:%M:%SZ") if user.suspended_until else None
                 ),
+                "suspended_reason": user.suspended_reason,
+                "timestamp": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
             },
         )
 
@@ -94,9 +92,7 @@ async def get_current_user(request: Request) -> User:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={
                 "error": "unauthorized",
-                "timestamp": datetime.now(timezone.utc).strftime(
-                    "%Y-%m-%dT%H:%M:%SZ"
-                ),
+                "timestamp": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
             },
         )
 
@@ -236,8 +232,10 @@ async def require_admin_or_internal(request: Request) -> User | None:
         user = await _validate_token(request)
     except HTTPException as e:
         import logging
+
         logging.getLogger(__name__).debug(
-            "JWT 인증 실패 (status=%d), 내부 키도 없음", e.status_code,
+            "JWT 인증 실패 (status=%d), 내부 키도 없음",
+            e.status_code,
         )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -246,7 +244,7 @@ async def require_admin_or_internal(request: Request) -> User | None:
                 "message": "관리자 권한 또는 내부 API 키가 필요합니다.",
                 "timestamp": get_request_timestamp(request),
             },
-        )
+        ) from e
 
     if not user or not user.is_admin:
         raise HTTPException(

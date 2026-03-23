@@ -1,13 +1,13 @@
 """Posts 도메인 — 이미지 업로드 테스트."""
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 from tests.conftest import create_verified_user
 
-
 # JPEG 매직넘버 + 가짜 바이트
-FAKE_JPEG = b"\xFF\xD8\xFF" + b"\x00" * 100
+FAKE_JPEG = b"\xff\xd8\xff" + b"\x00" * 100
 
 
 # ---------------------------------------------------------------------------
@@ -59,7 +59,7 @@ async def test_upload_invalid_mime_type_returns_400(client, fake, tmp_path):
 # ---------------------------------------------------------------------------
 
 
-FAKE_PNG = b"\x89\x50\x4E\x47\x0D\x0A\x1A\x0A" + b"\x00" * 100
+FAKE_PNG = b"\x89\x50\x4e\x47\x0d\x0a\x1a\x0a" + b"\x00" * 100
 
 
 @pytest.mark.asyncio

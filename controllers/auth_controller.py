@@ -50,9 +50,7 @@ def _clear_refresh_cookie(response: Response) -> None:
     )
 
 
-async def login(
-    credentials: LoginRequest, request: Request, response: Response
-) -> dict:
+async def login(credentials: LoginRequest, request: Request, response: Response) -> dict:
     """이메일과 비밀번호를 사용하여 로그인합니다.
 
     성공 시 응답 body에 access_token과 사용자 정보를 반환하고,
@@ -90,9 +88,7 @@ async def login(
     )
 
 
-async def logout(
-    current_user: User, request: Request, response: Response
-) -> dict:
+async def logout(current_user: User, request: Request, response: Response) -> dict:
     """Refresh Token을 무효화하여 로그아웃합니다.
 
     Args:
@@ -110,9 +106,7 @@ async def logout(
 
     _clear_refresh_cookie(response)
 
-    return create_response(
-        "LOGOUT_SUCCESS", "로그아웃에 성공했습니다.", timestamp=timestamp
-    )
+    return create_response("LOGOUT_SUCCESS", "로그아웃에 성공했습니다.", timestamp=timestamp)
 
 
 async def refresh_token(request: Request, response: Response) -> dict:

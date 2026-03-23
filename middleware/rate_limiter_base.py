@@ -1,6 +1,6 @@
 """rate_limiter_base: Rate Limiter 인터페이스 정의."""
 
-from typing import Protocol, Tuple
+from typing import Protocol
 
 
 class RateLimiterProtocol(Protocol):
@@ -9,9 +9,7 @@ class RateLimiterProtocol(Protocol):
     인메모리(로컬)와 Redis(K8s 프로덕션) 구현을 교체 가능하게 한다.
     """
 
-    async def is_rate_limited(
-        self, ip: str, max_requests: int, window_seconds: int
-    ) -> Tuple[bool, int]:
+    async def is_rate_limited(self, ip: str, max_requests: int, window_seconds: int) -> tuple[bool, int]:
         """요청이 속도 제한에 걸리는지 확인한다.
 
         Args:

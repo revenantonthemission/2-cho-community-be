@@ -21,17 +21,17 @@
 import argparse
 import asyncio
 import random
-from datetime import datetime, timedelta
-
-from faker import Faker
 
 # 프로젝트 루트를 PYTHONPATH에 추가
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
+
+from faker import Faker
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from database.connection import init_db, close_db, transactional
+from database.connection import close_db, init_db, transactional
 from utils.password import hash_password
 
 fake = Faker("ko_KR")
@@ -328,12 +328,36 @@ COMMENT_TEMPLATES = [
 ]
 
 TAG_NAMES = [
-    "ubuntu", "fedora", "arch", "debian", "mint",
-    "kernel", "systemd", "wayland", "xorg", "gnome",
-    "kde", "i3wm", "docker", "vim", "neovim",
-    "bash", "zsh", "ssh", "nginx", "apache",
-    "보안", "네트워크", "파일시스템", "패키지관리", "dotfiles",
-    "서버관리", "가상화", "백업", "모니터링", "성능최적화",
+    "ubuntu",
+    "fedora",
+    "arch",
+    "debian",
+    "mint",
+    "kernel",
+    "systemd",
+    "wayland",
+    "xorg",
+    "gnome",
+    "kde",
+    "i3wm",
+    "docker",
+    "vim",
+    "neovim",
+    "bash",
+    "zsh",
+    "ssh",
+    "nginx",
+    "apache",
+    "보안",
+    "네트워크",
+    "파일시스템",
+    "패키지관리",
+    "dotfiles",
+    "서버관리",
+    "가상화",
+    "백업",
+    "모니터링",
+    "성능최적화",
 ]
 
 POLL_QUESTIONS = [
@@ -1477,7 +1501,9 @@ async def seed_reports(cfg: dict):
         resolved_at = _random_past(7) if status != "pending" else None
         created_at = _random_past(30)
 
-        data.append((reporter_id, target_type, target_id, reason, description, status, resolved_by, resolved_at, created_at))
+        data.append(
+            (reporter_id, target_type, target_id, reason, description, status, resolved_by, resolved_at, created_at)
+        )
 
     async with transactional() as cur:
         await cur.executemany(

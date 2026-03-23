@@ -5,7 +5,6 @@ from httpx import AsyncClient
 
 from tests.conftest import create_verified_user
 
-
 # ---------------------------------------------------------------------------
 # 프로필 이미지 업로드 성공
 # ---------------------------------------------------------------------------
@@ -19,7 +18,7 @@ async def test_upload_profile_image_succeeds(client: AsyncClient, fake, tmp_path
     user = await create_verified_user(client, fake)
 
     # JPEG 매직 넘버를 포함한 최소한의 바이트 데이터
-    jpeg_bytes = b"\xFF\xD8\xFF\xE0" + b"\x00" * 100
+    jpeg_bytes = b"\xff\xd8\xff\xe0" + b"\x00" * 100
 
     # Act
     res = await user["client"].post(
@@ -67,7 +66,7 @@ async def test_upload_invalid_extension_returns_400(client: AsyncClient, fake, t
     # Act — .bmp 확장자는 ALLOWED_IMAGE_EXTENSIONS에 포함되지 않음
     res = await user["client"].post(
         "/v1/users/profile/image",
-        files={"file": ("test.bmp", b"\x42\x4D" + b"\x00" * 100, "image/bmp")},
+        files={"file": ("test.bmp", b"\x42\x4d" + b"\x00" * 100, "image/bmp")},
     )
 
     # Assert

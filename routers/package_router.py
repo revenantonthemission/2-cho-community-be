@@ -12,7 +12,6 @@ from schemas.package_schemas import (
     UpdateReviewRequest,
 )
 
-
 package_router = APIRouter(prefix="/v1/packages", tags=["packages"])
 """패키지 관련 라우터 인스턴스."""
 
@@ -44,8 +43,12 @@ async def get_packages(
         패키지 목록과 페이지네이션 정보가 포함된 응답.
     """
     return await package_controller.get_packages(
-        offset, limit, request, sort=sort,
-        category=category, search=search,
+        offset,
+        limit,
+        request,
+        sort=sort,
+        category=category,
+        search=search,
     )
 
 
@@ -105,7 +108,10 @@ async def update_package(
         수정된 패키지 정보가 포함된 응답.
     """
     return await package_controller.update_package(
-        package_id, data, current_user, request,
+        package_id,
+        data,
+        current_user,
+        request,
     )
 
 
@@ -134,12 +140,17 @@ async def get_reviews(
         리뷰 목록과 페이지네이션 정보가 포함된 응답.
     """
     return await package_controller.get_reviews(
-        package_id, offset, limit, request, sort=sort,
+        package_id,
+        offset,
+        limit,
+        request,
+        sort=sort,
     )
 
 
 @package_router.post(
-    "/{package_id}/reviews", status_code=status.HTTP_201_CREATED,
+    "/{package_id}/reviews",
+    status_code=status.HTTP_201_CREATED,
 )
 async def create_review(
     data: CreateReviewRequest,
@@ -159,12 +170,16 @@ async def create_review(
         생성된 리뷰 ID가 포함된 응답.
     """
     return await package_controller.create_review(
-        package_id, data, current_user, request,
+        package_id,
+        data,
+        current_user,
+        request,
     )
 
 
 @package_router.put(
-    "/{package_id}/reviews/{review_id}", status_code=status.HTTP_200_OK,
+    "/{package_id}/reviews/{review_id}",
+    status_code=status.HTTP_200_OK,
 )
 async def update_review(
     data: UpdateReviewRequest,
@@ -186,12 +201,17 @@ async def update_review(
         수정된 리뷰 정보가 포함된 응답.
     """
     return await package_controller.update_review(
-        package_id, review_id, data, current_user, request,
+        package_id,
+        review_id,
+        data,
+        current_user,
+        request,
     )
 
 
 @package_router.delete(
-    "/{package_id}/reviews/{review_id}", status_code=status.HTTP_200_OK,
+    "/{package_id}/reviews/{review_id}",
+    status_code=status.HTTP_200_OK,
 )
 async def delete_review(
     request: Request,
@@ -211,5 +231,8 @@ async def delete_review(
         삭제 성공 응답.
     """
     return await package_controller.delete_review(
-        package_id, review_id, current_user, request,
+        package_id,
+        review_id,
+        current_user,
+        request,
     )

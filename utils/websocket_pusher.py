@@ -22,6 +22,7 @@ async def push_to_user(user_id: int, event: dict[str, Any]) -> None:
     if settings.WS_BACKEND == "redis":
         try:
             from utils.redis_client import get_redis
+
             redis = await get_redis(settings.REDIS_URL)
             payload = json.dumps(event, ensure_ascii=False)
             await redis.publish(f"notify:{user_id}", payload)
@@ -33,6 +34,7 @@ async def push_to_user(user_id: int, event: dict[str, Any]) -> None:
     if settings.DEBUG:
         try:
             from routers.websocket_router import local_push_to_user
+
             await local_push_to_user(user_id, event)
         except ImportError:
             pass

@@ -4,11 +4,10 @@ import pytest
 from httpx import AsyncClient
 
 from tests.conftest import (
-    create_verified_user,
-    create_test_post,
     create_test_comment,
+    create_test_post,
+    create_verified_user,
 )
-
 
 # ---------------------------------------------------------------------------
 # 신고 생성
@@ -17,7 +16,10 @@ from tests.conftest import (
 
 @pytest.mark.asyncio
 async def test_create_report_for_post_returns_201(
-    client: AsyncClient, fake, admin, regular_user,
+    client: AsyncClient,
+    fake,
+    admin,
+    regular_user,
 ):
     """게시글 신고 생성 시 201을 반환한다."""
     # Arrange — 일반 사용자가 게시글 작성
@@ -47,13 +49,17 @@ async def test_create_report_for_post_returns_201(
 
 @pytest.mark.asyncio
 async def test_create_report_for_comment_returns_201(
-    client: AsyncClient, fake, regular_user,
+    client: AsyncClient,
+    fake,
+    regular_user,
 ):
     """댓글 신고 생성 시 201을 반환한다."""
     # Arrange
     post = await create_test_post(client, regular_user["headers"])
     comment = await create_test_comment(
-        client, regular_user["headers"], post["post_id"],
+        client,
+        regular_user["headers"],
+        post["post_id"],
     )
     reporter = await create_verified_user(client, fake)
 
@@ -75,7 +81,8 @@ async def test_create_report_for_comment_returns_201(
 
 @pytest.mark.asyncio
 async def test_report_own_content_returns_400(
-    client: AsyncClient, regular_user,
+    client: AsyncClient,
+    regular_user,
 ):
     """자기 콘텐츠를 신고하면 400을 반환한다."""
     # Arrange
@@ -99,7 +106,9 @@ async def test_report_own_content_returns_400(
 
 @pytest.mark.asyncio
 async def test_duplicate_report_returns_409(
-    client: AsyncClient, fake, regular_user,
+    client: AsyncClient,
+    fake,
+    regular_user,
 ):
     """동일 대상에 중복 신고 시 409를 반환한다."""
     # Arrange
@@ -113,7 +122,9 @@ async def test_duplicate_report_returns_409(
 
     # 첫 번째 신고
     first = await client.post(
-        "/v1/reports", json=report_payload, headers=reporter["headers"],
+        "/v1/reports",
+        json=report_payload,
+        headers=reporter["headers"],
     )
     assert first.status_code == 201
 
@@ -135,7 +146,10 @@ async def test_duplicate_report_returns_409(
 
 @pytest.mark.asyncio
 async def test_admin_list_reports(
-    client: AsyncClient, fake, admin, regular_user,
+    client: AsyncClient,
+    fake,
+    admin,
+    regular_user,
 ):
     """관리자가 신고 목록을 조회할 수 있다."""
     # Arrange — 신고 1건 생성
@@ -163,12 +177,14 @@ async def test_admin_list_reports(
 
 @pytest.mark.asyncio
 async def test_non_admin_list_reports_returns_403(
-    client: AsyncClient, regular_user,
+    client: AsyncClient,
+    regular_user,
 ):
     """일반 사용자가 신고 목록을 조회하면 403을 반환한다."""
     # Act
     res = await client.get(
-        "/v1/admin/reports", headers=regular_user["headers"],
+        "/v1/admin/reports",
+        headers=regular_user["headers"],
     )
 
     # Assert
@@ -183,7 +199,10 @@ async def test_non_admin_list_reports_returns_403(
 
 @pytest.mark.asyncio
 async def test_admin_resolve_report_deletes_target(
-    client: AsyncClient, fake, admin, regular_user,
+    client: AsyncClient,
+    fake,
+    admin,
+    regular_user,
 ):
     """관리자가 신고를 resolved 처리하면 대상 콘텐츠가 삭제된다."""
     # Arrange
@@ -218,7 +237,10 @@ async def test_admin_resolve_report_deletes_target(
 
 @pytest.mark.asyncio
 async def test_admin_resolve_report_with_suspension(
-    client: AsyncClient, fake, admin, regular_user,
+    client: AsyncClient,
+    fake,
+    admin,
+    regular_user,
 ):
     """관리자가 신고 resolved 처리 시 작성자를 정지할 수 있다."""
     # Arrange
@@ -248,20 +270,22 @@ async def test_admin_resolve_report_with_suspension(
     # 작성자가 정지되었는지 DB에서 확인
     from database.connection import get_connection
 
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                "SELECT suspended_until, suspended_reason FROM user WHERE id = %s",
-                (regular_user["user_id"],),
-            )
-            row = await cur.fetchone()
-            assert row[0] is not None  # suspended_until 설정됨
-            assert "신고 처리" in row[1]  # 사유에 신고 처리 문구 포함
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            "SELECT suspended_until, suspended_reason FROM user WHERE id = %s",
+            (regular_user["user_id"],),
+        )
+        row = await cur.fetchone()
+        assert row[0] is not None  # suspended_until 설정됨
+        assert "신고 처리" in row[1]  # 사유에 신고 처리 문구 포함
 
 
 @pytest.mark.asyncio
 async def test_admin_dismiss_report(
-    client: AsyncClient, fake, admin, regular_user,
+    client: AsyncClient,
+    fake,
+    admin,
+    regular_user,
 ):
     """관리자가 신고를 dismissed 처리하면 대상 콘텐츠가 유지된다."""
     # Arrange

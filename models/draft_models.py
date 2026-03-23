@@ -9,17 +9,16 @@ from utils.formatters import format_datetime
 
 async def get_draft(user_id: int) -> dict | None:
     """사용자의 임시저장을 조회합니다."""
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            """
                 SELECT id, title, content, category_id, updated_at
                 FROM post_draft
                 WHERE user_id = %s
                 """,
-                (user_id,),
-            )
-            row = await cur.fetchone()
+            (user_id,),
+        )
+        row = await cur.fetchone()
 
     if not row:
         return None

@@ -3,20 +3,21 @@
 사용자 등록, 조회, 수정, 비밀번호 변경, 탈퇴 등의 기능을 제공합니다.
 """
 
-from fastapi import HTTPException, Request, status, UploadFile
+from fastapi import HTTPException, Request, UploadFile, status
+
+from dependencies.request_context import get_request_timestamp
+from models import block_models, follow_models, user_models
 from models.user_models import User
+from schemas.common import create_response, serialize_user
+from schemas.recovery_schemas import FindEmailRequest, FindPasswordRequest
 from schemas.user_schemas import (
+    ChangePasswordRequest,
     CreateUserRequest,
     UpdateUserRequest,
-    ChangePasswordRequest,
     WithdrawRequest,
 )
-from schemas.recovery_schemas import FindEmailRequest, FindPasswordRequest
-from schemas.common import create_response, serialize_user
-from dependencies.request_context import get_request_timestamp
-from utils.upload import save_file
-from models import user_models, block_models, follow_models
 from services.user_service import UserService
+from utils.upload import save_file
 
 
 def _serialize_public_user(user) -> dict:
@@ -39,9 +40,7 @@ async def search_users(q: str, limit: int, current_user, request) -> dict:
     blocked_ids = await block_models.get_blocked_user_ids(current_user.id)
     exclude_ids = blocked_ids | {current_user.id}
 
-    results = await user_models.search_users_by_nickname(
-        query=q.strip(), exclude_user_ids=exclude_ids, limit=limit
-    )
+    results = await user_models.search_users_by_nickname(query=q.strip(), exclude_user_ids=exclude_ids, limit=limit)
 
     return {"data": results, "request_timestamp": get_request_timestamp(request)}
 
@@ -86,9 +85,7 @@ async def get_user(user_id: int, request: Request) -> dict:
     )
 
 
-async def create_user(
-    user_data: CreateUserRequest, profile_image: UploadFile | None, request: Request
-) -> dict:
+async def create_user(user_data: CreateUserRequest, profile_image: UploadFile | None, request: Request) -> dict:
     """새로운 사용자를 생성합니다."""
     timestamp = get_request_timestamp(request)
 
@@ -111,14 +108,12 @@ async def create_user(
                     "message": str(e),
                     "timestamp": timestamp,
                 },
-            )
+            ) from e
 
     # Service Layer 호출
     await UserService.create_user(user_data, profile_image_url, timestamp)
 
-    return create_response(
-        "SIGNUP_SUCCESS", "사용자 생성에 성공했습니다.", timestamp=timestamp
-    )
+    return create_response("SIGNUP_SUCCESS", "사용자 생성에 성공했습니다.", timestamp=timestamp)
 
 
 async def get_my_info(current_user: User, request: Request) -> dict:
@@ -159,9 +154,7 @@ async def get_user_info(user_id: int, current_user: User, request: Request) -> d
     )
 
 
-async def update_user(
-    update_data: UpdateUserRequest, current_user: User, request: Request
-) -> dict:
+async def update_user(update_data: UpdateUserRequest, current_user: User, request: Request) -> dict:
     """현재 로그인 중인 사용자의 정보를 수정합니다."""
     timestamp = get_request_timestamp(request)
 
@@ -185,9 +178,7 @@ async def update_user(
     )
 
 
-async def change_password(
-    password_data: ChangePasswordRequest, current_user: User, request: Request
-) -> dict:
+async def change_password(password_data: ChangePasswordRequest, current_user: User, request: Request) -> dict:
     """현재 로그인 중인 사용자의 비밀번호를 변경합니다."""
     timestamp = get_request_timestamp(request)
 
@@ -212,14 +203,10 @@ async def change_password(
         timestamp=timestamp,
     )
 
-    return create_response(
-        "PASSWORD_CHANGE_SUCCESS", "비밀번호 변경에 성공했습니다.", timestamp=timestamp
-    )
+    return create_response("PASSWORD_CHANGE_SUCCESS", "비밀번호 변경에 성공했습니다.", timestamp=timestamp)
 
 
-async def withdraw_user(
-    withdraw_data: WithdrawRequest, current_user: User, request: Request
-) -> dict:
+async def withdraw_user(withdraw_data: WithdrawRequest, current_user: User, request: Request) -> dict:
     """회원 탈퇴를 처리합니다."""
     timestamp = get_request_timestamp(request)
 
@@ -231,9 +218,7 @@ async def withdraw_user(
         timestamp=timestamp,
     )
 
-    return create_response(
-        "WITHDRAWAL_ACCEPTED", "탈퇴 신청이 접수되었습니다.", timestamp=timestamp
-    )
+    return create_response("WITHDRAWAL_ACCEPTED", "탈퇴 신청이 접수되었습니다.", timestamp=timestamp)
 
 
 async def upload_profile_image(

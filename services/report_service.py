@@ -1,12 +1,11 @@
 """report_service: 신고 관련 비즈니스 로직을 처리하는 서비스."""
 
 import logging
-from typing import Dict, List, Optional, Tuple
 
-from models import report_models, post_models, comment_models, suspension_models
-from utils.formatters import format_datetime
+from models import comment_models, post_models, report_models, suspension_models
 from utils.error_codes import ErrorCode
-from utils.exceptions import not_found_error, bad_request_error
+from utils.exceptions import bad_request_error, not_found_error
+from utils.formatters import format_datetime
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +19,9 @@ class ReportService:
         target_type: str,
         target_id: int,
         reason: str,
-        description: Optional[str],
+        description: str | None,
         timestamp: str,
-    ) -> Dict:
+    ) -> dict:
         """신고를 생성합니다."""
         # 1. 대상 존재 확인 + 자기 콘텐츠 신고 방지
         if target_type == "post":
@@ -65,13 +64,15 @@ class ReportService:
 
     @staticmethod
     async def get_reports(
-        status: Optional[str],
+        status: str | None,
         offset: int,
         limit: int,
-    ) -> Tuple[List[Dict], int, bool]:
+    ) -> tuple[list[dict], int, bool]:
         """신고 목록 조회 및 가공."""
         reports_data = await report_models.get_reports(
-            status=status, offset=offset, limit=limit,
+            status=status,
+            offset=offset,
+            limit=limit,
         )
         total_count = await report_models.get_reports_count(status=status)
         has_more = offset + limit < total_count
@@ -89,7 +90,7 @@ class ReportService:
         new_status: str,
         timestamp: str,
         suspend_days: int | None = None,
-    ) -> Dict:
+    ) -> dict:
         """신고를 처리합니다.
 
         resolved: 대상 콘텐츠를 soft delete합니다.
@@ -140,7 +141,8 @@ class ReportService:
                 if not suspended:
                     logger.warning(
                         "신고 #%d 처리 중 사용자 %d 정지 실패 (이미 탈퇴했을 수 있음)",
-                        report_id, author_id,
+                        report_id,
+                        author_id,
                     )
 
         return {

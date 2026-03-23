@@ -25,9 +25,9 @@ MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5MB
 
 # Image magic numbers (file signatures)
 MAGIC_NUMBERS = {
-    "jpg": [b"\xFF\xD8\xFF"],
-    "jpeg": [b"\xFF\xD8\xFF"],
-    "png": [b"\x89\x50\x4E\x47\x0D\x0A\x1A\x0A"],
+    "jpg": [b"\xff\xd8\xff"],
+    "jpeg": [b"\xff\xd8\xff"],
+    "png": [b"\x89\x50\x4e\x47\x0d\x0a\x1a\x0a"],
     "gif": [b"\x47\x49\x46\x38\x37\x61", b"\x47\x49\x46\x38\x39\x61"],
     "webp": [b"\x52\x49\x46\x46"],
 }

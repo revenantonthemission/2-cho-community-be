@@ -77,19 +77,18 @@ async def get_reports(
     limit: int = 20,
 ) -> list[dict]:
     """신고 목록을 reporter 닉네임과 함께 조회합니다."""
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            where = "1=1"
-            params: list = []
+    async with get_connection() as conn, conn.cursor() as cur:
+        where = "1=1"
+        params: list = []
 
-            if status:
-                where += " AND r.status = %s"
-                params.append(status)
+        if status:
+            where += " AND r.status = %s"
+            params.append(status)
 
-            params.extend([limit, offset])
+        params.extend([limit, offset])
 
-            await cur.execute(
-                f"""
+        await cur.execute(
+            f"""
                 SELECT r.id, r.reporter_id, r.target_type, r.target_id,
                        r.reason, r.description, r.status,
                        r.resolved_by, r.resolved_at, r.created_at,
@@ -100,61 +99,59 @@ async def get_reports(
                 ORDER BY r.created_at DESC
                 LIMIT %s OFFSET %s
                 """,
-                params,
-            )
-            rows = await cur.fetchall()
+            params,
+        )
+        rows = await cur.fetchall()
 
-            return [
-                {
-                    "report_id": row[0],
-                    "reporter_id": row[1],
-                    "target_type": row[2],
-                    "target_id": row[3],
-                    "reason": row[4],
-                    "description": row[5],
-                    "status": row[6],
-                    "resolved_by": row[7],
-                    "resolved_at": row[8],
-                    "created_at": row[9],
-                    "reporter_nickname": row[10],
-                }
-                for row in rows
-            ]
+        return [
+            {
+                "report_id": row[0],
+                "reporter_id": row[1],
+                "target_type": row[2],
+                "target_id": row[3],
+                "reason": row[4],
+                "description": row[5],
+                "status": row[6],
+                "resolved_by": row[7],
+                "resolved_at": row[8],
+                "created_at": row[9],
+                "reporter_nickname": row[10],
+            }
+            for row in rows
+        ]
 
 
 async def get_reports_count(status: str | None = None) -> int:
     """신고 총 개수를 반환합니다."""
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            where = "1=1"
-            params: list = []
+    async with get_connection() as conn, conn.cursor() as cur:
+        where = "1=1"
+        params: list = []
 
-            if status:
-                where += " AND status = %s"
-                params.append(status)
+        if status:
+            where += " AND status = %s"
+            params.append(status)
 
-            await cur.execute(
-                f"SELECT COUNT(*) FROM report WHERE {where}",
-                params,
-            )
-            row = await cur.fetchone()
-            return row[0] if row else 0
+        await cur.execute(
+            f"SELECT COUNT(*) FROM report WHERE {where}",
+            params,
+        )
+        row = await cur.fetchone()
+        return row[0] if row else 0
 
 
 async def get_report_by_id(report_id: int) -> Report | None:
     """ID로 신고를 조회합니다."""
-    async with get_connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
+    async with get_connection() as conn, conn.cursor() as cur:
+        await cur.execute(
+            """
                 SELECT id, reporter_id, target_type, target_id, reason, description,
                        status, resolved_by, resolved_at, created_at
                 FROM report WHERE id = %s
                 """,
-                (report_id,),
-            )
-            row = await cur.fetchone()
-            return _row_to_report(row) if row else None
+            (report_id,),
+        )
+        row = await cur.fetchone()
+        return _row_to_report(row) if row else None
 
 
 async def resolve_report(

@@ -16,7 +16,5 @@ class CompleteSignupRequest(BaseModel):
     @classmethod
     def validate_nickname(cls, v: str) -> str:
         if not _NICKNAME_PATTERN.match(v):
-            raise ValueError(
-                "닉네임은 3자 이상 10자 이하의 영문, 숫자, 언더바로 구성하여야 합니다."
-            )
+            raise ValueError("닉네임은 3자 이상 10자 이하의 영문, 숫자, 언더바로 구성하여야 합니다.")
         return v

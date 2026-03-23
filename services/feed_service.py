@@ -70,19 +70,24 @@ class FeedService:
             )
             logger.info(
                 "피드 배치 시작: 후보 %d개, 사용자 %d명",
-                len(candidates), len(user_ids),
+                len(candidates),
+                len(user_ids),
             )
 
             # 3. 사용자별 점수 계산
             for user_id in user_ids:
                 try:
                     await FeedService._process_user(
-                        user_id, candidates, candidate_post_ids,
+                        user_id,
+                        candidates,
+                        candidate_post_ids,
                     )
                     users_processed += 1
                 except Exception:
                     logger.warning(
-                        "사용자 %s 추천 점수 계산 실패", user_id, exc_info=True,
+                        "사용자 %s 추천 점수 계산 실패",
+                        user_id,
+                        exc_info=True,
                     )
 
                 # 이벤트 루프 양보 (HTTP 요청 블로킹 방지)
@@ -106,7 +111,8 @@ class FeedService:
         """단일 사용자의 추천 점수를 계산하고 저장합니다."""
         # 신호 수집
         signals = await affinity_models.get_user_signals(
-            user_id, lookback_days=_SIGNAL_LOOKBACK_DAYS,
+            user_id,
+            lookback_days=_SIGNAL_LOOKBACK_DAYS,
         )
 
         # 프로필 구축
@@ -133,12 +139,14 @@ class FeedService:
                 continue
 
             combined = compute_combined_score(affinity, post["hot_score"])
-            scored_rows.append({
-                "post_id": post["post_id"],
-                "affinity_score": round(affinity, 6),
-                "hot_score": round(post["hot_score"], 6),
-                "combined_score": round(combined, 6),
-            })
+            scored_rows.append(
+                {
+                    "post_id": post["post_id"],
+                    "affinity_score": round(affinity, 6),
+                    "hot_score": round(post["hot_score"], 6),
+                    "combined_score": round(combined, 6),
+                }
+            )
 
         # 점수 순 정렬 후 상위 N개만 저장
         scored_rows.sort(key=lambda r: r["combined_score"], reverse=True)

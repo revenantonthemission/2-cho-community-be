@@ -61,6 +61,7 @@ logger = logging.getLogger(__name__)
 # 이벤트 핸들러
 # ============================================================
 
+
 @events.test_start.add_listener
 def on_test_start(_environment, **_kwargs) -> None:
     """테스트 시작 전 사전 검증."""
@@ -73,16 +74,13 @@ def on_test_start(_environment, **_kwargs) -> None:
 @events.test_stop.add_listener
 def on_test_stop(_environment, **_kwargs) -> None:
     """테스트 종료 후 요약."""
-    logger.info(
-        f"=== 부하 테스트 종료 === "
-        f"(남은 계정: {account_pool.available}개, "
-        f"게시글 캐시: {post_store.size}개)"
-    )
+    logger.info(f"=== 부하 테스트 종료 === (남은 계정: {account_pool.available}개, 게시글 캐시: {post_store.size}개)")
 
 
 # ============================================================
 # 기반 클래스: 로그인/로그아웃 공통 처리
 # ============================================================
+
 
 class CommunityUser(HttpUser):
     """커뮤니티 사용자 기반 클래스.
@@ -151,10 +149,7 @@ class CommunityUser(HttpUser):
                     resp.failure(f"로그인 실패: {resp.status_code}")
                     # 디버깅: 상태 코드 + 응답 본문 포함
                     body = resp.text[:200] if resp.text else "(빈 응답)"
-                    logger.error(
-                        f"로그인 실패: {self._account['email']} "
-                        f"(HTTP {resp.status_code}: {body})"
-                    )
+                    logger.error(f"로그인 실패: {self._account['email']} (HTTP {resp.status_code}: {body})")
                     raise StopUser()
 
     def _auth_headers(self) -> dict:
@@ -361,6 +356,7 @@ class CommunityUser(HttpUser):
 # GET 요청은 Rate Limit 대상 아님
 # ============================================================
 
+
 class ReaderUser(CommunityUser):
     """읽기 전용 사용자 (눈팅족).
 
@@ -389,6 +385,7 @@ class ReaderUser(CommunityUser):
 # 게시글 작성 + 댓글 — POST Rate Limit(10회/분) 주요 발생원
 # wait_time을 길게 설정하여 Rate Limit 준수
 # ============================================================
+
 
 class WriterUser(CommunityUser):
     """작성자 사용자.
@@ -426,6 +423,7 @@ class WriterUser(CommunityUser):
 # 시나리오 3: ActiveUser (20%)
 # 댓글 + 좋아요 중심 — 인터랙션 집중 사용자
 # ============================================================
+
 
 class ActiveUser(CommunityUser):
     """활성 참여 사용자.
