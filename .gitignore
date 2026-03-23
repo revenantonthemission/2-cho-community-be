@@ -127,6 +127,7 @@ assets/profiles/*
 
 # Local scripts
 scripts/
+!scripts/lint.sh
 
 # Agent / AI assistant directories
 .agent/
