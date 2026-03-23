@@ -155,3 +155,27 @@ class ReportService:
             "status": resolved.status,
             "resolved_by": resolved.resolved_by,
         }
+
+    @staticmethod
+    async def reopen_report(report_id: int, timestamp: str) -> dict:
+        """처리된 신고를 다시 pending 상태로 되돌립니다."""
+        report = await report_models.get_report_by_id(report_id)
+        if not report:
+            raise not_found_error("report", timestamp)
+
+        # 이미 pending인 신고는 re-open 불필요
+        if report.status == "pending":
+            raise bad_request_error(
+                ErrorCode.ALREADY_PROCESSED,
+                timestamp,
+                "이미 대기 중인 신고입니다.",
+            )
+
+        reopened = await report_models.reopen_report(report_id)
+        if not reopened:
+            raise not_found_error("report", timestamp)
+
+        return {
+            "report_id": reopened.id,
+            "status": reopened.status,
+        }

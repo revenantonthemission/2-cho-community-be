@@ -183,3 +183,31 @@ async def resolve_report(
         )
         row = await cur.fetchone()
         return _row_to_report(row) if row else None
+
+
+async def reopen_report(report_id: int) -> Report | None:
+    """처리된 신고를 다시 pending 상태로 되돌립니다."""
+    async with transactional() as cur:
+        # resolved/dismissed → pending 전환. 이미 pending이면 변경 없음 (rowcount=0)
+        await cur.execute(
+            """
+            UPDATE report
+            SET status = 'pending', resolved_by = NULL, resolved_at = NULL
+            WHERE id = %s AND status != 'pending'
+            """,
+            (report_id,),
+        )
+
+        if cur.rowcount == 0:
+            return None
+
+        await cur.execute(
+            """
+            SELECT id, reporter_id, target_type, target_id, reason, description,
+                   status, resolved_by, resolved_at, created_at
+            FROM report WHERE id = %s
+            """,
+            (report_id,),
+        )
+        row = await cur.fetchone()
+        return _row_to_report(row) if row else None

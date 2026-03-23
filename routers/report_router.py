@@ -54,6 +54,16 @@ async def resolve_report(
     return await report_controller.resolve_report(report_id, report_data, current_user, request)
 
 
+@report_router.patch("/v1/admin/reports/{report_id}/reopen", status_code=status.HTTP_200_OK)
+async def reopen_report(
+    report_id: int,
+    request: Request,
+    current_user: User = Depends(require_admin),
+) -> dict:
+    """처리된 신고를 다시 열어 재검토합니다 (관리자 전용)."""
+    return await report_controller.reopen_report(report_id, current_user, request)
+
+
 # ============ 관리자 사용자 관리 ============
 
 

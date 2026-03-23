@@ -103,3 +103,24 @@ async def resolve_report(
         data=result,
         timestamp=timestamp,
     )
+
+
+async def reopen_report(
+    report_id: int,
+    current_user: User,
+    request: Request,
+) -> dict:
+    """처리된 신고를 다시 열어 재검토합니다 (관리자 전용)."""
+    timestamp = get_request_timestamp(request)
+
+    result = await ReportService.reopen_report(
+        report_id=report_id,
+        timestamp=timestamp,
+    )
+
+    return create_response(
+        "REPORT_REOPENED",
+        "신고가 다시 열렸습니다.",
+        data=result,
+        timestamp=timestamp,
+    )
