@@ -99,7 +99,14 @@ if settings.DEBUG:
     app.include_router(ws_router)
 
 # E2E 테스트 전용 API (TESTING=true일 때만 등록)
+# 이중 게이트: TESTING=true + (DEBUG=true OR CI 환경)에서만 허용
 if settings.TESTING:
+    if not settings.DEBUG and not os.environ.get("CI"):
+        import logging as _logging
+
+        _logging.getLogger(__name__).critical(
+            "TESTING=true이지만 DEBUG=false입니다. 프로덕션에서 테스트 라우터가 활성화될 수 있습니다."
+        )
     from routers.test_router import test_router
 
     app.include_router(test_router)
