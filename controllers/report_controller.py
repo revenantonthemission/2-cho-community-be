@@ -20,6 +20,7 @@ async def create_report(
     """신고를 생성합니다."""
     timestamp = get_request_timestamp(request)
 
+    # IntegrityError는 DB 유니크 제약(reporter+target) 위반 — 사전 체크 대신 예외로 처리해 레이스 컨디션 방지
     try:
         result = await ReportService.create_report(
             reporter_id=current_user.id,
@@ -30,6 +31,7 @@ async def create_report(
             timestamp=timestamp,
         )
     except IntegrityError:
+        # 보안: from None으로 원본 예외를 억제 — DB 내부 정보를 응답에 노출하지 않기 위해
         raise conflict_error(ErrorCode.REPORT_ALREADY_EXISTS, timestamp, "이미 신고한 콘텐츠입니다.") from None
 
     return create_response(
@@ -49,12 +51,14 @@ async def get_reports(
     """신고 목록을 조회합니다 (관리자 전용)."""
     timestamp = get_request_timestamp(request)
 
+    # 페이지네이션 파라미터를 컨트롤러에서 직접 검증 — 서비스 레이어에 무효값이 도달하기 전에 차단
     if offset < 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"error": "invalid_offset", "timestamp": timestamp},
         )
 
+    # limit 상한(100)은 한 번에 지나치게 많은 신고를 로드해 관리자 UI가 느려지는 것을 방지
     if limit < 1 or limit > 100:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -92,11 +96,13 @@ async def resolve_report(
     """신고를 처리합니다 (관리자 전용)."""
     timestamp = get_request_timestamp(request)
 
+    # admin_id 기록 — 누가 처리했는지 감사 추적을 위해 신고 레코드에 저장
     result = await ReportService.resolve_report(
         report_id=report_id,
         admin_id=current_user.id,
         new_status=report_data.status,
         timestamp=timestamp,
+        # suspend_days가 None이면 정지 없이 콘텐츠만 삭제, 값이 있으면 해당 기간 계정 정지
         suspend_days=report_data.suspend_days,
     )
 

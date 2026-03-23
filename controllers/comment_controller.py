@@ -32,6 +32,7 @@ async def create_comment(
     """
     timestamp = get_request_timestamp(request)
 
+    # actor_nickname은 알림 생성에 재사용 — 서비스에서 User를 다시 조회하지 않도록 미리 전달
     comment = await CommentService.create_comment(
         post_id=post_id,
         user_id=current_user.id,
@@ -44,6 +45,8 @@ async def create_comment(
     return create_response(
         "COMMENT_CREATED",
         "댓글이 생성되었습니다.",
+        # parent_id 포함 — 클라이언트가 대댓글 트리에 즉시 삽입할 수 있도록
+        # created_at을 응답에 포함 — 클라이언트 측에서 별도 조회 없이 UI 렌더링 가능
         data={
             "comment_id": comment.id,
             "content": comment.content,
@@ -78,6 +81,7 @@ async def update_comment(
     """
     timestamp = get_request_timestamp(request)
 
+    # 댓글 수정 시에도 post_id 검증 — 댓글이 해당 게시글에 속하는지 확인
     updated_comment = await CommentService.update_comment(
         post_id=post_id,
         comment_id=comment_id,
@@ -90,6 +94,7 @@ async def update_comment(
     return create_response(
         "COMMENT_UPDATED",
         "댓글이 수정되었습니다.",
+        # updated_at 반환 — "방금 수정됨" 표시를 위해 클라이언트에서 서버 시각 사용
         data={
             "comment_id": updated_comment.id,
             "content": updated_comment.content,
@@ -123,6 +128,7 @@ async def delete_comment(
     """
     timestamp = get_request_timestamp(request)
 
+    # is_admin=True이면 작성자 검증 스킵 — 관리자가 타인의 댓글 삭제 시
     await CommentService.delete_comment(
         post_id=post_id,
         comment_id=comment_id,

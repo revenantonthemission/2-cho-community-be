@@ -20,6 +20,7 @@ async def block_user(
     """
     timestamp = get_request_timestamp(request)
 
+    # 차단 시 기존 팔로우 관계도 서비스 레이어에서 자동 해제
     await BlockService.block_user(current_user.id, target_user_id, timestamp)
 
     return create_response(
@@ -41,6 +42,7 @@ async def unblock_user(
     """
     timestamp = get_request_timestamp(request)
 
+    # 차단 해제만 수행 — 팔로우 관계는 자동 복원하지 않음 (사용자가 직접 다시 팔로우해야 함)
     await BlockService.unblock_user(current_user.id, target_user_id, timestamp)
 
     return create_response(
@@ -59,6 +61,7 @@ async def get_my_blocks(
     """차단 목록을 조회합니다."""
     timestamp = get_request_timestamp(request)
 
+    # 차단 목록은 본인만 조회 가능 — current_user.id로 격리
     data = await BlockService.get_blocked_users(current_user.id, offset, limit)
 
     return create_response(

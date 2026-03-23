@@ -28,6 +28,10 @@ _REFRESH_COOKIE = "refresh_token"
 
 def _set_refresh_cookie(response: Response, token: str) -> None:
     """응답에 HttpOnly Refresh Token 쿠키를 설정합니다."""
+    # httponly=True: JS에서 접근 불가 — XSS로 Refresh Token 탈취 방지
+    # secure=HTTPS_ONLY: 프로덕션에서 HTTPS 전용 전송 강제
+    # samesite=lax: CSRF 방지 + 외부 링크로의 GET 요청은 허용
+    # path=/v1/auth: 토큰 갱신/로그아웃 엔드포인트에서만 쿠키 전송 — 불필요한 노출 최소화
     response.set_cookie(
         key=_REFRESH_COOKIE,
         value=token,
@@ -41,6 +45,7 @@ def _set_refresh_cookie(response: Response, token: str) -> None:
 
 def _clear_refresh_cookie(response: Response) -> None:
     """응답에서 Refresh Token 쿠키를 삭제합니다."""
+    # 쿠키 삭제 시에도 설정 시와 동일한 path/domain 속성을 명시해야 브라우저가 올바르게 삭제함
     response.delete_cookie(
         key=_REFRESH_COOKIE,
         path="/v1/auth",
@@ -75,6 +80,7 @@ async def login(credentials: LoginRequest, request: Request, response: Response)
         timestamp=timestamp,
     )
 
+    # Refresh Token은 HttpOnly 쿠키로 전달 — 클라이언트 JS가 직접 접근할 수 없어 XSS 방어
     _set_refresh_cookie(response, result.raw_refresh_token)
 
     return create_response(
@@ -101,6 +107,7 @@ async def logout(current_user: User, request: Request, response: Response) -> di
     """
     timestamp = get_request_timestamp(request)
 
+    # 쿠키에서 Refresh Token을 읽어 DB에서 무효화 — None이어도 Service에서 gracefully 처리
     raw_refresh = request.cookies.get(_REFRESH_COOKIE)
     await AuthService.logout(raw_refresh)
 
@@ -126,6 +133,7 @@ async def refresh_token(request: Request, response: Response) -> dict:
     """
     timestamp = get_request_timestamp(request)
 
+    # 쿠키가 없으면 즉시 401 — Service 호출 없이 빠른 거절로 불필요한 DB 조회 방지
     raw_refresh = request.cookies.get(_REFRESH_COOKIE)
     if not raw_refresh:
         raise HTTPException(
@@ -139,10 +147,11 @@ async def refresh_token(request: Request, response: Response) -> dict:
             timestamp=timestamp,
         )
     except HTTPException:
-        # 토큰 유효하지 않거나 사용자 없음/정지 시 쿠키 삭제 후 재발생
+        # 유효하지 않은 토큰으로 접근 시 쿠키를 즉시 삭제 — 클라이언트가 만료된 쿠키를 계속 전송하지 않도록
         _clear_refresh_cookie(response)
         raise
 
+    # 토큰 회전(rotation): 매 갱신마다 새 Refresh Token 발급 — 탈취된 토큰의 재사용 감지 가능
     _set_refresh_cookie(response, result.raw_refresh_token)
 
     return create_response(
@@ -191,6 +200,8 @@ async def verify_email(token: str, request: Request) -> dict:
     """
     timestamp = get_request_timestamp(request)
 
+    # verify_token은 토큰 검증 + 사용자 email_verified 업데이트를 원자적으로 수행
+    # None 반환 시 토큰이 없거나 만료됨 — 재사용 방지를 위해 검증 즉시 DB에서 삭제됨
     user_id = await verification_models.verify_token(token)
     if not user_id:
         raise bad_request_error(ErrorCode.INVALID_OR_EXPIRED_TOKEN, timestamp)
@@ -220,6 +231,7 @@ async def resend_verification(current_user: User, request: Request) -> dict:
     """
     timestamp = get_request_timestamp(request)
 
+    # 이미 인증된 사용자는 불필요한 토큰 생성을 막기 위해 즉시 거절
     if current_user.email_verified:
         raise bad_request_error(ErrorCode.ALREADY_VERIFIED, timestamp)
 
@@ -243,6 +255,8 @@ async def resend_verification(current_user: User, request: Request) -> dict:
             body=email_body,
         )
     except Exception:
+        # 이메일 발송 실패는 사용자 경험보다 중요하지 않으므로 경고 로그만 남기고 성공 응답 반환
+        # 토큰은 이미 생성되었으므로 사용자가 나중에 재시도할 수 있음
         logger.warning("이메일 인증 메일 재발송 실패: %s", current_user.email)
 
     return create_response(

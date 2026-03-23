@@ -17,6 +17,7 @@ async def get_dashboard(current_user: User, request: Request) -> dict:
     timestamp = get_request_timestamp(request)
 
     summary = await admin_models.get_dashboard_summary()
+    # 최근 30일 통계 — 관리자 대시보드의 트렌드 차트 기간과 동기화
     daily_stats = await admin_models.get_daily_stats(days=30)
 
     return create_response(
@@ -37,6 +38,7 @@ async def get_users(
     """사용자 목록을 조회합니다."""
     timestamp = get_request_timestamp(request)
 
+    # search가 None이면 전체 조회 — 모델에서 LIKE 조건을 선택적으로 적용
     users, total_count = await admin_models.get_users_list(offset, limit, search)
     has_more = offset + limit < total_count
 
@@ -57,9 +59,11 @@ async def cleanup_tokens(request: Request) -> dict:
     Refresh Token과 이메일 인증 토큰을 일괄 삭제합니다.
     EventBridge 스케줄로 주기적으로 호출합니다.
     """
+    # 지연 import — 이 엔드포인트는 스케줄러에서만 호출되므로 모듈 레벨 의존성을 줄임
     from models.token_models import cleanup_expired_tokens
     from models.verification_models import cleanup_expired_verification_tokens
 
+    # Refresh Token과 이메일 인증 토큰을 분리 실행 — 한쪽 실패가 다른쪽에 영향 없도록
     refresh_deleted = await cleanup_expired_tokens()
     verification_deleted = await cleanup_expired_verification_tokens()
 
@@ -69,6 +73,7 @@ async def cleanup_tokens(request: Request) -> dict:
         verification_deleted,
     )
 
+    # create_response 대신 단순 dict 반환 — 내부 호출용 엔드포인트이므로 표준 래퍼 불필요
     return {
         "status": "success",
         "data": {

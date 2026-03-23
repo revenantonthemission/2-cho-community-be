@@ -20,6 +20,7 @@ async def follow_user(
     """
     timestamp = get_request_timestamp(request)
 
+    # actor_nickname을 전달해 팔로우 알림 생성 시 닉네임을 별도 조회하지 않도록
     await FollowService.follow(
         user_id=current_user.id,
         target_id=target_user_id,
@@ -46,6 +47,7 @@ async def unfollow_user(
     """
     timestamp = get_request_timestamp(request)
 
+    # 팔로우 관계가 없으면 404 — 멱등성 대신 명시적 오류로 클라이언트 버그를 조기에 노출
     await FollowService.unfollow(
         user_id=current_user.id,
         target_id=target_user_id,
@@ -68,6 +70,7 @@ async def get_user_following(
     """특정 사용자의 팔로잉 목록을 조회합니다."""
     timestamp = get_request_timestamp(request)
 
+    # 타인의 팔로잉 목록도 공개 — 프로필 페이지에서 소셜 그래프 탐색 지원
     data = await FollowService.get_following(
         user_id=user_id,
         offset=offset,
@@ -91,6 +94,7 @@ async def get_user_followers(
     """특정 사용자의 팔로워 목록을 조회합니다."""
     timestamp = get_request_timestamp(request)
 
+    # 타인의 팔로워 목록도 공개 — 팔로우 관계는 소셜 기능의 핵심 정보
     data = await FollowService.get_followers(
         user_id=user_id,
         offset=offset,
@@ -114,6 +118,7 @@ async def get_my_following(
     """팔로잉 목록을 조회합니다."""
     timestamp = get_request_timestamp(request)
 
+    # get_user_following과 동일 서비스 메서드 재사용 — current_user.id를 명시적으로 전달
     data = await FollowService.get_following(
         user_id=current_user.id,
         offset=offset,
@@ -137,6 +142,7 @@ async def get_my_followers(
     """팔로워 목록을 조회합니다."""
     timestamp = get_request_timestamp(request)
 
+    # 나를 팔로우한 사람 목록 — 알림 후 확인 흐름에서 주로 사용
     data = await FollowService.get_followers(
         user_id=current_user.id,
         offset=offset,

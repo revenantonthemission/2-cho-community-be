@@ -21,6 +21,7 @@ async def get_wiki_pages(
     """위키 페이지 목록을 조회합니다."""
     timestamp = get_request_timestamp(request)
 
+    # 음수 offset은 유효하지 않으므로 Service 호출 전에 빠르게 거절
     if offset < 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -45,7 +46,7 @@ async def get_wiki_pages(
     if search is not None:
         search = search.strip() or None
 
-    # 유효하지 않은 정렬 옵션은 기본값으로 대체
+    # 잘못된 정렬값은 400 에러 대신 기본값으로 폴백 — 파라미터 오타에 관용적으로 대응
     if sort not in ALLOWED_SORT_OPTIONS:
         sort = "latest"
 
@@ -68,6 +69,7 @@ async def get_wiki_pages(
 async def get_wiki_popular_tags(request: Request, limit: int = 10) -> dict:
     """위키에서 가장 많이 사용된 태그를 조회합니다."""
     timestamp = get_request_timestamp(request)
+    # 집계 쿼리가 단순하여 Service 계층 없이 Model을 직접 호출
     tags = await get_popular_wiki_tags(limit=limit)
     return create_response(
         "WIKI_TAGS_RETRIEVED",
@@ -84,6 +86,7 @@ async def get_wiki_page(
     """위키 페이지 상세 정보를 조회합니다."""
     timestamp = get_request_timestamp(request)
 
+    # slug는 URL-friendly 식별자 — ID 대신 사용해 북마크 가능한 고정 URL 유지
     result = await WikiService.get_wiki_page(slug, timestamp)
 
     return create_response(
@@ -108,6 +111,7 @@ async def create_wiki_page(
         timestamp,
     )
 
+    # slug를 응답에 포함 — 생성 직후 클라이언트가 /wiki/{slug}로 바로 이동할 수 있도록
     return create_response(
         "WIKI_PAGE_CREATED",
         "위키 페이지가 생성되었습니다.",
@@ -148,6 +152,7 @@ async def delete_wiki_page(
     """위키 페이지를 삭제합니다."""
     timestamp = get_request_timestamp(request)
 
+    # 관리자는 타인의 위키 페이지도 삭제 가능 — 품질 관리 및 규정 위반 콘텐츠 제거 목적
     await WikiService.delete_wiki_page(
         slug,
         current_user.id,
