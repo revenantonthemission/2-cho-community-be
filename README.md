@@ -30,12 +30,10 @@ flowchart TD
 
     subgraph Backend["FastAPI Backend (Port 8000)"]
         direction TB
-        MW["Middleware Stack<br/>CORS → Logging → Timing → Rate Limit → Exception Handler"]
-        MW --> Routers
-        Routers --> Controllers
-        Controllers --> Services
-        Services --> Models
-        Models --> Pool["aiomysql Pool<br/>(5-50 connections)"]
+        Core["core/<br/>Middleware · Auth Guards · Utils"]
+        Core --> Modules
+        Modules["modules/<br/>auth · user · post · dm · notification<br/>admin · content · wiki · package"]
+        Modules --> Pool["aiomysql Pool<br/>(5-50 connections)"]
     end
 
     Backend -->|"Async Connection"| DB
@@ -53,18 +51,24 @@ flowchart TD
     end
 ```
 
-### 백엔드 계층 구조
+### 모듈러 모놀리스 구조
 
-| 계층 | 디렉토리 | 역할 |
-| --- | --- | --- |
-| **Router** | `routers/` | API 엔드포인트 정의, 요청 파라미터 파싱 |
-| **Controller** | `controllers/` | 비즈니스 로직, HTTP 응답 생성 |
-| **Service** | `services/` | 컨트롤러-모델 간 비즈니스 로직 조율 |
-| **Model** | `models/` | Raw SQL 쿼리 (aiomysql parameterized queries) |
-| **Schema** | `schemas/` | Pydantic 요청/응답 모델, 유효성 검사 |
-| **Middleware** | `middleware/` | 로깅, 타이밍, Rate Limiting, 전역 예외 처리 |
-| **Dependency** | `dependencies/` | 인증(`get_current_user`, `require_verified_email`, `require_admin`) |
-| **Utility** | `utils/` | JWT, 비밀번호 해싱, 이메일 발송, 파일 업로드, WebSocket Pusher |
+도메인 기반 모듈 구조를 사용합니다. 각 모듈은 router, controller, service, models, schemas를 포함합니다.
+
+| 디렉토리 | 역할 |
+| --- | --- |
+| **`modules/auth/`** | 인증 — JWT, OAuth, 이메일 인증 |
+| **`modules/user/`** | 사용자 — 프로필, 팔로우, 차단, 활동 내역 |
+| **`modules/post/`** | 게시글 — 댓글, 좋아요, 북마크, 투표, 피드, 친밀도 |
+| **`modules/dm/`** | 쪽지 — 대화, 메시지, 읽음 처리 |
+| **`modules/notification/`** | 알림 — 알림 CRUD, 유형별 설정 |
+| **`modules/admin/`** | 관리자 — 신고 처리, 사용자 정지, 대시보드 |
+| **`modules/content/`** | 콘텐츠 — 카테고리, 태그, 이용약관, 임시저장 |
+| **`modules/wiki/`** | 위키 — 위키 페이지 CRUD, 태그 연동 |
+| **`modules/package/`** | 패키지 — 패키지 등록, 리뷰 |
+| **`core/`** | 공유 인프라 — DB 연결, 미들웨어, 인증 가드, 유틸리티 |
+| **`schemas/`** | 공유 스키마 — `create_response()`, 이미지 검증 |
+| **`routers/`** | 조건부 라우터 — WebSocket(DEBUG), 테스트(TESTING) |
 
 ---
 
