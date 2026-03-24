@@ -67,7 +67,7 @@ jobs:
       env:
         MYSQL_PWD: testpassword
       run: |
-        mysql -h 127.0.0.1 -u root community_service < database/schema.sql
+        mysql -h 127.0.0.1 -u root community_service < core/database/schema.sql
 
     - name: Run tests
       env:
