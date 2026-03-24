@@ -1,6 +1,7 @@
 """admin_models: 관리자 대시보드 데이터 조회 모듈."""
 
 from core.database.connection import get_connection
+from core.utils.pagination import escape_like
 
 
 async def get_dashboard_summary() -> dict:
@@ -82,7 +83,7 @@ async def get_users_list(offset: int = 0, limit: int = 20, search: str | None = 
 
         if search:
             where += " AND (u.nickname LIKE %s OR u.email LIKE %s)"
-            like_param = f"%{search}%"
+            like_param = f"%{escape_like(search)}%"
             params.extend([like_param, like_param])
 
         # 전체 수

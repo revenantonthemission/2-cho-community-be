@@ -5,6 +5,7 @@ from datetime import datetime
 
 from core.database.connection import get_connection, transactional
 from core.utils.formatters import format_datetime
+from core.utils.pagination import escape_like
 from schemas.common import build_author_dict
 
 PACKAGE_CATEGORIES = frozenset(
@@ -194,7 +195,7 @@ async def get_packages_with_stats(
 
     if search:
         where += " AND (p.name LIKE %s OR p.display_name LIKE %s OR p.description LIKE %s)"
-        like_pattern = f"%{search}%"
+        like_pattern = f"%{escape_like(search)}%"
         params.extend([like_pattern, like_pattern, like_pattern])
 
     params.extend([limit, offset])
@@ -265,7 +266,7 @@ async def get_packages_count(
 
     if search:
         where += " AND (name LIKE %s OR display_name LIKE %s OR description LIKE %s)"
-        like_pattern = f"%{search}%"
+        like_pattern = f"%{escape_like(search)}%"
         params.extend([like_pattern, like_pattern, like_pattern])
 
     async with get_connection() as conn, conn.cursor() as cur:

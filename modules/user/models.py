@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from core.database.connection import get_connection, transactional
+from core.utils.pagination import escape_like
 
 
 def generate_temp_nickname() -> str:
@@ -246,14 +247,14 @@ async def search_users_by_nickname(query: str, exclude_user_ids: set[int], limit
                 f"AND id NOT IN ({placeholders}) "
                 f"ORDER BY nickname LIMIT %s"
             )
-            params = [f"{query}%", *exclude_user_ids, limit]
+            params = [f"{escape_like(query)}%", *exclude_user_ids, limit]
         else:
             sql = (
                 "SELECT id, nickname, profile_img FROM user "
                 "WHERE nickname LIKE %s AND deleted_at IS NULL "
                 "ORDER BY nickname LIMIT %s"
             )
-            params = [f"{query}%", limit]
+            params = [f"{escape_like(query)}%", limit]
 
         await cur.execute(sql, params)
         rows = await cur.fetchall()

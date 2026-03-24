@@ -48,6 +48,10 @@ async def lifespan(app: FastAPI):
     """
     await init_db()
     yield
+    # Redis 연결 종료 (레이트리밋, WebSocket pusher가 사용)
+    from core.utils.redis_client import close_redis
+
+    await close_redis()
     await close_db()
 
 
@@ -123,14 +127,36 @@ if _upload_dir:
     app.mount("/uploads", StaticFiles(directory=_upload_dir), name="uploads")
 
 
-@app.get("/health", status_code=200)
-async def health_check():
-    """서버 상태 및 DB 연결 확인."""
+@app.get("/livez", status_code=200)
+async def liveness():
+    """프로세스 생존 확인 — K8s liveness probe용. DB 상태와 무관."""
+    return {"status": "ok"}
+
+
+async def _check_readiness():
+    """DB 연결 확인 공통 로직. 실패 시 503 반환."""
+    from fastapi.responses import JSONResponse
+
     from core.database.connection import test_connection
 
     if await test_connection():
         return {"status": "ok", "database": "connected"}
-    return {"status": "error", "database": "disconnected"}
+    return JSONResponse(
+        status_code=503,
+        content={"status": "error", "database": "disconnected"},
+    )
+
+
+@app.get("/readyz", status_code=200)
+async def readiness():
+    """트래픽 수신 가능 여부 — K8s readiness probe용. DB 연결 실패 시 503."""
+    return await _check_readiness()
+
+
+@app.get("/health", status_code=200)
+async def health_check():
+    """하위 호환 헬스체크 — /readyz와 동일."""
+    return await _check_readiness()
 
 
 app.add_exception_handler(Exception, global_exception_handler)

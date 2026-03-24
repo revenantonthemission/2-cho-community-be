@@ -3,6 +3,7 @@
 import re
 
 from core.database.connection import get_connection, transactional
+from core.utils.pagination import escape_like
 
 _TAG_NAME_RE = re.compile(r"[^a-z0-9가-힣ㄱ-ㅎㅏ-ㅣ_-]")
 
@@ -80,6 +81,6 @@ async def search_tags(search: str, limit: int = 10) -> list[dict]:
                 ORDER BY post_count DESC, t.name ASC
                 LIMIT %s
                 """,
-            (f"%{search}%", limit),
+            (f"%{escape_like(search)}%", limit),
         )
         return [{"id": row[0], "name": row[1], "post_count": row[2]} for row in await cur.fetchall()]

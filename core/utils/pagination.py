@@ -1,6 +1,11 @@
-"""pagination: 페이지네이션 파라미터 검증 유틸리티."""
+"""pagination: 페이지네이션 파라미터 검증 및 SQL 유틸리티."""
 
 from fastapi import HTTPException, status
+
+
+def escape_like(value: str) -> str:
+    """LIKE 패턴의 와일드카드 메타문자(%_)를 이스케이프."""
+    return value.replace("%", "\\%").replace("_", "\\_")
 
 
 def validate_pagination(offset: int, limit: int, timestamp: str) -> None:
