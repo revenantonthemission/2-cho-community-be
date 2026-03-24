@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 
-from core.database.connection import get_connection, transactional
+from core.database.connection import get_cursor, transactional
 
 
 @dataclass
@@ -19,31 +19,22 @@ class UserSignals:
 
 
 async def get_user_signals(user_id: int, lookback_days: int = 30) -> UserSignals:
-    """사용자의 최근 상호작용 신호를 수집합니다.
-
-    Args:
-        user_id: 사용자 ID.
-        lookback_days: 과거 N일 내 활동만 수집.
-
-    Returns:
-        UserSignals 데이터.
-    """
+    """사용자의 최근 상호작용 신호를 수집합니다."""
     signals = UserSignals()
-    async with get_connection() as conn, conn.cursor() as cur:
+    async with get_cursor() as cur:
         # 1. 좋아요한 게시글의 태그
         await cur.execute(
             """
                 SELECT pt.tag_id, COUNT(*) AS cnt
                 FROM post_like pl
                 INNER JOIN post_tag pt ON pl.post_id = pt.post_id
-                WHERE pl.user_id = %s
-                  AND pl.created_at > NOW() - INTERVAL %s DAY
+                WHERE pl.user_id = %s AND pl.created_at > NOW() - INTERVAL %s DAY
                 GROUP BY pt.tag_id
                 """,
             (user_id, lookback_days),
         )
         for row in await cur.fetchall():
-            signals.liked_tag_counts[row[0]] = row[1]
+            signals.liked_tag_counts[row["tag_id"]] = row["cnt"]
 
         # 2. 북마크한 게시글의 태그
         await cur.execute(
@@ -51,14 +42,13 @@ async def get_user_signals(user_id: int, lookback_days: int = 30) -> UserSignals
                 SELECT pt.tag_id, COUNT(*) AS cnt
                 FROM post_bookmark pb
                 INNER JOIN post_tag pt ON pb.post_id = pt.post_id
-                WHERE pb.user_id = %s
-                  AND pb.created_at > NOW() - INTERVAL %s DAY
+                WHERE pb.user_id = %s AND pb.created_at > NOW() - INTERVAL %s DAY
                 GROUP BY pt.tag_id
                 """,
             (user_id, lookback_days),
         )
         for row in await cur.fetchall():
-            signals.bookmarked_tag_counts[row[0]] = row[1]
+            signals.bookmarked_tag_counts[row["tag_id"]] = row["cnt"]
 
         # 3. 댓글 단 게시글의 태그
         await cur.execute(
@@ -73,7 +63,7 @@ async def get_user_signals(user_id: int, lookback_days: int = 30) -> UserSignals
             (user_id, lookback_days),
         )
         for row in await cur.fetchall():
-            signals.commented_tag_counts[row[0]] = row[1]
+            signals.commented_tag_counts[row["tag_id"]] = row["cnt"]
 
         # 4. 조회한 게시글의 카테고리
         await cur.execute(
@@ -88,14 +78,14 @@ async def get_user_signals(user_id: int, lookback_days: int = 30) -> UserSignals
             (user_id, lookback_days),
         )
         for row in await cur.fetchall():
-            signals.viewed_category_counts[row[0]] = row[1]
+            signals.viewed_category_counts[row["category_id"]] = row["cnt"]
 
         # 5. 팔로우한 작성자
         await cur.execute(
             "SELECT following_id FROM user_follow WHERE follower_id = %s",
             (user_id,),
         )
-        signals.followed_author_ids = {row[0] for row in await cur.fetchall()}
+        signals.followed_author_ids = {row["following_id"] for row in await cur.fetchall()}
 
         # 6. 좋아요한 게시글의 작성자
         await cur.execute(
@@ -110,7 +100,7 @@ async def get_user_signals(user_id: int, lookback_days: int = 30) -> UserSignals
             (user_id, lookback_days),
         )
         for row in await cur.fetchall():
-            signals.liked_author_counts[row[0]] = row[1]
+            signals.liked_author_counts[row["author_id"]] = row["cnt"]
 
         # 7. 북마크한 게시글의 작성자
         await cur.execute(
@@ -125,14 +115,14 @@ async def get_user_signals(user_id: int, lookback_days: int = 30) -> UserSignals
             (user_id, lookback_days),
         )
         for row in await cur.fetchall():
-            signals.bookmarked_author_counts[row[0]] = row[1]
+            signals.bookmarked_author_counts[row["author_id"]] = row["cnt"]
 
     return signals
 
 
 async def get_active_user_ids(lookback_days: int = 30) -> list[int]:
     """최근 활동한 사용자 ID 목록을 반환합니다."""
-    async with get_connection() as conn, conn.cursor() as cur:
+    async with get_cursor() as cur:
         await cur.execute(
             """
                 SELECT DISTINCT user_id FROM (
@@ -152,20 +142,16 @@ async def get_active_user_ids(lookback_days: int = 30) -> list[int]:
                 """,
             (lookback_days, lookback_days, lookback_days, lookback_days),
         )
-        return [row[0] for row in await cur.fetchall()]
+        return [row["user_id"] for row in await cur.fetchall()]
 
 
 async def get_candidate_posts_meta(max_age_days: int = 7) -> list[dict]:
-    """추천 후보 게시글의 메타데이터를 벌크 조회합니다.
-
-    Returns:
-        각 게시글의 post_id, category_id, author_id, hot_score, tag_ids.
-    """
-    async with get_connection() as conn, conn.cursor() as cur:
+    """추천 후보 게시글의 메타데이터를 벌크 조회합니다."""
+    async with get_cursor() as cur:
         await cur.execute(
             """
                 SELECT
-                    p.id,
+                    p.id AS post_id,
                     p.category_id,
                     p.author_id,
                     (COALESCE(lk.cnt, 0) * 3
@@ -191,10 +177,10 @@ async def get_candidate_posts_meta(max_age_days: int = 7) -> list[dict]:
         for row in await cur.fetchall():
             posts.append(
                 {
-                    "post_id": row[0],
-                    "category_id": row[1],
-                    "author_id": row[2],
-                    "hot_score": float(row[3]) if row[3] else 0.0,
+                    "post_id": row["post_id"],
+                    "category_id": row["category_id"],
+                    "author_id": row["author_id"],
+                    "hot_score": float(row["hot_score"]) if row["hot_score"] else 0.0,
                 }
             )
 
@@ -203,16 +189,12 @@ async def get_candidate_posts_meta(max_age_days: int = 7) -> list[dict]:
             post_ids = [p["post_id"] for p in posts]
             placeholders = ", ".join(["%s"] * len(post_ids))
             await cur.execute(
-                f"""
-                    SELECT post_id, tag_id
-                    FROM post_tag
-                    WHERE post_id IN ({placeholders})
-                    """,
+                f"SELECT post_id, tag_id FROM post_tag WHERE post_id IN ({placeholders})",
                 post_ids,
             )
             tag_map: dict[int, list[int]] = {}
             for row in await cur.fetchall():
-                tag_map.setdefault(row[0], []).append(row[1])
+                tag_map.setdefault(row["post_id"], []).append(row["tag_id"])
             for p in posts:
                 p["tag_ids"] = tag_map.get(p["post_id"], [])
         else:
@@ -222,19 +204,8 @@ async def get_candidate_posts_meta(max_age_days: int = 7) -> list[dict]:
         return posts
 
 
-async def upsert_user_post_scores(
-    user_id: int,
-    rows: list[dict],
-) -> int:
-    """user_post_score 테이블에 점수를 배치 UPSERT합니다.
-
-    Args:
-        user_id: 사용자 ID.
-        rows: [{"post_id": int, "affinity_score": float, "hot_score": float, "combined_score": float}]
-
-    Returns:
-        기록된 행 수.
-    """
+async def upsert_user_post_scores(user_id: int, rows: list[dict]) -> int:
+    """user_post_score 테이블에 점수를 배치 UPSERT합니다."""
     if not rows:
         return 0
 
@@ -245,15 +216,7 @@ async def upsert_user_post_scores(
         values_sql = ", ".join(["(%s, %s, %s, %s, %s)"] * len(chunk))
         params: list = []
         for r in chunk:
-            params.extend(
-                [
-                    user_id,
-                    r["post_id"],
-                    r["affinity_score"],
-                    r["hot_score"],
-                    r["combined_score"],
-                ]
-            )
+            params.extend([user_id, r["post_id"], r["affinity_score"], r["hot_score"], r["combined_score"]])
 
         async with transactional() as cur:
             await cur.execute(
@@ -276,21 +239,14 @@ async def upsert_user_post_scores(
 async def delete_stale_scores(user_id: int, valid_post_ids: set[int]) -> int:
     """해당 사용자의 후보 목록에 없는 오래된 점수를 삭제합니다."""
     if not valid_post_ids:
-        # 후보가 없으면 해당 사용자의 모든 점수 삭제
         async with transactional() as cur:
-            await cur.execute(
-                "DELETE FROM user_post_score WHERE user_id = %s",
-                (user_id,),
-            )
+            await cur.execute("DELETE FROM user_post_score WHERE user_id = %s", (user_id,))
             return cur.rowcount
 
     placeholders = ", ".join(["%s"] * len(valid_post_ids))
     async with transactional() as cur:
         await cur.execute(
-            f"""
-            DELETE FROM user_post_score
-            WHERE user_id = %s AND post_id NOT IN ({placeholders})
-            """,
+            f"DELETE FROM user_post_score WHERE user_id = %s AND post_id NOT IN ({placeholders})",
             [user_id, *valid_post_ids],
         )
         return cur.rowcount
@@ -298,7 +254,7 @@ async def delete_stale_scores(user_id: int, valid_post_ids: set[int]) -> int:
 
 async def user_has_scores(user_id: int) -> bool:
     """사용자의 추천 점수가 존재하는지 확인합니다."""
-    async with get_connection() as conn, conn.cursor() as cur:
+    async with get_cursor() as cur:
         await cur.execute(
             "SELECT 1 FROM user_post_score WHERE user_id = %s LIMIT 1",
             (user_id,),

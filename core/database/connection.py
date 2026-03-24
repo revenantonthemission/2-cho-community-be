@@ -52,10 +52,7 @@ async def init_db() -> None:
 
 
 async def close_db() -> None:
-    """데이터베이스 연결 풀을 종료합니다.
-
-    애플리케이션 종료 시 호출되어야 합니다.
-    """
+    """데이터베이스 연결 풀을 종료합니다."""
     global _pool
     if _pool:
         _pool.close()
@@ -65,53 +62,45 @@ async def close_db() -> None:
 
 
 def get_pool() -> aiomysql.Pool:
-    """현재 연결 풀을 반환합니다.
-
-    Returns:
-        연결 풀 객체.
-
-    Raises:
-        RuntimeError: 연결 풀이 초기화되지 않은 경우.
-    """
+    """현재 연결 풀을 반환합니다. 초기화되지 않은 경우 RuntimeError."""
     if _pool is None:
         raise RuntimeError("데이터베이스 연결 풀이 초기화되지 않았습니다.")
     return _pool
 
 
 @asynccontextmanager
-async def get_connection() -> AsyncGenerator[aiomysql.Connection, None]:
-    """데이터베이스 연결을 컨텍스트 매니저로 제공합니다.
+async def _acquire_dict_cursor() -> AsyncGenerator[tuple[aiomysql.Connection, aiomysql.DictCursor], None]:
+    """풀에서 연결을 획득하고 DictCursor를 여는 내부 헬퍼.
 
-    사용 예시:
-        async with get_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute("SELECT * FROM user")
-                result = await cur.fetchall()
-
-    Yields:
-        MySQL 연결 객체.
+    get_cursor()와 transactional()이 공유하여 중복을 제거합니다.
     """
+    pool = get_pool()
+    async with pool.acquire() as conn, conn.cursor(aiomysql.DictCursor) as cur:
+        yield conn, cur
+
+
+@asynccontextmanager
+async def get_connection() -> AsyncGenerator[aiomysql.Connection, None]:
+    """데이터베이스 연결을 컨텍스트 매니저로 제공합니다. (하위 호환성용)"""
     pool = get_pool()
     async with pool.acquire() as conn:
         yield conn
 
 
 @asynccontextmanager
-async def transactional() -> AsyncGenerator[aiomysql.Cursor, None]:
-    """트랜잭션을 관리하는 컨텍스트 매니저.
+async def get_cursor() -> AsyncGenerator[aiomysql.DictCursor, None]:
+    """DictCursor를 컨텍스트 매니저로 제공합니다. (읽기 전용 쿼리용)"""
+    async with _acquire_dict_cursor() as (_conn, cur):
+        yield cur
 
-    범위 내에서 예외 발생 시 롤백, 정상 종료 시 커밋합니다.
-    주의: 이 컨텍스트 매니저는 커서를 반환합니다.
 
-    Yields:
-        MySQL 커서 객체.
-    """
-    pool = get_pool()
-    async with pool.acquire() as conn:
+@asynccontextmanager
+async def transactional() -> AsyncGenerator[aiomysql.DictCursor, None]:
+    """트랜잭션 컨텍스트 매니저. 예외 시 롤백, 정상 종료 시 커밋. DictCursor 반환."""
+    async with _acquire_dict_cursor() as (conn, cur):
         try:
             await conn.begin()
-            async with conn.cursor() as cur:
-                yield cur
+            yield cur
             await conn.commit()
         except Exception:
             await conn.rollback()
@@ -119,13 +108,9 @@ async def transactional() -> AsyncGenerator[aiomysql.Cursor, None]:
 
 
 async def test_connection() -> bool:
-    """데이터베이스 연결을 테스트합니다.
-
-    Returns:
-        연결 성공 여부.
-    """
+    """데이터베이스 연결을 테스트합니다."""
     try:
-        async with get_connection() as conn, conn.cursor() as cur:
+        async with get_cursor() as cur:
             await cur.execute("SELECT 1")
             result = await cur.fetchone()
             logger.info(f"데이터베이스 연결 테스트 성공: {result}")

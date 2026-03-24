@@ -8,7 +8,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from core.database.connection import get_connection, transactional
+from core.database.connection import get_cursor, transactional
 from schemas.common import build_author_dict
 
 ALLOWED_COMMENT_SORT_OPTIONS = {"oldest", "latest", "popular"}
@@ -44,30 +44,26 @@ class Comment:
         return self.deleted_at is not None
 
 
-def _row_to_comment(row: tuple) -> Comment:
-    """데이터베이스 행을 Comment 객체로 변환합니다."""
+def _row_to_comment(row: dict) -> Comment:
+    """DictCursor 결과를 Comment 객체로 변환합니다.
+
+    SELECT 컬럼 순서: id, content, author_id, post_id, created_at, updated_at, deleted_at, parent_id
+    """
     return Comment(
-        id=row[0],
-        content=row[1],
-        author_id=row[2],
-        post_id=row[3],
-        created_at=row[4],
-        updated_at=row[5],
-        deleted_at=row[6],
-        parent_id=row[7] if len(row) > 7 else None,
+        id=row["id"],
+        content=row["content"],
+        author_id=row["author_id"],
+        post_id=row["post_id"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+        deleted_at=row["deleted_at"],
+        parent_id=row.get("parent_id"),
     )
 
 
 async def get_comment_by_id(comment_id: int) -> Comment | None:
-    """ID로 댓글을 조회합니다.
-
-    Args:
-        comment_id: 조회할 댓글 ID.
-
-    Returns:
-        댓글 객체, 없거나 삭제된 경우 None.
-    """
-    async with get_connection() as conn, conn.cursor() as cur:
+    """ID로 댓글을 조회합니다."""
+    async with get_cursor() as cur:
         await cur.execute(
             """
                 SELECT id, content, author_id, post_id, created_at, updated_at, deleted_at, parent_id
@@ -85,40 +81,23 @@ async def create_comment(post_id: int, author_id: int, content: str, parent_id: 
 
     트랜잭션을 사용하여 INSERT와 SELECT을 원자적으로 처리합니다.
 
-    Args:
-        post_id: 게시글 ID.
-        author_id: 작성자 ID.
-        content: 내용.
-        parent_id: 부모 댓글 ID (대댓글인 경우).
-
-    Returns:
-        생성된 댓글 객체.
-
     Raises:
         RuntimeError: 삽입 직후 조회 실패 시 (발생하지 않아야 함).
     """
     async with transactional() as cur:
         await cur.execute(
-            """
-            INSERT INTO comment (content, author_id, post_id, parent_id)
-            VALUES (%s, %s, %s, %s)
-            """,
+            "INSERT INTO comment (content, author_id, post_id, parent_id) VALUES (%s, %s, %s, %s)",
             (content, author_id, post_id, parent_id),
         )
         comment_id = cur.lastrowid
 
-        # 같은 트랜잭션 내에서 조회
         await cur.execute(
-            """
-            SELECT id, content, author_id, post_id, created_at, updated_at, deleted_at, parent_id
-            FROM comment
-            WHERE id = %s
-            """,
+            "SELECT id, content, author_id, post_id, created_at, updated_at, deleted_at, parent_id "
+            "FROM comment WHERE id = %s",
             (comment_id,),
         )
         row = await cur.fetchone()
 
-        # 삽입 직후 조회 실패는 발생하지 않아야 함
         if not row:
             raise RuntimeError(
                 f"댓글 삽입 직후 조회 실패: comment_id={comment_id}, post_id={post_id}, author_id={author_id}"
@@ -131,34 +110,18 @@ async def update_comment(comment_id: int, content: str) -> Comment | None:
     """댓글을 수정합니다.
 
     트랜잭션을 사용하여 UPDATE와 SELECT을 원자적으로 처리합니다.
-
-    Args:
-        comment_id: 수정할 댓글 ID.
-        content: 새 내용.
-
-    Returns:
-        수정된 댓글 객체, 없거나 삭제된 경우 None.
     """
     async with transactional() as cur:
         await cur.execute(
-            """
-            UPDATE comment
-            SET content = %s
-            WHERE id = %s AND deleted_at IS NULL
-            """,
+            "UPDATE comment SET content = %s WHERE id = %s AND deleted_at IS NULL",
             (content, comment_id),
         )
-
         if cur.rowcount == 0:
             return None
 
-        # 같은 트랜잭션 내에서 수정된 댓글 조회
         await cur.execute(
-            """
-            SELECT id, content, author_id, post_id, created_at, updated_at, deleted_at, parent_id
-            FROM comment
-            WHERE id = %s
-            """,
+            "SELECT id, content, author_id, post_id, created_at, updated_at, deleted_at, parent_id "
+            "FROM comment WHERE id = %s",
             (comment_id,),
         )
         row = await cur.fetchone()
@@ -166,23 +129,10 @@ async def update_comment(comment_id: int, content: str) -> Comment | None:
 
 
 async def delete_comment(comment_id: int) -> bool:
-    """댓글을 삭제합니다.
-
-    소프트 삭제를 수행하여 deleted_at을 현재 시간으로 설정합니다.
-
-    Args:
-        comment_id: 삭제할 댓글 ID.
-
-    Returns:
-        삭제 성공 여부.
-    """
+    """댓글을 삭제합니다. 소프트 삭제를 수행하여 deleted_at을 현재 시간으로 설정합니다."""
     async with transactional() as cur:
         await cur.execute(
-            """
-            UPDATE comment
-            SET deleted_at = NOW()
-            WHERE id = %s AND deleted_at IS NULL
-            """,
+            "UPDATE comment SET deleted_at = NOW() WHERE id = %s AND deleted_at IS NULL",
             (comment_id,),
         )
         return cur.rowcount > 0
@@ -199,14 +149,6 @@ async def get_comments_with_author(
     삭제된 댓글 처리:
     - 대댓글이 있는 삭제된 부모 댓글: is_deleted=True, content=None, author=None
     - 대댓글이 없는 삭제된 댓글: 목록에서 제외
-
-    Args:
-        post_id: 게시글 ID.
-        current_user_id: 현재 사용자 ID (is_liked 상태 조회용).
-        blocked_user_ids: 차단된 사용자 ID 집합 (댓글 필터링용).
-
-    Returns:
-        루트 댓글 목록 (각 댓글에 replies 리스트 포함).
     """
     # 로그인 사용자의 좋아요 상태 벌크 조회 (N+1 방지)
     liked_comment_ids: set[int] = set()
@@ -215,20 +157,19 @@ async def get_comments_with_author(
 
         liked_comment_ids = await get_liked_comment_ids(current_user_id, post_id)
 
-    async with get_connection() as conn, conn.cursor() as cur:
+    async with get_cursor() as cur:
         # 삭제된 댓글도 포함하여 조회 (대댓글이 있는 경우 표시 필요)
-        # comment_like 카운트를 서브쿼리로 조회
         await cur.execute(
             """
                 SELECT c.id, c.content, c.created_at, c.updated_at,
-                       u.id, u.nickname, u.profile_img, u.distro,
+                       u.id AS user_id, u.nickname, u.profile_img, u.distro,
                        c.parent_id, c.deleted_at,
-                       COALESCE(cl.count, 0) as likes_count,
+                       COALESCE(cl.cnt, 0) AS likes_count,
                        c.author_id
                 FROM comment c
                 LEFT JOIN user u ON c.author_id = u.id
                 LEFT JOIN (
-                    SELECT comment_id, COUNT(*) as count
+                    SELECT comment_id, COUNT(*) AS cnt
                     FROM comment_like
                     GROUP BY comment_id
                 ) cl ON c.id = cl.comment_id
@@ -242,18 +183,25 @@ async def get_comments_with_author(
         # 1. 모든 댓글을 dict로 변환
         all_comments: dict[int, dict] = {}
         for row in rows:
-            comment_id = row[0]
-            is_deleted = row[9] is not None
-            author_id = row[11]
+            comment_id = row["id"]
+            is_deleted = row["deleted_at"] is not None
+            author_id = row["author_id"]
             all_comments[comment_id] = {
                 "comment_id": comment_id,
-                "content": None if is_deleted else row[1],
-                "created_at": row[2],
-                "updated_at": row[3],
-                "author": None if is_deleted else build_author_dict(row[4], row[5], row[6], row[7]),
-                "parent_id": row[8],
+                "content": None if is_deleted else row["content"],
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
+                "author": None
+                if is_deleted
+                else build_author_dict(
+                    row["user_id"],
+                    row["nickname"],
+                    row["profile_img"],
+                    row["distro"],
+                ),
+                "parent_id": row["parent_id"],
                 "is_deleted": is_deleted,
-                "likes_count": row[10],
+                "likes_count": row["likes_count"],
                 "is_liked": comment_id in liked_comment_ids,
                 "author_id": author_id,
                 "replies": [],
@@ -276,12 +224,10 @@ async def get_comments_with_author(
             c["replies"] = [r for r in c["replies"] if not r["is_deleted"]]
 
         # 5. 차단된 사용자 댓글 필터링 (Python 후처리)
-        # 삭제된 부모 플레이스홀더는 보존
         if blocked_user_ids:
             filtered_root: list[dict] = []
             for c in root_comments:
                 if c["is_deleted"]:
-                    # 삭제된 댓글 플레이스홀더 → 대댓글만 필터링
                     c["replies"] = [r for r in c["replies"] if r.get("author_id") not in blocked_user_ids]
                     if c["replies"]:
                         filtered_root.append(c)

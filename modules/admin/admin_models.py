@@ -1,23 +1,23 @@
 """admin_models: 관리자 대시보드 데이터 조회 모듈."""
 
-from core.database.connection import get_connection
+from core.database.connection import get_cursor
 from core.utils.pagination import escape_like
 
 
 async def get_dashboard_summary() -> dict:
     """대시보드 요약 통계를 조회합니다."""
-    async with get_connection() as conn, conn.cursor() as cur:
-        await cur.execute("SELECT COUNT(*) FROM user WHERE deleted_at IS NULL")
-        total_users = (await cur.fetchone())[0]
+    async with get_cursor() as cur:
+        await cur.execute("SELECT COUNT(*) AS cnt FROM user WHERE deleted_at IS NULL")
+        total_users = (await cur.fetchone())["cnt"]
 
-        await cur.execute("SELECT COUNT(*) FROM post WHERE deleted_at IS NULL")
-        total_posts = (await cur.fetchone())[0]
+        await cur.execute("SELECT COUNT(*) AS cnt FROM post WHERE deleted_at IS NULL")
+        total_posts = (await cur.fetchone())["cnt"]
 
-        await cur.execute("SELECT COUNT(*) FROM comment WHERE deleted_at IS NULL")
-        total_comments = (await cur.fetchone())[0]
+        await cur.execute("SELECT COUNT(*) AS cnt FROM comment WHERE deleted_at IS NULL")
+        total_comments = (await cur.fetchone())["cnt"]
 
-        await cur.execute("SELECT COUNT(*) FROM user WHERE deleted_at IS NULL AND DATE(created_at) = CURDATE()")
-        today_signups = (await cur.fetchone())[0]
+        await cur.execute("SELECT COUNT(*) AS cnt FROM user WHERE deleted_at IS NULL AND DATE(created_at) = CURDATE()")
+        today_signups = (await cur.fetchone())["cnt"]
 
     return {
         "total_users": total_users,
@@ -29,7 +29,7 @@ async def get_dashboard_summary() -> dict:
 
 async def get_daily_stats(days: int = 30) -> list[dict]:
     """최근 N일간 일별 통계를 조회합니다."""
-    async with get_connection() as conn, conn.cursor() as cur:
+    async with get_cursor() as cur:
         query = """
                 WITH RECURSIVE dates AS (
                     SELECT CURDATE() AS d, 0 AS seq
@@ -66,10 +66,10 @@ async def get_daily_stats(days: int = 30) -> list[dict]:
 
     return [
         {
-            "date": row[0].isoformat() if row[0] else None,
-            "signups": row[1],
-            "posts": row[2],
-            "comments": row[3],
+            "date": row["date"].isoformat() if row["date"] else None,
+            "signups": row["signups"],
+            "posts": row["posts"],
+            "comments": row["comments"],
         }
         for row in rows
     ]
@@ -77,7 +77,7 @@ async def get_daily_stats(days: int = 30) -> list[dict]:
 
 async def get_users_list(offset: int = 0, limit: int = 20, search: str | None = None) -> tuple[list[dict], int]:
     """사용자 목록을 조회합니다 (관리자용)."""
-    async with get_connection() as conn, conn.cursor() as cur:
+    async with get_cursor() as cur:
         where = "WHERE u.deleted_at IS NULL"
         params: list = []
 
@@ -86,13 +86,11 @@ async def get_users_list(offset: int = 0, limit: int = 20, search: str | None = 
             like_param = f"%{escape_like(search)}%"
             params.extend([like_param, like_param])
 
-        # 전체 수
-        await cur.execute(f"SELECT COUNT(*) FROM user u {where}", params)
-        total_count = (await cur.fetchone())[0]
+        await cur.execute(f"SELECT COUNT(*) AS cnt FROM user u {where}", params)
+        total_count = (await cur.fetchone())["cnt"]
 
-        # 목록
         query = f"""
-                SELECT u.id, u.email, u.nickname, u.profile_img, u.role,
+                SELECT u.id AS user_id, u.email, u.nickname, u.profile_img, u.role,
                        u.suspended_until, u.suspended_reason, u.created_at, u.email_verified
                 FROM user u
                 {where}
@@ -104,15 +102,15 @@ async def get_users_list(offset: int = 0, limit: int = 20, search: str | None = 
 
     users = [
         {
-            "user_id": r[0],
-            "email": r[1],
-            "nickname": r[2],
-            "profile_img": r[3],
-            "role": r[4],
-            "suspended_until": r[5].isoformat() if r[5] else None,
-            "suspended_reason": r[6],
-            "created_at": r[7].isoformat() if r[7] else None,
-            "email_verified": bool(r[8]),
+            "user_id": r["user_id"],
+            "email": r["email"],
+            "nickname": r["nickname"],
+            "profile_img": r["profile_img"],
+            "role": r["role"],
+            "suspended_until": r["suspended_until"].isoformat() if r["suspended_until"] else None,
+            "suspended_reason": r["suspended_reason"],
+            "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+            "email_verified": bool(r["email_verified"]),
         }
         for r in rows
     ]

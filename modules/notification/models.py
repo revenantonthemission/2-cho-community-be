@@ -3,7 +3,7 @@
 import logging
 from typing import Literal
 
-from core.database.connection import get_connection, transactional
+from core.database.connection import get_cursor, transactional
 from core.utils.formatters import format_datetime
 from schemas.common import build_author_dict
 
@@ -31,7 +31,6 @@ async def create_notification(
     if user_id == actor_id:
         return
 
-    # 수신자의 알림 설정 확인 — 음소거 시 알림 미생성
     from modules.notification.setting_models import is_notification_muted
 
     if await is_notification_muted(user_id, notification_type):
@@ -40,10 +39,7 @@ async def create_notification(
     notification_id = None
     async with transactional() as cur:
         await cur.execute(
-            """
-            INSERT INTO notification (user_id, type, post_id, comment_id, actor_id)
-            VALUES (%s, %s, %s, %s, %s)
-            """,
+            "INSERT INTO notification (user_id, type, post_id, comment_id, actor_id) VALUES (%s, %s, %s, %s, %s)",
             (user_id, notification_type, post_id, comment_id, actor_id),
         )
         notification_id = cur.lastrowid
@@ -53,16 +49,15 @@ async def create_notification(
         try:
             from core.utils.websocket_pusher import push_to_user
 
-            # 닉네임이 전달되지 않은 경우에만 DB 조회
             if actor_nickname is None:
-                async with get_connection() as conn, conn.cursor() as cur:
+                async with get_cursor() as cur:
                     await cur.execute(
                         "SELECT nickname FROM user WHERE id = %s AND deleted_at IS NULL",
                         (actor_id,),
                     )
                     row = await cur.fetchone()
                     if row:
-                        actor_nickname = row[0]
+                        actor_nickname = row["nickname"]
 
             await push_to_user(
                 user_id,
@@ -89,12 +84,7 @@ async def create_notification(
 async def create_notifications_bulk(
     rows: list[tuple[int, str, int | None, int | None, int]],
 ) -> None:
-    """여러 알림을 단일 INSERT로 일괄 생성합니다.
-
-    Args:
-        rows: (user_id, type, post_id, comment_id, actor_id) 튜플 목록.
-              음소거 필터링은 호출부에서 사전 처리해야 합니다.
-    """
+    """여러 알림을 단일 INSERT로 일괄 생성합니다."""
     if not rows:
         return
 
@@ -112,23 +102,21 @@ async def create_notifications_bulk(
 
 async def get_notifications(user_id: int, offset: int = 0, limit: int = 20) -> tuple[list[dict], int]:
     """사용자의 알림 목록과 총 개수를 반환합니다."""
-    async with get_connection() as conn, conn.cursor() as cur:
-        # 총 개수
+    async with get_cursor() as cur:
         await cur.execute(
-            "SELECT COUNT(*) FROM notification WHERE user_id = %s",
+            "SELECT COUNT(*) AS cnt FROM notification WHERE user_id = %s",
             (user_id,),
         )
-        total_count = (await cur.fetchone())[0]
+        total_count = (await cur.fetchone())["cnt"]
 
-        # 알림 목록 (actor + post 정보 JOIN)
         await cur.execute(
             """
-                SELECT n.id, n.type, n.post_id, n.comment_id, n.is_read, n.created_at,
+                SELECT n.id AS notification_id, n.type, n.post_id, n.comment_id,
+                       n.is_read, n.created_at,
                        u.id AS actor_id, u.nickname AS actor_nickname,
                        u.profile_img AS actor_profile_img, u.distro AS actor_distro,
                        p.title AS post_title
                 FROM notification n
-                -- 삭제된 사용자/게시글도 포함 (알림에서 "탈퇴한 사용자", "삭제된 게시글"로 표시)
                 LEFT JOIN user u ON n.actor_id = u.id
                 LEFT JOIN post p ON n.post_id = p.id
                 WHERE n.user_id = %s
@@ -143,14 +131,19 @@ async def get_notifications(user_id: int, offset: int = 0, limit: int = 20) -> t
     for row in rows:
         notifications.append(
             {
-                "notification_id": row[0],
-                "type": row[1],
-                "post_id": row[2],
-                "comment_id": row[3],
-                "is_read": bool(row[4]),
-                "created_at": format_datetime(row[5]),
-                "actor": build_author_dict(row[6], row[7], row[8], distro=row[9]),
-                "post_title": row[10] or "삭제된 게시글",
+                "notification_id": row["notification_id"],
+                "type": row["type"],
+                "post_id": row["post_id"],
+                "comment_id": row["comment_id"],
+                "is_read": bool(row["is_read"]),
+                "created_at": format_datetime(row["created_at"]),
+                "actor": build_author_dict(
+                    row["actor_id"],
+                    row["actor_nickname"],
+                    row["actor_profile_img"],
+                    distro=row["actor_distro"],
+                ),
+                "post_title": row["post_title"] or "삭제된 게시글",
             }
         )
 
@@ -158,23 +151,20 @@ async def get_notifications(user_id: int, offset: int = 0, limit: int = 20) -> t
 
 
 async def get_unread_count_with_latest(user_id: int) -> dict:
-    """읽지 않은 알림 수와 최신 알림 1건을 반환합니다.
-
-    폴링 최적화용: 단일 DB 연결에서 count + latest를 모두 조회하여
-    프론트엔드가 추가 API 호출 없이 토스트에 알림 내용을 표시할 수 있습니다.
-    """
-    async with get_connection() as conn, conn.cursor() as cur:
+    """읽지 않은 알림 수와 최신 알림 1건을 반환합니다."""
+    async with get_cursor() as cur:
         await cur.execute(
-            "SELECT COUNT(*) FROM notification WHERE user_id = %s AND is_read = 0",
+            "SELECT COUNT(*) AS cnt FROM notification WHERE user_id = %s AND is_read = 0",
             (user_id,),
         )
-        count = (await cur.fetchone())[0]
+        count = (await cur.fetchone())["cnt"]
 
         latest = None
         if count > 0:
             await cur.execute(
                 """
-                    SELECT n.id, n.type, n.post_id, n.comment_id, n.created_at,
+                    SELECT n.id AS notification_id, n.type, n.post_id, n.comment_id,
+                           n.created_at,
                            u.nickname AS actor_nickname,
                            p.title AS post_title
                     FROM notification n
@@ -189,20 +179,20 @@ async def get_unread_count_with_latest(user_id: int) -> dict:
             row = await cur.fetchone()
             if row:
                 latest = {
-                    "notification_id": row[0],
-                    "type": row[1],
-                    "post_id": row[2],
-                    "comment_id": row[3],
-                    "created_at": format_datetime(row[4]),
-                    "actor_nickname": row[5] or "탈퇴한 사용자",
-                    "post_title": row[6] or "삭제된 게시글",
+                    "notification_id": row["notification_id"],
+                    "type": row["type"],
+                    "post_id": row["post_id"],
+                    "comment_id": row["comment_id"],
+                    "created_at": format_datetime(row["created_at"]),
+                    "actor_nickname": row["actor_nickname"] or "탈퇴한 사용자",
+                    "post_title": row["post_title"] or "삭제된 게시글",
                 }
 
     return {"unread_count": count, "latest": latest}
 
 
 async def mark_as_read(notification_id: int, user_id: int) -> bool:
-    """알림을 읽음 처리합니다. 성공 시 True."""
+    """알림을 읽음 처리합니다."""
     async with transactional() as cur:
         await cur.execute(
             "UPDATE notification SET is_read = 1 WHERE id = %s AND user_id = %s",
@@ -212,7 +202,7 @@ async def mark_as_read(notification_id: int, user_id: int) -> bool:
 
 
 async def mark_all_as_read(user_id: int) -> int:
-    """모든 알림을 읽음 처리합니다. 변경된 행 수를 반환합니다."""
+    """모든 알림을 읽음 처리합니다."""
     async with transactional() as cur:
         await cur.execute(
             "UPDATE notification SET is_read = 1 WHERE user_id = %s AND is_read = 0",
@@ -222,7 +212,7 @@ async def mark_all_as_read(user_id: int) -> int:
 
 
 async def delete_notification(notification_id: int, user_id: int) -> bool:
-    """알림을 삭제합니다. 성공 시 True."""
+    """알림을 삭제합니다."""
     async with transactional() as cur:
         await cur.execute(
             "DELETE FROM notification WHERE id = %s AND user_id = %s",

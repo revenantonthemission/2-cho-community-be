@@ -4,7 +4,7 @@
 행이 없는 사용자는 모든 알림 활성화(기본값)로 처리합니다.
 """
 
-from core.database.connection import get_connection, transactional
+from core.database.connection import get_cursor, transactional
 
 # 모든 알림 유형의 기본값 (행이 없을 때)
 DEFAULT_SETTINGS = {
@@ -26,7 +26,7 @@ _TYPE_TO_COLUMN = {
 
 async def get_notification_settings(user_id: int) -> dict[str, bool]:
     """사용자의 알림 설정을 조회합니다. 행이 없으면 기본값 반환."""
-    async with get_connection() as conn, conn.cursor() as cur:
+    async with get_cursor() as cur:
         await cur.execute(
             """
                 SELECT comment_enabled, like_enabled, mention_enabled,
@@ -42,11 +42,11 @@ async def get_notification_settings(user_id: int) -> dict[str, bool]:
         return dict(DEFAULT_SETTINGS)
 
     return {
-        "comment": bool(row[0]),
-        "like": bool(row[1]),
-        "mention": bool(row[2]),
-        "follow": bool(row[3]),
-        "bookmark": bool(row[4]),
+        "comment": bool(row["comment_enabled"]),
+        "like": bool(row["like_enabled"]),
+        "mention": bool(row["mention_enabled"]),
+        "follow": bool(row["follow_enabled"]),
+        "bookmark": bool(row["bookmark_enabled"]),
     }
 
 
@@ -90,15 +90,14 @@ async def is_notification_muted(user_id: int, notification_type: str) -> bool:
     if not column:
         return False
 
-    async with get_connection() as conn, conn.cursor() as cur:
+    async with get_cursor() as cur:
         await cur.execute(
             f"SELECT {column} FROM notification_setting WHERE user_id = %s",
             (user_id,),
         )
         row = await cur.fetchone()
 
-    # 행이 없으면 기본 활성화
     if not row:
         return False
 
-    return not bool(row[0])
+    return not bool(row[column])

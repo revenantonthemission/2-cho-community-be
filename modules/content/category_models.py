@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from core.database.connection import get_connection
+from core.database.connection import get_cursor
 
 
 @dataclass(frozen=True)
@@ -18,34 +18,22 @@ class Category:
     created_at: datetime | None = None
 
 
-def _row_to_category(row: tuple) -> Category:
-    """데이터베이스 행을 Category 객체로 변환합니다."""
-    return Category(
-        id=row[0],
-        name=row[1],
-        slug=row[2],
-        description=row[3],
-        sort_order=row[4],
-        created_at=row[5],
-    )
-
-
 async def get_all_categories() -> list[Category]:
     """모든 카테고리를 정렬 순서대로 조회합니다."""
-    async with get_connection() as conn, conn.cursor() as cur:
+    async with get_cursor() as cur:
         await cur.execute(
             "SELECT id, name, slug, description, sort_order, created_at FROM category ORDER BY sort_order ASC"
         )
         rows = await cur.fetchall()
-        return [_row_to_category(row) for row in rows]
+        return [Category(**row) for row in rows]
 
 
 async def get_category_by_id(category_id: int) -> Category | None:
     """ID로 카테고리를 조회합니다."""
-    async with get_connection() as conn, conn.cursor() as cur:
+    async with get_cursor() as cur:
         await cur.execute(
             "SELECT id, name, slug, description, sort_order, created_at FROM category WHERE id = %s",
             (category_id,),
         )
         row = await cur.fetchone()
-        return _row_to_category(row) if row else None
+        return Category(**row) if row else None

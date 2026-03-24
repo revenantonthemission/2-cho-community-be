@@ -3,7 +3,11 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from core.database.connection import get_connection, transactional
+from core.database.connection import get_cursor, transactional
+
+_REPORT_COLUMNS = (
+    "id, reporter_id, target_type, target_id, reason, description, status, resolved_by, resolved_at, created_at"
+)
 
 
 @dataclass(frozen=True)
@@ -22,22 +26,6 @@ class Report:
     created_at: datetime | None = None
 
 
-def _row_to_report(row: tuple) -> Report:
-    """데이터베이스 행을 Report 객체로 변환합니다."""
-    return Report(
-        id=row[0],
-        reporter_id=row[1],
-        target_type=row[2],
-        target_id=row[3],
-        reason=row[4],
-        description=row[5],
-        status=row[6],
-        resolved_by=row[7],
-        resolved_at=row[8],
-        created_at=row[9],
-    )
-
-
 async def create_report(
     reporter_id: int,
     target_type: str,
@@ -45,30 +33,17 @@ async def create_report(
     reason: str,
     description: str | None = None,
 ) -> Report:
-    """신고를 생성합니다.
-
-    IntegrityError는 전파하여 controller에서 처리합니다 (중복 신고).
-    """
+    """신고를 생성합니다. IntegrityError는 전파하여 controller에서 처리합니다."""
     async with transactional() as cur:
         await cur.execute(
-            """
-            INSERT INTO report (reporter_id, target_type, target_id, reason, description)
-            VALUES (%s, %s, %s, %s, %s)
-            """,
+            "INSERT INTO report (reporter_id, target_type, target_id, reason, description) VALUES (%s, %s, %s, %s, %s)",
             (reporter_id, target_type, target_id, reason, description),
         )
         report_id = cur.lastrowid
 
-        await cur.execute(
-            """
-            SELECT id, reporter_id, target_type, target_id, reason, description,
-                   status, resolved_by, resolved_at, created_at
-            FROM report WHERE id = %s
-            """,
-            (report_id,),
-        )
+        await cur.execute(f"SELECT {_REPORT_COLUMNS} FROM report WHERE id = %s", (report_id,))
         row = await cur.fetchone()
-        return _row_to_report(row)
+        return Report(**row)
 
 
 async def get_reports(
@@ -77,7 +52,7 @@ async def get_reports(
     limit: int = 20,
 ) -> list[dict]:
     """신고 목록을 reporter 닉네임과 함께 조회합니다."""
-    async with get_connection() as conn, conn.cursor() as cur:
+    async with get_cursor() as cur:
         where = "1=1"
         params: list = []
 
@@ -89,7 +64,7 @@ async def get_reports(
 
         await cur.execute(
             f"""
-                SELECT r.id, r.reporter_id, r.target_type, r.target_id,
+                SELECT r.id AS report_id, r.reporter_id, r.target_type, r.target_id,
                        r.reason, r.description, r.status,
                        r.resolved_by, r.resolved_at, r.created_at,
                        u.nickname AS reporter_nickname
@@ -101,29 +76,12 @@ async def get_reports(
                 """,
             params,
         )
-        rows = await cur.fetchall()
-
-        return [
-            {
-                "report_id": row[0],
-                "reporter_id": row[1],
-                "target_type": row[2],
-                "target_id": row[3],
-                "reason": row[4],
-                "description": row[5],
-                "status": row[6],
-                "resolved_by": row[7],
-                "resolved_at": row[8],
-                "created_at": row[9],
-                "reporter_nickname": row[10],
-            }
-            for row in rows
-        ]
+        return [dict(row) for row in await cur.fetchall()]
 
 
 async def get_reports_count(status: str | None = None) -> int:
     """신고 총 개수를 반환합니다."""
-    async with get_connection() as conn, conn.cursor() as cur:
+    async with get_cursor() as cur:
         where = "1=1"
         params: list = []
 
@@ -131,83 +89,45 @@ async def get_reports_count(status: str | None = None) -> int:
             where += " AND status = %s"
             params.append(status)
 
-        await cur.execute(
-            f"SELECT COUNT(*) FROM report WHERE {where}",
-            params,
-        )
+        await cur.execute(f"SELECT COUNT(*) AS cnt FROM report WHERE {where}", params)
         row = await cur.fetchone()
-        return row[0] if row else 0
+        return row["cnt"] if row else 0
 
 
 async def get_report_by_id(report_id: int) -> Report | None:
     """ID로 신고를 조회합니다."""
-    async with get_connection() as conn, conn.cursor() as cur:
-        await cur.execute(
-            """
-                SELECT id, reporter_id, target_type, target_id, reason, description,
-                       status, resolved_by, resolved_at, created_at
-                FROM report WHERE id = %s
-                """,
-            (report_id,),
-        )
+    async with get_cursor() as cur:
+        await cur.execute(f"SELECT {_REPORT_COLUMNS} FROM report WHERE id = %s", (report_id,))
         row = await cur.fetchone()
-        return _row_to_report(row) if row else None
+        return Report(**row) if row else None
 
 
-async def resolve_report(
-    report_id: int,
-    admin_id: int,
-    new_status: str,
-) -> Report | None:
+async def resolve_report(report_id: int, admin_id: int, new_status: str) -> Report | None:
     """신고를 처리합니다. pending 상태만 처리 가능합니다."""
     async with transactional() as cur:
         await cur.execute(
-            """
-            UPDATE report
-            SET status = %s, resolved_by = %s, resolved_at = NOW()
-            WHERE id = %s AND status = 'pending'
-            """,
+            "UPDATE report SET status = %s, resolved_by = %s, resolved_at = NOW() WHERE id = %s AND status = 'pending'",
             (new_status, admin_id, report_id),
         )
-
         if cur.rowcount == 0:
             return None
 
-        await cur.execute(
-            """
-            SELECT id, reporter_id, target_type, target_id, reason, description,
-                   status, resolved_by, resolved_at, created_at
-            FROM report WHERE id = %s
-            """,
-            (report_id,),
-        )
+        await cur.execute(f"SELECT {_REPORT_COLUMNS} FROM report WHERE id = %s", (report_id,))
         row = await cur.fetchone()
-        return _row_to_report(row) if row else None
+        return Report(**row) if row else None
 
 
 async def reopen_report(report_id: int) -> Report | None:
     """처리된 신고를 다시 pending 상태로 되돌립니다."""
     async with transactional() as cur:
-        # resolved/dismissed → pending 전환. 이미 pending이면 변경 없음 (rowcount=0)
         await cur.execute(
-            """
-            UPDATE report
-            SET status = 'pending', resolved_by = NULL, resolved_at = NULL
-            WHERE id = %s AND status != 'pending'
-            """,
+            "UPDATE report SET status = 'pending', resolved_by = NULL, resolved_at = NULL "
+            "WHERE id = %s AND status != 'pending'",
             (report_id,),
         )
-
         if cur.rowcount == 0:
             return None
 
-        await cur.execute(
-            """
-            SELECT id, reporter_id, target_type, target_id, reason, description,
-                   status, resolved_by, resolved_at, created_at
-            FROM report WHERE id = %s
-            """,
-            (report_id,),
-        )
+        await cur.execute(f"SELECT {_REPORT_COLUMNS} FROM report WHERE id = %s", (report_id,))
         row = await cur.fetchone()
-        return _row_to_report(row) if row else None
+        return Report(**row) if row else None
