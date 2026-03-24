@@ -3,7 +3,8 @@
 import pytest
 from httpx import AsyncClient
 
-from models import social_account_models, user_models
+from modules.auth import social_account_models
+from modules.user import models as user_models
 from tests.conftest import create_verified_user
 
 
@@ -63,7 +64,7 @@ async def test_social_account_crud(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_complete_signup_sets_nickname(client: AsyncClient, fake):
     """complete-signup이 닉네임을 설정하고 nickname_set=1로 변경한다."""
-    from utils.jwt_utils import create_access_token
+    from core.utils.jwt_utils import create_access_token
 
     nickname = user_models.generate_temp_nickname()
     user = await user_models.add_social_user(
@@ -91,7 +92,7 @@ async def test_complete_signup_sets_nickname(client: AsyncClient, fake):
 @pytest.mark.asyncio
 async def test_complete_signup_duplicate_nickname(client: AsyncClient, fake):
     """이미 사용 중인 닉네임으로 complete-signup하면 NICKNAME_DUPLICATED를 반환한다."""
-    from utils.jwt_utils import create_access_token
+    from core.utils.jwt_utils import create_access_token
 
     # 기존 사용자 (닉네임 점유)
     existing = await create_verified_user(client, fake)
@@ -117,7 +118,7 @@ async def test_complete_signup_duplicate_nickname(client: AsyncClient, fake):
 @pytest.mark.asyncio
 async def test_complete_signup_invalid_nickname(client: AsyncClient):
     """닉네임 규칙 위반 시 422를 반환한다."""
-    from utils.jwt_utils import create_access_token
+    from core.utils.jwt_utils import create_access_token
 
     nickname = user_models.generate_temp_nickname()
     user = await user_models.add_social_user(

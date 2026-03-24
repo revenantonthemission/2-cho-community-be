@@ -1,0 +1,65 @@
+"""poll_controller: 투표 관련 컨트롤러 모듈."""
+
+from fastapi import Request
+
+from core.dependencies.request_context import get_request_timestamp
+from modules.post.poll_schemas import PollVoteRequest
+from modules.post.poll_service import PollService
+from modules.user.models import User
+from schemas.common import create_response
+
+
+async def vote_on_poll(
+    post_id: int,
+    vote_data: PollVoteRequest,
+    current_user: User,
+    request: Request,
+) -> dict:
+    """게시글의 투표에 참여합니다."""
+    timestamp = get_request_timestamp(request)
+
+    # 서비스에서 투표 마감 여부·중복 투표·유효한 option_id 검증 수행
+    await PollService.vote_on_poll(post_id, vote_data.option_id, current_user.id, timestamp)
+
+    return create_response(
+        "POLL_VOTED",
+        "투표가 완료되었습니다.",
+        timestamp=timestamp,
+    )
+
+
+async def cancel_vote(
+    post_id: int,
+    current_user: User,
+    request: Request,
+) -> dict:
+    """투표를 취소합니다."""
+    timestamp = get_request_timestamp(request)
+
+    # 투표 취소 후 결과 집계가 자동 갱신 — 서비스에서 원자적으로 처리
+    await PollService.cancel_vote(post_id, current_user.id, timestamp)
+
+    return create_response(
+        "POLL_VOTE_CANCELLED",
+        "투표가 취소되었습니다.",
+        timestamp=timestamp,
+    )
+
+
+async def change_vote(
+    post_id: int,
+    vote_data: PollVoteRequest,
+    current_user: User,
+    request: Request,
+) -> dict:
+    """투표를 변경합니다."""
+    timestamp = get_request_timestamp(request)
+
+    # 변경은 취소+재투표가 아닌 단일 트랜잭션 — 집계 불일치 방지
+    await PollService.change_vote(post_id, vote_data.option_id, current_user.id, timestamp)
+
+    return create_response(
+        "POLL_VOTE_CHANGED",
+        "투표가 변경되었습니다.",
+        timestamp=timestamp,
+    )

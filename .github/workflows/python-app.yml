@@ -7,7 +7,7 @@ on:
       - '**.py'
       - 'pyproject.toml'
       - 'requirements*.txt'
-      - 'database/**'
+      - 'core/database/**'
       - '.github/workflows/python-app.yml'
   pull_request:
     branches: [ "main" ]
@@ -15,7 +15,7 @@ on:
       - '**.py'
       - 'pyproject.toml'
       - 'requirements*.txt'
-      - 'database/**'
+      - 'core/database/**'
       - '.github/workflows/python-app.yml'
   workflow_dispatch:
 
@@ -67,7 +67,7 @@ jobs:
       env:
         MYSQL_PWD: testpassword
       run: |
-        mysql -h 127.0.0.1 -u root community_service < database/schema.sql
+        mysql -h 127.0.0.1 -u root community_service < core/database/schema.sql
 
     - name: Run tests
       env:

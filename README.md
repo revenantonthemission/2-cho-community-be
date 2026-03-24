@@ -827,8 +827,8 @@ cp .env.example .env
 # .env 파일에서 DB_USER, DB_PASSWORD, SECRET_KEY 수정
 
 # 5. 스키마 적용 및 시드 데이터
-mysql -u root -p community_service < database/schema.sql
-python database/seed_data.py  # 선택사항
+mysql -u root -p community_service < core/database/schema.sql
+python core/database/seed_data.py  # 선택사항
 
 # 6. 서버 실행
 uvicorn main:app --reload --port 8000

@@ -14,7 +14,7 @@ from tests.conftest import create_verified_user
 async def test_upload_profile_image_succeeds(client: AsyncClient, fake, tmp_path, monkeypatch):
     """POST /v1/users/profile/image — 유효한 JPEG 이미지 업로드가 성공한다."""
     # Arrange — UPLOAD_DIR을 임시 디렉토리로 변경
-    monkeypatch.setattr("utils.storage.UPLOAD_DIR", tmp_path)
+    monkeypatch.setattr("core.utils.storage.UPLOAD_DIR", tmp_path)
     user = await create_verified_user(client, fake)
 
     # JPEG 매직 넘버를 포함한 최소한의 바이트 데이터
@@ -43,7 +43,7 @@ async def test_upload_profile_image_succeeds(client: AsyncClient, fake, tmp_path
 async def test_upload_invalid_mime_type_returns_400(client: AsyncClient, fake, tmp_path, monkeypatch):
     """허용되지 않은 MIME 타입(text/plain) 업로드 시 400을 반환한다."""
     # Arrange
-    monkeypatch.setattr("utils.storage.UPLOAD_DIR", tmp_path)
+    monkeypatch.setattr("core.utils.storage.UPLOAD_DIR", tmp_path)
     user = await create_verified_user(client, fake)
 
     # Act
@@ -60,7 +60,7 @@ async def test_upload_invalid_mime_type_returns_400(client: AsyncClient, fake, t
 async def test_upload_invalid_extension_returns_400(client: AsyncClient, fake, tmp_path, monkeypatch):
     """허용되지 않은 확장자(.bmp) 업로드 시 400을 반환한다."""
     # Arrange
-    monkeypatch.setattr("utils.storage.UPLOAD_DIR", tmp_path)
+    monkeypatch.setattr("core.utils.storage.UPLOAD_DIR", tmp_path)
     user = await create_verified_user(client, fake)
 
     # Act — .bmp 확장자는 ALLOWED_IMAGE_EXTENSIONS에 포함되지 않음

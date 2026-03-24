@@ -7,8 +7,8 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from middleware.rate_limiter import is_valid_ip
-from middleware.rate_limiter_memory import MemoryRateLimiter
+from core.middleware.rate_limiter import is_valid_ip
+from core.middleware.rate_limiter_memory import MemoryRateLimiter
 
 # ---------------------------------------------------------------------------
 # 기본 동작

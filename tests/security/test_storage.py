@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi import HTTPException, UploadFile
 
-from utils.storage import delete_file, save_uploaded_file
+from core.utils.storage import delete_file, save_uploaded_file
 
 # ---------------------------------------------------------------------------
 # 헬퍼: UploadFile mock 생성
@@ -38,7 +38,7 @@ def _make_upload_file(
 async def test_save_file_succeeds(tmp_path, monkeypatch):
     """유효한 JPEG 파일 저장이 성공해야 한다."""
     # Arrange
-    monkeypatch.setattr("utils.storage.UPLOAD_DIR", tmp_path)
+    monkeypatch.setattr("core.utils.storage.UPLOAD_DIR", tmp_path)
     file = _make_upload_file()
 
     # Act
@@ -57,7 +57,7 @@ async def test_save_file_succeeds(tmp_path, monkeypatch):
 async def test_delete_file_succeeds(tmp_path, monkeypatch):
     """파일 삭제가 성공해야 한다."""
     # Arrange
-    monkeypatch.setattr("utils.storage.UPLOAD_DIR", tmp_path)
+    monkeypatch.setattr("core.utils.storage.UPLOAD_DIR", tmp_path)
     (tmp_path / "images").mkdir()
     test_file = tmp_path / "images" / "test-file.jpg"
     test_file.write_bytes(b"fake image data")
@@ -77,7 +77,7 @@ async def test_delete_file_succeeds(tmp_path, monkeypatch):
 
 def test_path_traversal_rejected(tmp_path, monkeypatch):
     """상위 디렉토리 접근 경로가 거부되어야 한다."""
-    monkeypatch.setattr("utils.storage.UPLOAD_DIR", tmp_path)
+    monkeypatch.setattr("core.utils.storage.UPLOAD_DIR", tmp_path)
 
     # Act
     result = delete_file("/uploads/../../../etc/passwd")
@@ -88,7 +88,7 @@ def test_path_traversal_rejected(tmp_path, monkeypatch):
 
 def test_nested_path_traversal_rejected(tmp_path, monkeypatch):
     """중첩된 상위 디렉토리 접근 경로가 거부되어야 한다."""
-    monkeypatch.setattr("utils.storage.UPLOAD_DIR", tmp_path)
+    monkeypatch.setattr("core.utils.storage.UPLOAD_DIR", tmp_path)
 
     # Act
     result = delete_file("/uploads/images/../../etc/passwd")
@@ -106,7 +106,7 @@ def test_nested_path_traversal_rejected(tmp_path, monkeypatch):
 async def test_invalid_mime_type_rejected(tmp_path, monkeypatch):
     """허용되지 않은 MIME 타입이 거부되어야 한다."""
     # Arrange
-    monkeypatch.setattr("utils.storage.UPLOAD_DIR", tmp_path)
+    monkeypatch.setattr("core.utils.storage.UPLOAD_DIR", tmp_path)
     file = _make_upload_file(
         filename="malware.jpg",
         content_type="application/exe",
@@ -123,7 +123,7 @@ async def test_invalid_mime_type_rejected(tmp_path, monkeypatch):
 async def test_invalid_extension_rejected(tmp_path, monkeypatch):
     """허용되지 않은 확장자가 거부되어야 한다."""
     # Arrange
-    monkeypatch.setattr("utils.storage.UPLOAD_DIR", tmp_path)
+    monkeypatch.setattr("core.utils.storage.UPLOAD_DIR", tmp_path)
     file = _make_upload_file(
         filename="payload.exe",
         content_type="image/jpeg",
@@ -145,7 +145,7 @@ async def test_invalid_extension_rejected(tmp_path, monkeypatch):
 async def test_empty_file_rejected(tmp_path, monkeypatch):
     """빈 파일(0 bytes)이 거부되어야 한다."""
     # Arrange
-    monkeypatch.setattr("utils.storage.UPLOAD_DIR", tmp_path)
+    monkeypatch.setattr("core.utils.storage.UPLOAD_DIR", tmp_path)
     file = _make_upload_file(content=b"")
 
     # Act & Assert
@@ -159,7 +159,7 @@ async def test_empty_file_rejected(tmp_path, monkeypatch):
 async def test_invalid_file_signature_rejected(tmp_path, monkeypatch):
     """올바른 확장자/MIME이지만 잘못된 매직 넘버가 거부되어야 한다."""
     # Arrange — 텍스트 데이터를 JPEG로 위장
-    monkeypatch.setattr("utils.storage.UPLOAD_DIR", tmp_path)
+    monkeypatch.setattr("core.utils.storage.UPLOAD_DIR", tmp_path)
     file = _make_upload_file(
         filename="fake.jpg",
         content_type="image/jpeg",

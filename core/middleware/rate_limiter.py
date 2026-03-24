@@ -1,0 +1,270 @@
+"""rate_limiter: API 요청 속도 제한 미들웨어.
+
+브루트포스 공격 방지를 위한 IP 기반 Rate Limiting을 제공합니다.
+
+주요 개선사항:
+- LRU 기반 메모리 보호 (최대 IP 수 제한)
+- IP 위조 방어 (X-Forwarded-For 검증)
+- "unknown" IP에 대한 엄격한 제한
+"""
+
+import ipaddress
+import logging
+import re
+
+from fastapi import Request, status
+from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
+
+from core.config import settings
+from core.middleware.rate_limiter_base import RateLimiterProtocol
+
+logger = logging.getLogger(__name__)
+
+# 숫자로만 이루어진 경로 세그먼트를 {id}로 치환
+_PATH_PARAM_RE = re.compile(r"/\d+(?=/|$)")
+
+
+def is_valid_ip(ip_str: str) -> bool:
+    """IP 주소 형식을 검증합니다.
+
+    IPv4와 IPv6 모두 지원합니다.
+
+    Args:
+        ip_str: 검증할 IP 주소 문자열.
+
+    Returns:
+        유효한 IP 주소이면 True, 아니면 False.
+    """
+    try:
+        ipaddress.ip_address(ip_str)
+        return True
+    except ValueError:
+        return False
+
+
+def _create_rate_limiter() -> RateLimiterProtocol:
+    """설정에 따라 Rate Limiter 백엔드를 생성합니다.
+
+    settings.RATE_LIMIT_BACKEND 값에 따라 적절한 구현체를 반환합니다.
+    - "memory": 인메모리 Rate Limiter (로컬 개발, 단일 프로세스)
+    - "redis": Redis 기반 Rate Limiter (K8s 프로덕션, 분산 환경)
+    """
+    backend = settings.RATE_LIMIT_BACKEND
+
+    if backend == "memory":
+        from core.middleware.rate_limiter_memory import MemoryRateLimiter
+
+        return MemoryRateLimiter()
+
+    if backend == "redis":
+        from core.middleware.rate_limiter_redis import RedisRateLimiter
+
+        return RedisRateLimiter(redis_url=settings.REDIS_URL)
+
+    raise ValueError(f"지원하지 않는 Rate Limiter 백엔드: {backend}")
+
+
+# 전역 Rate Limiter 인스턴스 (설정 기반 팩토리)
+_rate_limiter = _create_rate_limiter()
+
+
+# 엔드포인트별 Rate Limit 설정
+RATE_LIMIT_CONFIG = {
+    # 인증 관련 - 엄격한 제한 (브루트포스 방지)
+    "/v1/auth/session": {"max_requests": 5, "window_seconds": 60},  # 1분에 5회
+    "/v1/users/": {"max_requests": 3, "window_seconds": 60},  # 1분에 3회 (회원가입)
+    # 사용자 정보 변경 - 중간 제한
+    "/v1/users/me/password": {"max_requests": 3, "window_seconds": 60},
+    "DELETE:/v1/users/me": {"max_requests": 2, "window_seconds": 60},  # 회원 탈퇴
+    "PATCH:/v1/users/me": {"max_requests": 10, "window_seconds": 60},  # 프로필 수정
+    # 게시글 작성 - 스팸 방지
+    "/v1/posts": {"max_requests": 10, "window_seconds": 60},  # POST만 적용
+    # 계정 찾기 - 브루트포스 방지 (5분 윈도우로 강화)
+    "/v1/users/find-email": {"max_requests": 5, "window_seconds": 300},
+    "/v1/users/reset-password": {"max_requests": 3, "window_seconds": 300},
+    # 이메일 인증 - 브루트포스 방지 (GET 엔드포인트는 GET: 접두사 필수)
+    "GET:/v1/auth/verify-email": {"max_requests": 10, "window_seconds": 60},
+    "POST:/v1/auth/resend-verification": {"max_requests": 3, "window_seconds": 300},
+    # 신고 - 스팸 방지
+    "/v1/reports": {"max_requests": 10, "window_seconds": 60},
+    "/v1/admin/reports": {"max_requests": 30, "window_seconds": 60},
+    # 관리자 사용자 정지 관리
+    "POST:/v1/admin/users/{id}/suspend": {"max_requests": 30, "window_seconds": 60},
+    "DELETE:/v1/admin/users/{id}/suspend": {"max_requests": 30, "window_seconds": 60},
+    # 내부 배치 작업 (EventBridge 호출)
+    "POST:/v1/admin/cleanup/tokens": {"max_requests": 5, "window_seconds": 60},
+    "POST:/v1/admin/feed/recompute": {"max_requests": 5, "window_seconds": 60},
+    # Phase 4 엔드포인트 (경로 정규화 후 매칭)
+    "POST:/v1/posts/{id}/bookmark": {"max_requests": 30, "window_seconds": 60},
+    "DELETE:/v1/posts/{id}/bookmark": {"max_requests": 30, "window_seconds": 60},
+    "POST:/v1/posts/{id}/comments/{id}/like": {"max_requests": 30, "window_seconds": 60},
+    "DELETE:/v1/posts/{id}/comments/{id}/like": {"max_requests": 30, "window_seconds": 60},
+    # 사용자 검색 - 자동완성 빈도 고려
+    "GET:/v1/users/search": {"max_requests": 30, "window_seconds": 60},
+    "POST:/v1/users/{id}/block": {"max_requests": 10, "window_seconds": 60},
+    "DELETE:/v1/users/{id}/block": {"max_requests": 10, "window_seconds": 60},
+    # 팔로우
+    "POST:/v1/users/{id}/follow": {"max_requests": 10, "window_seconds": 60},
+    "DELETE:/v1/users/{id}/follow": {"max_requests": 10, "window_seconds": 60},
+    # 연관 게시글
+    "GET:/v1/posts/{id}/related": {"max_requests": 30, "window_seconds": 60},
+    # 소셜 로그인
+    "GET:/v1/auth/social/{id}/authorize": {"max_requests": 10, "window_seconds": 60},
+    "GET:/v1/auth/social/{id}/callback": {"max_requests": 10, "window_seconds": 60},
+    "POST:/v1/auth/social/complete-signup": {"max_requests": 5, "window_seconds": 60},
+    # DM(쪽지)
+    "POST:/v1/dms": {"max_requests": 10, "window_seconds": 60},
+    "POST:/v1/dms/{id}/messages": {"max_requests": 30, "window_seconds": 60},
+    "GET:/v1/dms": {"max_requests": 50, "window_seconds": 60},
+    "GET:/v1/dms/unread-count": {"max_requests": 60, "window_seconds": 60},
+    "GET:/v1/dms/{id}": {"max_requests": 50, "window_seconds": 60},
+    "PATCH:/v1/dms/{id}/read": {"max_requests": 30, "window_seconds": 60},
+    "DELETE:/v1/dms/{id}/messages/{id}": {"max_requests": 20, "window_seconds": 60},
+    "DELETE:/v1/dms/{id}": {"max_requests": 10, "window_seconds": 60},
+}
+
+# 기본 Rate Limit (설정되지 않은 엔드포인트)
+DEFAULT_RATE_LIMIT = {"max_requests": 100, "window_seconds": 60}
+
+
+def get_client_ip(request: Request) -> str:
+    """클라이언트 IP를 신뢰할 수 있는 방식으로 추출합니다.
+
+    프록시 체인을 고려하여 실제 클라이언트 IP를 추출합니다.
+    X-Forwarded-For 위조 공격을 방어하기 위해 신뢰할 수 있는 프록시를 검증합니다.
+
+    처리 순서:
+    1. X-Forwarded-For 헤더 확인 (신뢰된 프록시 검증)
+    2. X-Real-IP 헤더 확인 (일부 프록시가 사용)
+    3. 직접 연결된 클라이언트 IP
+
+    Args:
+        request: FastAPI Request 객체.
+
+    Returns:
+        클라이언트 IP 주소. 추출 실패 시 "unknown".
+    """
+    trusted_proxies = settings.TRUSTED_PROXIES
+
+    # X-Forwarded-For 헤더 확인
+    x_forwarded_for = request.headers.get("X-Forwarded-For")
+    if x_forwarded_for:
+        # X-Forwarded-For: client, proxy1, proxy2 형식
+        # IP 검증: 빈 문자열과 유효하지 않은 IP 제거
+        ips = [ip.strip() for ip in x_forwarded_for.split(",") if ip.strip()]
+        ips = [ip for ip in ips if is_valid_ip(ip)]
+
+        # 유효한 IP가 없는 경우
+        if not ips:
+            logger.warning(f"X-Forwarded-For 헤더에 유효한 IP 없음: {x_forwarded_for}")
+            # Fallback: 직접 연결 IP 확인
+            if request.client and request.client.host:
+                return request.client.host
+            return "unknown"
+
+        # 신뢰할 수 있는 프록시가 설정된 경우, 역순으로 검증
+        # (가장 오른쪽부터 신뢰된 프록시 제거)
+        if trusted_proxies:
+            for ip in reversed(ips):
+                if ip not in trusted_proxies:
+                    logger.debug(f"실제 클라이언트 IP 추출: {ip} (프록시 검증 완료)")
+                    return ip
+            # 모든 IP가 신뢰된 프록시인 경우 첫 번째 IP 반환
+            logger.warning(f"모든 IP가 신뢰된 프록시: {ips}, 첫 번째 IP 반환")
+            return ips[0]
+
+        # 신뢰된 프록시 미설정 시 첫 번째 IP 반환 (기본 동작)
+        return ips[0]
+
+    # X-Real-IP 헤더 확인 (Nginx 등 일부 프록시가 사용)
+    # X-Forwarded-For와 동일하게 신뢰된 프록시 검증 후에만 수락한다.
+    # 신뢰된 프록시 목록이 없거나 직접 연결 IP가 신뢰된 프록시인 경우에만 허용한다.
+    x_real_ip = request.headers.get("X-Real-IP")
+    if x_real_ip:
+        direct_ip = request.client.host if request.client else None
+        if not trusted_proxies or (direct_ip and direct_ip in trusted_proxies):
+            return x_real_ip.strip()
+
+    # 직접 연결된 클라이언트 IP
+    if request.client and request.client.host:
+        return request.client.host
+
+    # IP 추출 실패
+    logger.warning("클라이언트 IP 추출 실패, 'unknown' 반환")
+    return "unknown"
+
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    """Rate Limiting 미들웨어.
+
+    IP 기반으로 API 요청 속도를 제한합니다.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        from core.config import settings
+
+        # 테스트 환경에서는 Rate Limit 적용 안 함
+        if settings.TESTING:
+            return await call_next(request)
+
+        # OPTIONS: CORS preflight 요청은 브라우저가 자동 생성하므로 제한 불필요
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
+        # GET 요청: METHOD:path 키가 설정된 엔드포인트만 Rate Limit 적용
+        if request.method == "GET":
+            normalized = _PATH_PARAM_RE.sub("/{id}", request.url.path)
+            method_key = f"GET:{normalized}"
+            if method_key not in RATE_LIMIT_CONFIG:
+                return await call_next(request)
+
+        # 정적 파일은 제외
+        if request.url.path.startswith("/assets"):
+            return await call_next(request)
+
+        # Health check 제외
+        if request.url.path == "/health":
+            return await call_next(request)
+
+        client_ip = get_client_ip(request)
+        path = request.url.path
+
+        # 경로 정규화: 숫자 세그먼트를 {id}로 치환하여 config 키와 매칭
+        normalized = _PATH_PARAM_RE.sub("/{id}", path)
+
+        # 엔드포인트별 설정 확인 (METHOD:path 키 우선, path만 있는 키 fallback)
+        method_key = f"{request.method}:{normalized}"
+        config = RATE_LIMIT_CONFIG.get(method_key, RATE_LIMIT_CONFIG.get(normalized, DEFAULT_RATE_LIMIT))
+
+        # 같은 엔드포인트의 다른 ID 요청을 하나로 합산
+        rate_key = f"{client_ip}:{request.method}:{normalized}"
+
+        is_limited, remaining = await _rate_limiter.is_rate_limited(
+            ip=rate_key,
+            max_requests=config["max_requests"],
+            window_seconds=config["window_seconds"],
+        )
+
+        if is_limited:
+            return JSONResponse(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                content={
+                    "error": "too_many_requests",
+                    "message": "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.",
+                    "retry_after_seconds": config["window_seconds"],
+                },
+                headers={
+                    "Retry-After": str(config["window_seconds"]),
+                    "X-RateLimit-Limit": str(config["max_requests"]),
+                    "X-RateLimit-Remaining": "0",
+                },
+            )
+
+        response = await call_next(request)
+
+        # Rate Limit 헤더 추가
+        response.headers["X-RateLimit-Limit"] = str(config["max_requests"])
+        response.headers["X-RateLimit-Remaining"] = str(remaining)
+
+        return response

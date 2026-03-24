@@ -3,7 +3,7 @@
 import pytest
 from httpx import AsyncClient
 
-from database.connection import get_connection
+from core.database.connection import get_connection
 from tests.conftest import create_verified_user
 
 # ---------------------------------------------------------------------------

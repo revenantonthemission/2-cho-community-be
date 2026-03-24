@@ -20,7 +20,7 @@ async def test_upload_post_image_succeeds(client, fake, tmp_path):
     """유효한 JPEG 파일 업로드 시 201과 이미지 URL을 반환한다."""
     user = await create_verified_user(client, fake)
 
-    with patch("utils.storage.UPLOAD_DIR", tmp_path):
+    with patch("core.utils.storage.UPLOAD_DIR", tmp_path):
         res = await client.post(
             "/v1/posts/image",
             files={"file": ("test.jpg", FAKE_JPEG, "image/jpeg")},
@@ -44,7 +44,7 @@ async def test_upload_invalid_mime_type_returns_400(client, fake, tmp_path):
     """허용되지 않는 MIME 타입의 파일 업로드 시 400을 반환한다."""
     user = await create_verified_user(client, fake)
 
-    with patch("utils.storage.UPLOAD_DIR", tmp_path):
+    with patch("core.utils.storage.UPLOAD_DIR", tmp_path):
         res = await client.post(
             "/v1/posts/image",
             files={"file": ("test.txt", b"plain text", "text/plain")},
@@ -67,7 +67,7 @@ async def test_upload_png_image_succeeds(client, fake, tmp_path):
     """유효한 PNG 파일 업로드 시 201을 반환한다."""
     user = await create_verified_user(client, fake)
 
-    with patch("utils.storage.UPLOAD_DIR", tmp_path):
+    with patch("core.utils.storage.UPLOAD_DIR", tmp_path):
         res = await client.post(
             "/v1/posts/image",
             files={"file": ("test.png", FAKE_PNG, "image/png")},

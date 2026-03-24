@@ -9,13 +9,13 @@ pytest.importorskip("redis", reason="redis는 K8s optional dependency")
 @pytest.mark.asyncio
 async def test_get_redis_returns_client():
     """Redis 클라이언트 싱글턴 반환 테스트"""
-    with patch("utils.redis_client.aioredis") as mock_redis:
+    with patch("core.utils.redis_client.aioredis") as mock_redis:
         mock_client = AsyncMock()
         mock_redis.from_url.return_value = mock_client
 
         # 모듈 레벨 캐시 초기화
-        import utils.redis_client as mod
-        from utils.redis_client import close_redis, get_redis
+        import core.utils.redis_client as mod
+        from core.utils.redis_client import close_redis, get_redis
 
         mod._redis_client = None
 

@@ -45,7 +45,8 @@ k8s = [
 ]
 
 [tool.setuptools]
-packages = ["routers", "controllers", "schemas", "models", "dependencies", "middleware", "utils"]
+find = {namespaces = true}
+packages = ["core", "core.database", "core.middleware", "core.dependencies", "core.utils", "modules", "modules.auth", "modules.auth.social", "modules.user", "modules.post", "modules.dm", "modules.notification", "modules.admin", "modules.content", "modules.wiki", "modules.package", "routers", "schemas"]
 py-modules = ["main"]
 
 [tool.mypy]
@@ -102,13 +103,15 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S", "T20", "N802"]
 "load_tests/**" = ["S", "T20", "RUF002"]
-"database/seed_data.py" = ["S311", "T201", "E501", "SIM108"]
-"database/seed_data_large.py" = ["S311", "T201", "E501", "S608", "N806", "SIM108", "SIM102", "S310", "RUF002"]
-"models/**" = ["S608"]
-"models/user_models.py" = ["S608", "N802"]
+"core/database/seed_data.py" = ["S311", "T201", "E501", "SIM108"]
+"core/database/seed_data_large.py" = ["S311", "T201", "E501", "S608", "N806", "SIM108", "SIM102", "S310", "RUF002"]
+"modules/**/*models*.py" = ["S608"]
+"modules/user/models.py" = ["S608", "N802"]
 "schemas/**" = ["N815"]
-"services/affinity_scorer.py" = ["RUF002", "RUF003"]
-"middleware/rate_limiter_memory.py" = ["S104"]
+"modules/**/*schemas*.py" = ["N815"]
+"modules/**/*responses*.py" = ["N815"]
+"modules/post/affinity_scorer.py" = ["RUF002", "RUF003"]
+"core/middleware/rate_limiter_memory.py" = ["S104"]
 "ws_app.py" = ["S110"]
 
 [tool.ruff.format]

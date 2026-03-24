@@ -13,10 +13,11 @@ import httpx
 import pytest
 from httpx import AsyncClient
 
-from database.connection import get_connection
-from models import social_account_models, user_models
-from routers.social_auth_router import _make_state
-from services.social_auth.base import SocialUserInfo
+from core.database.connection import get_connection
+from modules.auth import social_account_models
+from modules.auth.social.base import SocialUserInfo
+from modules.auth.social_router import _make_state
+from modules.user import models as user_models
 from tests.conftest import create_verified_user
 
 # ---------------------------------------------------------------------------
@@ -40,7 +41,7 @@ GITHUB_USER_INFO = SocialUserInfo(
 @contextmanager  # type: ignore[arg-type]
 def mock_provider(user_info: SocialUserInfo):
     """GitHubProvider의 exchange_code와 get_user_info를 모킹한다."""
-    base_path = "services.social_auth.github.GitHubProvider"
+    base_path = "modules.auth.social.github.GitHubProvider"
     with (
         patch(
             f"{base_path}.exchange_code",
@@ -332,7 +333,7 @@ async def test_callback_provider_error_redirects_with_error(
     provider_exc = httpx.HTTPStatusError("Bad Request", request=mock_request, response=mock_response)
 
     with patch(
-        "services.social_auth.github.GitHubProvider.exchange_code",
+        "modules.auth.social.github.GitHubProvider.exchange_code",
         new_callable=AsyncMock,
         side_effect=provider_exc,
     ):
