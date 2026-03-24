@@ -4,15 +4,15 @@ import logging
 
 from pymysql import IntegrityError
 
-from models import user_models
-from models.block_models import get_blocked_user_ids
-from models.user_models import User
+from core.utils.error_codes import ErrorCode
+from core.utils.exceptions import bad_request_error, forbidden_error, not_found_error
+from core.utils.websocket_pusher import push_to_user
 from modules.dm import models as dm_models
 from modules.dm.models import Conversation
+from modules.user import models as user_models
+from modules.user.block_models import get_blocked_user_ids
+from modules.user.models import User
 from schemas.common import DEFAULT_PROFILE_IMAGE
-from utils.error_codes import ErrorCode
-from utils.exceptions import bad_request_error, forbidden_error, not_found_error
-from utils.websocket_pusher import push_to_user
 
 logger = logging.getLogger(__name__)
 

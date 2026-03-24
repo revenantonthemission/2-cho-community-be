@@ -2,7 +2,7 @@
 
 from fastapi import Request
 
-from dependencies.request_context import get_request_timestamp
+from core.dependencies.request_context import get_request_timestamp
 from modules.user import activity_models
 from modules.user.models import User
 from schemas.common import create_response

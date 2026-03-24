@@ -2,10 +2,10 @@
 
 from fastapi import Request
 
-from dependencies.request_context import get_request_timestamp
-from models.user_models import User
+from core.dependencies.request_context import get_request_timestamp
 from modules.admin.suspension_schemas import SuspendUserRequest
 from modules.admin.suspension_service import SuspensionService
+from modules.user.models import User
 from schemas.common import create_response
 
 

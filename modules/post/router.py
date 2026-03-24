@@ -5,8 +5,7 @@
 
 from fastapi import APIRouter, Depends, File, Path, Query, Request, UploadFile, status
 
-from dependencies.auth import get_optional_user, require_admin, require_verified_email
-from models.user_models import User
+from core.dependencies.auth import get_optional_user, require_admin, require_verified_email
 from modules.post import (
     bookmark_controller,
     comment_controller,
@@ -19,6 +18,7 @@ from modules.post.comment_models import ALLOWED_COMMENT_SORT_OPTIONS
 from modules.post.comment_schemas import CreateCommentRequest, UpdateCommentRequest
 from modules.post.poll_schemas import PollVoteRequest
 from modules.post.post_schemas import CreatePostRequest, UpdatePostRequest
+from modules.user.models import User
 
 post_router = APIRouter(prefix="/v1/posts", tags=["posts"])
 """게시글 관련 라우터 인스턴스."""

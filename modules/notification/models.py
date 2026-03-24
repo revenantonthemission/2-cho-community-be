@@ -3,9 +3,9 @@
 import logging
 from typing import Literal
 
-from database.connection import get_connection, transactional
+from core.database.connection import get_connection, transactional
+from core.utils.formatters import format_datetime
 from schemas.common import build_author_dict
-from utils.formatters import format_datetime
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ async def create_notification(
     # WebSocket 실시간 푸시 (best-effort, transactional 밖에서 실행)
     if notification_id:
         try:
-            from utils.websocket_pusher import push_to_user
+            from core.utils.websocket_pusher import push_to_user
 
             # 닉네임이 전달되지 않은 경우에만 DB 조회
             if actor_nickname is None:

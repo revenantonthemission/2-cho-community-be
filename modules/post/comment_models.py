@@ -8,7 +8,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from database.connection import get_connection, transactional
+from core.database.connection import get_connection, transactional
 from schemas.common import build_author_dict
 
 ALLOWED_COMMENT_SORT_OPTIONS = {"oldest", "latest", "popular"}

@@ -1,6 +1,6 @@
 """social_account_models: 소셜 계정 연동 모델."""
 
-from database.connection import get_connection, transactional
+from core.database.connection import get_connection, transactional
 
 
 async def get_by_provider(provider: str, provider_id: str) -> dict | None:

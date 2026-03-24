@@ -10,7 +10,7 @@ import logging
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from utils.jwt_utils import decode_access_token
+from core.utils.jwt_utils import decode_access_token
 
 logger = logging.getLogger(__name__)
 

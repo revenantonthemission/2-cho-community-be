@@ -1,14 +1,14 @@
 from fastapi import HTTPException, Request, UploadFile, status
 
-from dependencies.request_context import get_request_timestamp
-from models.user_models import User
+from core.dependencies.request_context import get_request_timestamp
+from core.utils.exceptions import not_found_error
+from core.utils.pagination import validate_pagination
+from core.utils.upload import save_file
 from modules.post.post_models import ALLOWED_SORT_OPTIONS
 from modules.post.post_schemas import CreatePostRequest, UpdatePostRequest
 from modules.post.post_service import PostService
+from modules.user.models import User
 from schemas.common import create_response
-from utils.exceptions import not_found_error
-from utils.pagination import validate_pagination
-from utils.upload import save_file
 
 # ============ 게시글 관련 핸들러 ============
 

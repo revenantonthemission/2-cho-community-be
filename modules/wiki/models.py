@@ -1,8 +1,8 @@
 """wiki_models: 위키 페이지 관련 데이터 모델 및 함수 모듈."""
 
-from database.connection import get_connection, transactional
+from core.database.connection import get_connection, transactional
+from core.utils.formatters import format_datetime
 from schemas.common import build_author_dict
-from utils.formatters import format_datetime
 
 # SQL Injection 방지: 허용된 정렬 옵션 whitelist
 ALLOWED_SORT_OPTIONS = {

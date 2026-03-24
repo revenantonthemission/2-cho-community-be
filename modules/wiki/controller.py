@@ -2,13 +2,13 @@
 
 from fastapi import Request
 
-from dependencies.request_context import get_request_timestamp
-from models.user_models import User
+from core.dependencies.request_context import get_request_timestamp
+from core.utils.pagination import validate_pagination
+from modules.user.models import User
 from modules.wiki.models import ALLOWED_SORT_OPTIONS, get_popular_wiki_tags
 from modules.wiki.schemas import CreateWikiPageRequest, UpdateWikiPageRequest
 from modules.wiki.service import WikiService
 from schemas.common import create_response
-from utils.pagination import validate_pagination
 
 
 async def get_wiki_pages(

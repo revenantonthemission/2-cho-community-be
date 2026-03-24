@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from database.connection import get_connection, transactional
+from core.database.connection import get_connection, transactional
 
 
 async def create_poll(

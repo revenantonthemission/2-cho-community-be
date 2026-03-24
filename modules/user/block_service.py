@@ -2,11 +2,11 @@
 
 from pymysql.err import IntegrityError
 
+from core.utils.error_codes import ErrorCode
+from core.utils.exceptions import bad_request_error, conflict_error, not_found_error
+from core.utils.formatters import format_datetime
 from modules.user import block_models
 from modules.user.models import get_user_by_id
-from utils.error_codes import ErrorCode
-from utils.exceptions import bad_request_error, conflict_error, not_found_error
-from utils.formatters import format_datetime
 
 
 class BlockService:

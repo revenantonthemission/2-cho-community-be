@@ -3,14 +3,14 @@
 from fastapi import Request
 from pymysql.err import IntegrityError
 
-from dependencies.request_context import get_request_timestamp
-from models.user_models import User
+from core.dependencies.request_context import get_request_timestamp
+from core.utils.error_codes import ErrorCode
+from core.utils.exceptions import conflict_error
+from core.utils.pagination import validate_pagination
 from modules.admin.report_schemas import CreateReportRequest, ResolveReportRequest
 from modules.admin.report_service import ReportService
+from modules.user.models import User
 from schemas.common import create_response
-from utils.error_codes import ErrorCode
-from utils.exceptions import conflict_error
-from utils.pagination import validate_pagination
 
 
 async def create_report(

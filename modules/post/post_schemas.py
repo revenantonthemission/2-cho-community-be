@@ -33,7 +33,7 @@ class CreatePostRequest(BaseModel):
         """태그 유효성 검증: 최대 5개, 각 1~30자, 정규화 후 중복 제거."""
         if v is None:
             return None
-        from models.tag_models import normalize_tag_name
+        from modules.content.tag_models import normalize_tag_name
 
         normalized = []
         seen: set[str] = set()
@@ -122,7 +122,7 @@ class UpdatePostRequest(BaseModel):
         """태그 유효성 검증: 최대 5개, 각 1~30자, 정규화 후 중복 제거."""
         if v is None:
             return None
-        from models.tag_models import normalize_tag_name
+        from modules.content.tag_models import normalize_tag_name
 
         normalized = []
         seen: set[str] = set()

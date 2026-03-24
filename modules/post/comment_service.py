@@ -2,11 +2,11 @@
 
 import logging
 
-from models.user_models import get_users_by_nicknames
+from core.utils.error_codes import ErrorCode
+from core.utils.exceptions import bad_request_error, forbidden_error, not_found_error, safe_notify
+from core.utils.mention import extract_mentions
 from modules.post import comment_models, post_models
-from utils.error_codes import ErrorCode
-from utils.exceptions import bad_request_error, forbidden_error, not_found_error, safe_notify
-from utils.mention import extract_mentions
+from modules.user.models import get_users_by_nicknames
 
 logger = logging.getLogger(__name__)
 

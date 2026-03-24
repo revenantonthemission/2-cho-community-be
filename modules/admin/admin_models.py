@@ -1,6 +1,6 @@
 """admin_models: 관리자 대시보드 데이터 조회 모듈."""
 
-from database.connection import get_connection
+from core.database.connection import get_connection
 
 
 async def get_dashboard_summary() -> dict:

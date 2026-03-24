@@ -2,19 +2,21 @@
 
 import logging
 
-from models import category_models, follow_models, notification_models, tag_models
-from models.block_models import get_blocked_user_ids
-from models.notification_setting_models import get_notification_settings
-from models.user_models import User, get_users_by_nicknames
+from core.utils.error_codes import ErrorCode
+from core.utils.exceptions import bad_request_error, forbidden_error, not_found_error, safe_notify
+from core.utils.formatters import format_datetime
+from core.utils.mention import extract_mentions
+from modules.content import category_models, tag_models
+from modules.notification import models as notification_models
+from modules.notification.setting_models import get_notification_settings
 from modules.post import poll_models, post_models
 from modules.post.bookmark_models import get_bookmark
 from modules.post.like_models import get_like
 from modules.post.post_responses import PostListResult
 from modules.post.post_schemas import CreatePostRequest
-from utils.error_codes import ErrorCode
-from utils.exceptions import bad_request_error, forbidden_error, not_found_error, safe_notify
-from utils.formatters import format_datetime
-from utils.mention import extract_mentions
+from modules.user import follow_models
+from modules.user.block_models import get_blocked_user_ids
+from modules.user.models import User, get_users_by_nicknames
 
 logger = logging.getLogger(__name__)
 

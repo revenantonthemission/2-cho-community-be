@@ -13,8 +13,8 @@ async def test_redis_rate_limiter_allows_under_limit():
     mock_redis.incr.return_value = 3
     mock_redis.expire.return_value = True
 
-    with patch("middleware.rate_limiter_redis.get_redis", return_value=mock_redis):
-        from middleware.rate_limiter_redis import RedisRateLimiter
+    with patch("core.middleware.rate_limiter_redis.get_redis", return_value=mock_redis):
+        from core.middleware.rate_limiter_redis import RedisRateLimiter
 
         limiter = RedisRateLimiter(redis_url="redis://localhost:6379")
         limiter._redis = mock_redis
@@ -30,8 +30,8 @@ async def test_redis_rate_limiter_blocks_over_limit():
     mock_redis = AsyncMock()
     mock_redis.incr.return_value = 6
 
-    with patch("middleware.rate_limiter_redis.get_redis", return_value=mock_redis):
-        from middleware.rate_limiter_redis import RedisRateLimiter
+    with patch("core.middleware.rate_limiter_redis.get_redis", return_value=mock_redis):
+        from core.middleware.rate_limiter_redis import RedisRateLimiter
 
         limiter = RedisRateLimiter(redis_url="redis://localhost:6379")
         limiter._redis = mock_redis
@@ -47,8 +47,8 @@ async def test_redis_rate_limiter_fail_open():
     mock_redis = AsyncMock()
     mock_redis.incr.side_effect = ConnectionError("Redis down")
 
-    with patch("middleware.rate_limiter_redis.get_redis", return_value=mock_redis):
-        from middleware.rate_limiter_redis import RedisRateLimiter
+    with patch("core.middleware.rate_limiter_redis.get_redis", return_value=mock_redis):
+        from core.middleware.rate_limiter_redis import RedisRateLimiter
 
         limiter = RedisRateLimiter(redis_url="redis://localhost:6379")
         limiter._redis = mock_redis
@@ -64,8 +64,8 @@ async def test_redis_rate_limiter_sets_expire_on_first_request():
     mock_redis = AsyncMock()
     mock_redis.incr.return_value = 1
 
-    with patch("middleware.rate_limiter_redis.get_redis", return_value=mock_redis):
-        from middleware.rate_limiter_redis import RedisRateLimiter
+    with patch("core.middleware.rate_limiter_redis.get_redis", return_value=mock_redis):
+        from core.middleware.rate_limiter_redis import RedisRateLimiter
 
         limiter = RedisRateLimiter(redis_url="redis://localhost:6379")
         limiter._redis = mock_redis

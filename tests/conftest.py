@@ -9,7 +9,7 @@ import pytest_asyncio
 from faker import Faker
 from httpx import ASGITransport, AsyncClient
 
-from database.connection import close_db, get_connection, init_db
+from core.database.connection import close_db, get_connection, init_db
 from main import app
 
 # ---------------------------------------------------------------------------

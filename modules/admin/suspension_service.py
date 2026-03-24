@@ -2,11 +2,11 @@
 
 from fastapi import HTTPException, status
 
-from models import user_models
+from core.utils.error_codes import ErrorCode
+from core.utils.exceptions import bad_request_error, not_found_error
+from core.utils.formatters import format_datetime
 from modules.admin import suspension_models
-from utils.error_codes import ErrorCode
-from utils.exceptions import bad_request_error, not_found_error
-from utils.formatters import format_datetime
+from modules.user import models as user_models
 
 
 class SuspensionService:

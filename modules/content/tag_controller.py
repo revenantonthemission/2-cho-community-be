@@ -2,7 +2,7 @@
 
 from fastapi import Request
 
-from dependencies.request_context import get_request_timestamp
+from core.dependencies.request_context import get_request_timestamp
 from modules.content.tag_models import search_tags
 from schemas.common import create_response
 

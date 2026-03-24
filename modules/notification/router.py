@@ -3,14 +3,14 @@
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 
-from dependencies.auth import get_current_user
-from dependencies.request_context import get_request_timestamp
-from models.user_models import User
+from core.dependencies.auth import get_current_user
+from core.dependencies.request_context import get_request_timestamp
 from modules.notification import controller as notification_controller
 from modules.notification.setting_models import (
     get_notification_settings,
     update_notification_settings,
 )
+from modules.user.models import User
 from schemas.common import create_response
 
 router = APIRouter(prefix="/v1/notifications", tags=["notifications"])

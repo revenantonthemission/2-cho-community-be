@@ -2,9 +2,9 @@
 
 from pymysql.err import IntegrityError
 
+from core.utils.error_codes import ErrorCode
+from core.utils.exceptions import conflict_error, not_found_error, safe_notify
 from modules.post import like_models, post_models
-from utils.error_codes import ErrorCode
-from utils.exceptions import conflict_error, not_found_error, safe_notify
 
 
 class LikeService:

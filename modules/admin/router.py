@@ -4,11 +4,11 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, Query, Request, status
 
-from dependencies.auth import require_admin, require_admin_or_internal, require_verified_email
-from models.user_models import User
+from core.dependencies.auth import require_admin, require_admin_or_internal, require_verified_email
 from modules.admin import admin_controller, report_controller, suspension_controller
 from modules.admin.report_schemas import CreateReportRequest, ResolveReportRequest
 from modules.admin.suspension_schemas import SuspendUserRequest
+from modules.user.models import User
 
 report_router = APIRouter(tags=["reports"])
 
@@ -130,7 +130,7 @@ async def recompute_feed_scores(
 
     관리자 UI에서 수동 호출하거나 EventBridge 스케줄로 자동 호출합니다.
     """
-    from services.feed_service import FeedService
+    from modules.post.feed_service import FeedService
 
     result = await FeedService.recompute_all_scores()
     return {"status": "success", "data": result}

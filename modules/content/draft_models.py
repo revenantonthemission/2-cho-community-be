@@ -3,8 +3,8 @@
 사용자당 최대 1개의 임시저장을 관리합니다 (UPSERT).
 """
 
-from database.connection import get_connection, transactional
-from utils.formatters import format_datetime
+from core.database.connection import get_connection, transactional
+from core.utils.formatters import format_datetime
 
 
 async def get_draft(user_id: int) -> dict | None:

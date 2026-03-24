@@ -268,7 +268,7 @@ async def test_admin_resolve_report_with_suspension(
     assert res.status_code == 200
 
     # 작성자가 정지되었는지 DB에서 확인
-    from database.connection import get_connection
+    from core.database.connection import get_connection
 
     async with get_connection() as conn, conn.cursor() as cur:
         await cur.execute(

@@ -2,10 +2,10 @@
 
 from fastapi import APIRouter, Depends, Query, Request
 
-from dependencies.auth import require_verified_email
-from models.user_models import User
+from core.dependencies.auth import require_verified_email
 from modules.dm import controller as dm_controller
 from modules.dm.schemas import CreateConversationRequest, SendMessageRequest
+from modules.user.models import User
 
 router = APIRouter(prefix="/v1/dms", tags=["dms"])
 

@@ -11,8 +11,8 @@ from fastapi import Depends, HTTPException, Request, status
 from core.config import settings
 from core.dependencies.request_context import get_request_timestamp
 from core.utils.jwt_utils import decode_access_token
-from models import user_models
-from models.user_models import User
+from modules.user import models as user_models
+from modules.user.models import User
 
 
 def _extract_bearer_token(request: Request) -> str | None:

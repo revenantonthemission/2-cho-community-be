@@ -13,14 +13,14 @@ from fastapi import APIRouter, Cookie, Depends, Query, status
 from fastapi.responses import RedirectResponse
 
 from core.config import settings
-from dependencies.auth import get_current_user
-from models import user_models
-from models.user_models import User, generate_temp_nickname
+from core.dependencies.auth import get_current_user
+from core.utils.jwt_utils import create_access_token, create_refresh_token
 from modules.auth import social_account_models, token_models
 from modules.auth.social.factory import get_provider
 from modules.auth.social_auth_schemas import CompleteSignupRequest
+from modules.user import models as user_models
+from modules.user.models import User, generate_temp_nickname
 from schemas.common import create_response
-from utils.jwt_utils import create_access_token, create_refresh_token
 
 logger = logging.getLogger(__name__)
 

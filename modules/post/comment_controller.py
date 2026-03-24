@@ -2,12 +2,12 @@
 
 from fastapi import Request
 
-from dependencies.request_context import get_request_timestamp
-from models.user_models import User
+from core.dependencies.request_context import get_request_timestamp
+from core.utils.formatters import format_datetime
 from modules.post.comment_schemas import CreateCommentRequest, UpdateCommentRequest
 from modules.post.comment_service import CommentService
+from modules.user.models import User
 from schemas.common import create_response
-from utils.formatters import format_datetime
 
 
 async def create_comment(

@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 
-from database.connection import get_connection, transactional
+from core.database.connection import get_connection, transactional
 from modules.post.comment_models import get_comments_with_author
 from schemas.common import build_author_dict
 

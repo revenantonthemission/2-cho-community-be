@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi import HTTPException, UploadFile
 
-from utils.storage import delete_file, save_uploaded_file
+from core.utils.storage import delete_file, save_uploaded_file
 
 # ---------------------------------------------------------------------------
 # 헬퍼: UploadFile mock 생성

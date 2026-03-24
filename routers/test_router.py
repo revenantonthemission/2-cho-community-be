@@ -13,7 +13,7 @@ from typing import Literal
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from database.connection import get_connection, transactional
+from core.database.connection import get_connection, transactional
 
 test_router = APIRouter(prefix="/v1/test", tags=["test"])
 

@@ -16,7 +16,7 @@ from fastapi import (
 )
 from pydantic import ValidationError
 
-from dependencies.auth import get_current_user, get_optional_user, require_verified_email
+from core.dependencies.auth import get_current_user, get_optional_user, require_verified_email
 from modules.user import activity_controller, block_controller, follow_controller, user_controller
 from modules.user.models import User
 from modules.user.recovery_schemas import FindEmailRequest, FindPasswordRequest

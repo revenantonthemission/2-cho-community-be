@@ -1,9 +1,9 @@
 """wiki_service: 위키 페이지 관련 비즈니스 로직."""
 
-from models import tag_models
+from core.utils.exceptions import bad_request_error, forbidden_error, not_found_error
+from modules.content import tag_models
 from modules.wiki import models as wiki_models
 from modules.wiki.schemas import CreateWikiPageRequest, UpdateWikiPageRequest
-from utils.exceptions import bad_request_error, forbidden_error, not_found_error
 
 
 class WikiService:

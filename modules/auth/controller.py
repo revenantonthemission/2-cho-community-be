@@ -11,15 +11,15 @@ import logging
 from fastapi import HTTPException, Request, Response, status
 
 from core.config import settings
-from dependencies.request_context import get_request_timestamp
-from models.user_models import User
+from core.dependencies.request_context import get_request_timestamp
+from core.utils.email import send_email
+from core.utils.error_codes import ErrorCode
+from core.utils.exceptions import bad_request_error
 from modules.auth import verification_models
 from modules.auth.auth_schemas import LoginRequest
 from modules.auth.service import AuthService
+from modules.user.models import User
 from schemas.common import create_response, serialize_user
-from utils.email import send_email
-from utils.error_codes import ErrorCode
-from utils.exceptions import bad_request_error
 
 logger = logging.getLogger(__name__)
 

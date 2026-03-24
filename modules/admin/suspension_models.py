@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime, timedelta
 
-from database.connection import transactional
+from core.database.connection import transactional
 
 
 async def suspend_user(

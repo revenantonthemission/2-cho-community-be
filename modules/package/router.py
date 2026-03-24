@@ -2,8 +2,7 @@
 
 from fastapi import APIRouter, Depends, Path, Query, Request, status
 
-from dependencies.auth import get_optional_user, require_verified_email
-from models.user_models import User
+from core.dependencies.auth import get_optional_user, require_verified_email
 from modules.package import controller as package_controller
 from modules.package.schemas import (
     CreatePackageRequest,
@@ -11,6 +10,7 @@ from modules.package.schemas import (
     UpdatePackageRequest,
     UpdateReviewRequest,
 )
+from modules.user.models import User
 
 package_router = APIRouter(prefix="/v1/packages", tags=["packages"])
 """패키지 관련 라우터 인스턴스."""

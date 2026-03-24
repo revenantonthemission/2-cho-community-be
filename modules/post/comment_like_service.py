@@ -2,10 +2,10 @@
 
 from pymysql.err import IntegrityError
 
+from core.utils.error_codes import ErrorCode
+from core.utils.exceptions import conflict_error, not_found_error, safe_notify
 from modules.post import comment_like_models, post_models
 from modules.post.comment_models import get_comment_by_id
-from utils.error_codes import ErrorCode
-from utils.exceptions import conflict_error, not_found_error, safe_notify
 
 
 class CommentLikeService:

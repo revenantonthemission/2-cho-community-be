@@ -14,11 +14,11 @@ import bcrypt
 from fastapi import HTTPException, status
 
 from core.config import settings
-from models import user_models
-from models.user_models import User
+from core.utils.jwt_utils import create_access_token, create_refresh_token, hash_refresh_token
+from core.utils.password import verify_password
 from modules.auth import token_models
-from utils.jwt_utils import create_access_token, create_refresh_token, hash_refresh_token
-from utils.password import verify_password
+from modules.user import models as user_models
+from modules.user.models import User
 
 logger = logging.getLogger(__name__)
 

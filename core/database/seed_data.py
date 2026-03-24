@@ -31,8 +31,8 @@ from faker import Faker
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from database.connection import close_db, init_db, transactional
-from utils.password import hash_password
+from core.database.connection import close_db, init_db, transactional
+from core.utils.password import hash_password
 
 fake = Faker("ko_KR")
 Faker.seed(42)  # 재현 가능한 데이터

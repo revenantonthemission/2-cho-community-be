@@ -2,8 +2,8 @@
 
 from fastapi import APIRouter, Depends, Path, Query, Request, status
 
-from dependencies.auth import get_optional_user, require_verified_email
-from models.user_models import User
+from core.dependencies.auth import get_optional_user, require_verified_email
+from modules.user.models import User
 from modules.wiki import controller as wiki_controller
 from modules.wiki.schemas import CreateWikiPageRequest, UpdateWikiPageRequest
 

@@ -107,7 +107,7 @@ async def safe_notify(
     comment_id: int | None = None,
 ) -> None:
     """알림 생성 (실패해도 주 작업에 영향 없음)"""
-    from models.notification_models import create_notification
+    from modules.notification.models import create_notification
 
     try:
         await create_notification(

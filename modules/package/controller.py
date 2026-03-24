@@ -3,8 +3,8 @@
 from fastapi import HTTPException, Request, status
 from pymysql.err import IntegrityError
 
-from dependencies.request_context import get_request_timestamp
-from models.user_models import User
+from core.dependencies.request_context import get_request_timestamp
+from core.utils.pagination import validate_pagination
 from modules.package.models import ALLOWED_SORT_OPTIONS
 from modules.package.review_models import ALLOWED_REVIEW_SORT_OPTIONS
 from modules.package.schemas import (
@@ -14,8 +14,8 @@ from modules.package.schemas import (
     UpdateReviewRequest,
 )
 from modules.package.service import PackageService
+from modules.user.models import User
 from schemas.common import create_response
-from utils.pagination import validate_pagination
 
 # ============ 패키지 관련 핸들러 ============
 

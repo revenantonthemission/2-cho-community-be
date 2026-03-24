@@ -3,9 +3,9 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from database.connection import get_connection, transactional
+from core.database.connection import get_connection, transactional
+from core.utils.formatters import format_datetime
 from schemas.common import DEFAULT_PROFILE_IMAGE
-from utils.formatters import format_datetime
 
 # DM 목록에서 미리보기로 보여줄 최대 글자 수
 DM_PREVIEW_LENGTH = 100

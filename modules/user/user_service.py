@@ -4,19 +4,19 @@ import asyncio
 import logging
 
 from core.config import settings
-from models import verification_models
-from modules.user import models as user_models
-from modules.user.models import User
-from modules.user.schemas import CreateUserRequest
-from utils.email import send_email
-from utils.error_codes import ErrorCode
-from utils.exceptions import (
+from core.utils.email import send_email
+from core.utils.error_codes import ErrorCode
+from core.utils.exceptions import (
     bad_request_error,
     conflict_error,
     not_found_error,
 )
-from utils.password import hash_password, verify_password
-from utils.temp_password import generate_temp_password
+from core.utils.password import hash_password, verify_password
+from core.utils.temp_password import generate_temp_password
+from modules.auth import verification_models
+from modules.user import models as user_models
+from modules.user.models import User
+from modules.user.schemas import CreateUserRequest
 
 logger = logging.getLogger(__name__)
 

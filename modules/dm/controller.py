@@ -3,12 +3,12 @@
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
-from dependencies.request_context import get_request_timestamp
-from models.user_models import User
+from core.dependencies.request_context import get_request_timestamp
+from core.utils.formatters import format_datetime
 from modules.dm import models as dm_models
 from modules.dm import service as dm_service
+from modules.user.models import User
 from schemas.common import create_response
-from utils.formatters import format_datetime
 
 
 async def create_conversation(recipient_id: int, current_user: User, request: Request) -> dict | JSONResponse:

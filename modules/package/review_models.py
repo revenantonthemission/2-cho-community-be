@@ -1,8 +1,8 @@
 """package_review_models: 패키지 리뷰 관련 데이터 모델 및 함수 모듈."""
 
-from database.connection import get_connection, transactional
+from core.database.connection import get_connection, transactional
+from core.utils.formatters import format_datetime
 from schemas.common import DEFAULT_PROFILE_IMAGE
-from utils.formatters import format_datetime
 
 # SQL Injection 방지: 허용된 리뷰 정렬 옵션 whitelist
 ALLOWED_REVIEW_SORT_OPTIONS = {

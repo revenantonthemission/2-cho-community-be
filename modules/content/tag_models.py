@@ -2,7 +2,7 @@
 
 import re
 
-from database.connection import get_connection, transactional
+from core.database.connection import get_connection, transactional
 
 _TAG_NAME_RE = re.compile(r"[^a-z0-9가-힣ㄱ-ㅎㅏ-ㅣ_-]")
 

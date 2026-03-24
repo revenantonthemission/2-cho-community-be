@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from database.connection import get_connection
+from core.database.connection import get_connection
 
 
 @dataclass(frozen=True)

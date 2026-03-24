@@ -8,7 +8,7 @@ post_like 패턴을 미러링합니다:
 from dataclasses import dataclass
 from datetime import datetime
 
-from database.connection import get_connection, transactional
+from core.database.connection import get_connection, transactional
 
 
 @dataclass

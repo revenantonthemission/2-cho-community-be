@@ -1,8 +1,8 @@
 """activity_models: 내 활동 관련 모델."""
 
-from database.connection import get_connection
+from core.database.connection import get_connection
+from core.utils.formatters import format_datetime
 from schemas.common import build_author_dict
-from utils.formatters import format_datetime
 
 
 async def get_my_posts(user_id: int, offset: int = 0, limit: int = 10) -> tuple[list[dict], int]:

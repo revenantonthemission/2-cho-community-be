@@ -4,7 +4,7 @@
 행이 없는 사용자는 모든 알림 활성화(기본값)로 처리합니다.
 """
 
-from database.connection import get_connection, transactional
+from core.database.connection import get_connection, transactional
 
 # 모든 알림 유형의 기본값 (행이 없을 때)
 DEFAULT_SETTINGS = {

@@ -4,9 +4,9 @@ import logging
 
 from fastapi import Request
 
-from dependencies.request_context import get_request_timestamp
-from models.user_models import User
+from core.dependencies.request_context import get_request_timestamp
 from modules.admin import admin_models
+from modules.user.models import User
 from schemas.common import create_response
 
 logger = logging.getLogger(__name__)
@@ -60,8 +60,8 @@ async def cleanup_tokens(request: Request) -> dict:
     EventBridge 스케줄로 주기적으로 호출합니다.
     """
     # 지연 import — 이 엔드포인트는 스케줄러에서만 호출되므로 모듈 레벨 의존성을 줄임
-    from models.token_models import cleanup_expired_tokens
-    from models.verification_models import cleanup_expired_verification_tokens
+    from modules.auth.token_models import cleanup_expired_tokens
+    from modules.auth.verification_models import cleanup_expired_verification_tokens
 
     # Refresh Token과 이메일 인증 토큰을 분리 실행 — 한쪽 실패가 다른쪽에 영향 없도록
     refresh_deleted = await cleanup_expired_tokens()

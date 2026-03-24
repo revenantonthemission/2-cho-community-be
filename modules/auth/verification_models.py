@@ -8,8 +8,8 @@ import logging
 import secrets
 from datetime import UTC, datetime, timedelta
 
-from database.connection import get_connection, transactional
-from utils.jwt_utils import hash_refresh_token
+from core.database.connection import get_connection, transactional
+from core.utils.jwt_utils import hash_refresh_token
 
 logger = logging.getLogger("api")
 

@@ -3,11 +3,11 @@
 from fastapi import Request
 from fastapi.responses import JSONResponse, Response
 
-from dependencies.request_context import get_request_timestamp
-from models.user_models import User
+from core.dependencies.request_context import get_request_timestamp
+from core.utils.exceptions import not_found_error
 from modules.notification import models as notification_models
+from modules.user.models import User
 from schemas.common import create_response
-from utils.exceptions import not_found_error
 
 
 async def get_notifications(current_user: User, request: Request, offset: int = 0, limit: int = 20) -> dict:

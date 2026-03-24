@@ -3,9 +3,9 @@
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from database.connection import get_connection
+from core.database.connection import get_connection
 from main import app
-from models.verification_models import create_verification_token
+from modules.auth.verification_models import create_verification_token
 from tests.conftest import _make_user_payload, create_verified_user
 
 # ---------------------------------------------------------------------------

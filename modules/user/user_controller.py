@@ -7,7 +7,8 @@ import logging
 
 from fastapi import HTTPException, Request, UploadFile, status
 
-from dependencies.request_context import get_request_timestamp
+from core.dependencies.request_context import get_request_timestamp
+from core.utils.upload import save_file
 from modules.user import block_models, follow_models
 from modules.user import models as user_models
 from modules.user.models import User
@@ -20,7 +21,6 @@ from modules.user.schemas import (
 )
 from modules.user.user_service import UserService
 from schemas.common import create_response, serialize_user
-from utils.upload import save_file
 
 logger = logging.getLogger(__name__)
 

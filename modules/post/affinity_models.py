@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 
-from database.connection import get_connection, transactional
+from core.database.connection import get_connection, transactional
 
 
 @dataclass

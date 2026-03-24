@@ -6,10 +6,10 @@
 
 from fastapi import APIRouter, Depends, Request, Response, status
 
-from dependencies.auth import get_current_user
-from models.user_models import User
+from core.dependencies.auth import get_current_user
 from modules.auth import controller as auth_controller
 from modules.auth.auth_schemas import LoginRequest, VerifyEmailRequest
+from modules.user.models import User
 
 auth_router = APIRouter(prefix="/v1/auth", tags=["auth"])
 

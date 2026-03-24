@@ -8,7 +8,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from database.connection import get_connection, transactional
+from core.database.connection import get_connection, transactional
 
 
 def generate_temp_nickname() -> str:
