@@ -1,26 +1,3 @@
-"""소셜 프로바이더 팩토리."""
+"""하위 호환 re-export 스텁 — 실제 구현은 modules.auth.social.factory로 이동."""
 
-from fastapi import HTTPException, status
-
-from services.social_auth.base import SocialProvider
-from services.social_auth.github import GitHubProvider
-
-_PROVIDERS: dict[str, type[SocialProvider]] = {
-    "github": GitHubProvider,
-}
-
-SUPPORTED_PROVIDERS = set(_PROVIDERS.keys())
-
-
-def get_provider(name: str) -> SocialProvider:
-    """프로바이더 이름으로 구현체를 생성합니다."""
-    cls = _PROVIDERS.get(name)
-    if not cls:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "error": "unsupported_provider",
-                "message": f"지원하지 않는 소셜 로그인: {name}",
-            },
-        )
-    return cls()
+from modules.auth.social.factory import *  # noqa: F403
