@@ -2,7 +2,7 @@
 SET NAMES utf8mb4;
 
 -- 유저 테이블
-CREATE TABLE user (
+CREATE TABLE IF NOT EXISTS user (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     email varchar(255) NOT NULL UNIQUE,
     email_verified TINYINT(1) NOT NULL DEFAULT 0,
@@ -21,7 +21,7 @@ CREATE TABLE user (
 );
 
 -- 리프레시 토큰 테이블 (JWT 인증용)
-CREATE TABLE refresh_token (
+CREATE TABLE IF NOT EXISTS refresh_token (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id INT UNSIGNED NOT NULL,
     token_hash VARCHAR(64) NOT NULL UNIQUE,
@@ -31,7 +31,7 @@ CREATE TABLE refresh_token (
 );
 
 -- 이메일 인증 테이블
-CREATE TABLE email_verification (
+CREATE TABLE IF NOT EXISTS email_verification (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id INT UNSIGNED NOT NULL UNIQUE,
     token_hash VARCHAR(64) NOT NULL UNIQUE,
@@ -41,7 +41,7 @@ CREATE TABLE email_verification (
 );
 
 -- 카테고리 테이블
-CREATE TABLE category (
+CREATE TABLE IF NOT EXISTS category (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(50) NOT NULL UNIQUE,
     slug VARCHAR(50) NOT NULL UNIQUE,
@@ -51,7 +51,7 @@ CREATE TABLE category (
 );
 
 -- 카테고리 시드 데이터
-INSERT INTO category (name, slug, description, sort_order) VALUES
+INSERT IGNORE INTO category (name, slug, description, sort_order) VALUES
     ('배포판', 'distro', 'Ubuntu, Fedora, Arch 등 배포판별 토론 공간입니다.', 1),
     ('Q&A', 'qna', '리눅스 트러블슈팅, 설치, 설정 관련 질문과 답변입니다.', 2),
     ('뉴스/소식', 'news', '리눅스 생태계의 최신 소식을 공유합니다.', 3),
@@ -60,7 +60,7 @@ INSERT INTO category (name, slug, description, sort_order) VALUES
     ('공지사항', 'notice', '관리자 공지사항입니다.', 6);
 
 -- 게시글 테이블
-CREATE TABLE post (
+CREATE TABLE IF NOT EXISTS post (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     title varchar(255) NOT NULL,
     content TEXT NOT NULL,
@@ -78,7 +78,7 @@ CREATE TABLE post (
 );
 
 -- 댓글 테이블
-CREATE TABLE comment (
+CREATE TABLE IF NOT EXISTS comment (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     content TEXT NOT NULL,
     author_id INT UNSIGNED NULL,
@@ -97,7 +97,7 @@ ALTER TABLE post ADD CONSTRAINT fk_post_accepted_answer
     FOREIGN KEY (accepted_answer_id) REFERENCES comment (id) ON DELETE SET NULL;
 
 -- 좋아요 테이블
-CREATE TABLE post_like (
+CREATE TABLE IF NOT EXISTS post_like (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id INT UNSIGNED NOT NULL,
     post_id INT UNSIGNED NOT NULL,
@@ -108,7 +108,7 @@ CREATE TABLE post_like (
 );
 
 -- 이미지 로그 테이블
-CREATE TABLE image (
+CREATE TABLE IF NOT EXISTS image (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     image_url varchar(2048) NOT NULL,
     type ENUM('profile', 'post') NOT NULL,
@@ -118,7 +118,7 @@ CREATE TABLE image (
 );
 
 -- 조회수 로그 테이블
-CREATE TABLE post_view_log (
+CREATE TABLE IF NOT EXISTS post_view_log (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id INT UNSIGNED NOT NULL,
     post_id INT UNSIGNED NOT NULL,
@@ -130,7 +130,7 @@ CREATE TABLE post_view_log (
 );
     
 -- 소셜 계정 연동 테이블
-CREATE TABLE social_account (
+CREATE TABLE IF NOT EXISTS social_account (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id INT UNSIGNED NOT NULL,
     provider ENUM('github') NOT NULL,
@@ -142,7 +142,7 @@ CREATE TABLE social_account (
 );
 
 -- 게시글 임시저장 테이블
-CREATE TABLE post_draft (
+CREATE TABLE IF NOT EXISTS post_draft (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id INT UNSIGNED NOT NULL,
     title VARCHAR(100) NULL,
@@ -154,7 +154,7 @@ CREATE TABLE post_draft (
 );
 
 -- 알림 설정 테이블 (유형별 on/off)
-CREATE TABLE notification_setting (
+CREATE TABLE IF NOT EXISTS notification_setting (
     user_id INT UNSIGNED NOT NULL,
     comment_enabled TINYINT(1) NOT NULL DEFAULT 1,
     like_enabled TINYINT(1) NOT NULL DEFAULT 1,
@@ -168,7 +168,7 @@ CREATE TABLE notification_setting (
 );
 
 -- 알림 테이블
-CREATE TABLE notification (
+CREATE TABLE IF NOT EXISTS notification (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id INT UNSIGNED NOT NULL,
     type ENUM('comment', 'like', 'mention', 'follow', 'bookmark', 'reply') NOT NULL,
@@ -183,7 +183,7 @@ CREATE TABLE notification (
 );
 
 -- 신고 테이블
-CREATE TABLE report (
+CREATE TABLE IF NOT EXISTS report (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     reporter_id INT UNSIGNED NOT NULL,
     target_type ENUM('post','comment') NOT NULL,
@@ -200,7 +200,7 @@ CREATE TABLE report (
 );
 
 -- 북마크 테이블
-CREATE TABLE post_bookmark (
+CREATE TABLE IF NOT EXISTS post_bookmark (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id INT UNSIGNED NOT NULL,
     post_id INT UNSIGNED NOT NULL,
@@ -211,7 +211,7 @@ CREATE TABLE post_bookmark (
 );
 
 -- 게시글 구독 테이블
-CREATE TABLE post_subscription (
+CREATE TABLE IF NOT EXISTS post_subscription (
     user_id    INT UNSIGNED NOT NULL,
     post_id    INT UNSIGNED NOT NULL,
     level      ENUM('watching', 'normal', 'muted') NOT NULL DEFAULT 'watching',
@@ -223,7 +223,7 @@ CREATE TABLE post_subscription (
 );
 
 -- 댓글 좋아요 테이블
-CREATE TABLE comment_like (
+CREATE TABLE IF NOT EXISTS comment_like (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id INT UNSIGNED NOT NULL,
     comment_id INT UNSIGNED NOT NULL,
@@ -234,7 +234,7 @@ CREATE TABLE comment_like (
 );
 
 -- 사용자 차단 테이블
-CREATE TABLE user_block (
+CREATE TABLE IF NOT EXISTS user_block (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     blocker_id INT UNSIGNED NOT NULL,
     blocked_id INT UNSIGNED NOT NULL,
@@ -245,7 +245,7 @@ CREATE TABLE user_block (
 );
 
 -- 팔로우 테이블
-CREATE TABLE user_follow (
+CREATE TABLE IF NOT EXISTS user_follow (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     follower_id INT UNSIGNED NOT NULL,
     following_id INT UNSIGNED NOT NULL,
@@ -256,7 +256,7 @@ CREATE TABLE user_follow (
 );
 
 -- 게시글 이미지 테이블 (다중 이미지)
-CREATE TABLE post_image (
+CREATE TABLE IF NOT EXISTS post_image (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     post_id INT UNSIGNED NOT NULL,
     image_url VARCHAR(2048) NOT NULL,
@@ -266,7 +266,7 @@ CREATE TABLE post_image (
 );
 
 -- 투표 테이블
-CREATE TABLE poll (
+CREATE TABLE IF NOT EXISTS poll (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     post_id INT UNSIGNED NOT NULL UNIQUE,
     question VARCHAR(200) NOT NULL,
@@ -276,7 +276,7 @@ CREATE TABLE poll (
 );
 
 -- 투표 선택지 테이블
-CREATE TABLE poll_option (
+CREATE TABLE IF NOT EXISTS poll_option (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     poll_id INT UNSIGNED NOT NULL,
     option_text VARCHAR(100) NOT NULL,
@@ -285,7 +285,7 @@ CREATE TABLE poll_option (
 );
 
 -- 투표 참여 테이블
-CREATE TABLE poll_vote (
+CREATE TABLE IF NOT EXISTS poll_vote (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     poll_id INT UNSIGNED NOT NULL,
     option_id INT UNSIGNED NOT NULL,
@@ -298,7 +298,7 @@ CREATE TABLE poll_vote (
 );
 
     -- 태그 테이블
-CREATE TABLE tag (
+CREATE TABLE IF NOT EXISTS tag (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(30) NOT NULL UNIQUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -306,7 +306,7 @@ CREATE TABLE tag (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 게시글-태그 연결 테이블
-CREATE TABLE post_tag (
+CREATE TABLE IF NOT EXISTS post_tag (
     post_id INT UNSIGNED NOT NULL,
     tag_id BIGINT UNSIGNED NOT NULL,
     PRIMARY KEY (post_id, tag_id),
@@ -399,7 +399,7 @@ CREATE TABLE post_tag (
     CREATE INDEX idx_pvl_user_date ON post_view_log (user_id, created_at);
 
 -- DM 대화 테이블
-CREATE TABLE dm_conversation (
+CREATE TABLE IF NOT EXISTS dm_conversation (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     participant1_id INT UNSIGNED NOT NULL,
     participant2_id INT UNSIGNED NOT NULL,
@@ -414,7 +414,7 @@ CREATE TABLE dm_conversation (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- DM 메시지 테이블
-CREATE TABLE dm_message (
+CREATE TABLE IF NOT EXISTS dm_message (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     conversation_id INT UNSIGNED NOT NULL,
     sender_id INT UNSIGNED NOT NULL,
@@ -429,7 +429,7 @@ CREATE TABLE dm_message (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 패키지 정보
-CREATE TABLE package (
+CREATE TABLE IF NOT EXISTS package (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     display_name VARCHAR(200) NOT NULL,
@@ -445,7 +445,7 @@ CREATE TABLE package (
 );
 
 -- 패키지 리뷰 (1유저 1패키지 1리뷰)
-CREATE TABLE package_review (
+CREATE TABLE IF NOT EXISTS package_review (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     package_id INT UNSIGNED NOT NULL,
     user_id INT UNSIGNED NOT NULL,
@@ -461,7 +461,7 @@ CREATE TABLE package_review (
 );
 
 -- 위키 페이지 테이블
-CREATE TABLE wiki_page (
+CREATE TABLE IF NOT EXISTS wiki_page (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(200) NOT NULL,
     slug VARCHAR(200) NOT NULL UNIQUE,
@@ -477,7 +477,7 @@ CREATE TABLE wiki_page (
 );
 
 -- 위키 페이지 ↔ 태그 연결 테이블
-CREATE TABLE wiki_page_tag (
+CREATE TABLE IF NOT EXISTS wiki_page_tag (
     wiki_page_id INT UNSIGNED NOT NULL,
     tag_id BIGINT UNSIGNED NOT NULL,
     PRIMARY KEY (wiki_page_id, tag_id),
@@ -491,7 +491,7 @@ ALTER TABLE wiki_page ADD FULLTEXT INDEX ft_wiki_search (title, content) WITH PA
 CREATE INDEX idx_wiki_page_tag_tag ON wiki_page_tag (tag_id);
 
 -- 추천 피드 점수 테이블 (배치 재계산, 30분 주기)
-CREATE TABLE user_post_score (
+CREATE TABLE IF NOT EXISTS user_post_score (
     user_id         INT UNSIGNED NOT NULL,
     post_id         INT UNSIGNED NOT NULL,
     affinity_score  FLOAT NOT NULL DEFAULT 0.0,
