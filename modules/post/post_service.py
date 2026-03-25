@@ -9,7 +9,7 @@ from core.utils.mention import extract_mentions
 from modules.content import category_models, tag_models
 from modules.notification import models as notification_models
 from modules.notification.setting_models import get_notification_settings
-from modules.post import poll_models, post_models
+from modules.post import poll_models, post_models, subscription_models
 from modules.post.bookmark_models import get_bookmark
 from modules.post.like_models import get_like
 from modules.post.post_responses import PostListResult
@@ -289,6 +289,9 @@ class PostService:
                 await notification_models.create_notifications_bulk(bulk_rows)
         except Exception:
             logger.warning("팔로우 알림 생성 실패", exc_info=True)
+
+        # 게시글 작성자 자동 구독
+        await subscription_models.auto_subscribe(user_id, post.id)
 
         # 게시글 본문 멘션 알림 — 닉네임 일괄 조회로 N+1 방지
         nicknames = extract_mentions(post_data.content)

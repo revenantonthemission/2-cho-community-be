@@ -5,7 +5,9 @@ import logging
 from core.utils.error_codes import ErrorCode
 from core.utils.exceptions import bad_request_error, forbidden_error, not_found_error, safe_notify
 from core.utils.mention import extract_mentions
-from modules.post import comment_models, post_models
+from modules.notification import models as notification_models
+from modules.notification.setting_models import is_notification_muted
+from modules.post import comment_models, post_models, subscription_models
 from modules.user.models import get_users_by_nicknames
 
 logger = logging.getLogger(__name__)
@@ -138,6 +140,7 @@ class CommentService:
 
         # 멘션 알림 — 닉네임 일괄 조회로 N+1 방지 (자기 자신 제외는 create_notification 내부에서 처리)
         nicknames = extract_mentions(content)
+        mentioned_users: dict = {}
         if nicknames:
             try:
                 mentioned_users = await get_users_by_nicknames(list(nicknames))
@@ -153,6 +156,35 @@ class CommentService:
                     post_id=post_id,
                     comment_id=comment.id,
                 )
+
+        # 댓글 작성자 자동 구독
+        await subscription_models.auto_subscribe(user_id, post_id)
+
+        # watching 구독자에게 reply 알림 발송
+        try:
+            watching_ids = await subscription_models.get_watching_user_ids(post_id)
+            # 이미 알림 받은 사용자 제외: 댓글 작성자, 게시글 작성자, 부모 댓글 작성자, 멘션 대상자
+            already_notified: set[int] = {user_id}
+            if post.author_id:
+                already_notified.add(post.author_id)
+            if parent_comment and parent_comment.author_id:
+                already_notified.add(parent_comment.author_id)
+            # mentioned_users는 위 멘션 섹션에서 이미 조회됨
+            if mentioned_users:
+                already_notified.update(u.id for u in mentioned_users.values())
+
+            bulk_rows: list[tuple] = []
+            for watcher_id in watching_ids:
+                if watcher_id in already_notified:
+                    continue
+                if await is_notification_muted(watcher_id, "reply"):
+                    continue
+                bulk_rows.append((watcher_id, "reply", post_id, comment.id, user_id))
+
+            if bulk_rows:
+                await notification_models.create_notifications_bulk(bulk_rows)
+        except Exception:
+            logger.warning("구독자 reply 알림 생성 실패", exc_info=True)
 
         return comment
 
