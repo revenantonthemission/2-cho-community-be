@@ -2,6 +2,12 @@
 
 ## 2026-03 (Mar)
 
+- feat: 게시글 구독 (Topic Tracking) — watching/normal/muted 3단계, 댓글 시 자동 구독, reply 알림
+- feat: Q&A 답변 채택 (Solved Answer) — 게시글 작성자가 루트 댓글 채택, 해결됨 배지
+- feat: 이메일 다이제스트 — 비활성 사용자 대상 daily/weekly 요약 발송, HTML 이메일
+- feat: 알림 설정에 reply_enabled, digest_frequency 추가
+- feat: send_email() HTML 지원 (multipart/alternative)
+
 - **03-17: 위키 FAQ/지식베이스 시스템**
   - `wiki_page`, `wiki_page_tag` 테이블 추가 (31개 테이블)
   - 위키 CRUD API (`/v1/wiki`), 태그 연동, 슬러그 기반 조회, 조회수
