@@ -50,7 +50,7 @@ k8s = [
 
 [tool.setuptools]
 find = {namespaces = true}
-packages = ["core", "core.database", "core.middleware", "core.dependencies", "core.utils", "modules", "modules.auth", "modules.auth.social", "modules.user", "modules.post", "modules.dm", "modules.notification", "modules.admin", "modules.content", "modules.wiki", "modules.package", "routers", "schemas"]
+packages = ["core", "core.database", "core.middleware", "core.dependencies", "core.utils", "modules", "modules.auth", "modules.auth.social", "modules.user", "modules.post", "modules.dm", "modules.notification", "modules.admin", "modules.content", "modules.wiki", "modules.package", "routers", "schemas", "migrations"]
 py-modules = ["main"]
 
 [tool.mypy]
