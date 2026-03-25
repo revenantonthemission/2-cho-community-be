@@ -78,6 +78,10 @@ module = "load_tests.*"
 ignore_missing_imports = true
 ignore_errors = true
 
+[[tool.mypy.overrides]]
+module = "migrations.*"
+ignore_errors = true
+
 [tool.ruff]
 target-version = "py311"
 line-length = 120
@@ -117,6 +121,7 @@ ignore = [
 "modules/post/affinity_scorer.py" = ["RUF002", "RUF003"]
 "core/middleware/rate_limiter_memory.py" = ["S104"]
 "ws_app.py" = ["S110"]
+"migrations/**" = ["S", "T20", "N802", "E501"]
 
 [tool.ruff.format]
 quote-style = "double"
