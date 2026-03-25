@@ -72,8 +72,10 @@ CREATE TABLE post (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NULL,
     deleted_at TIMESTAMP NULL,
+    accepted_answer_id INT UNSIGNED NULL,
     FOREIGN KEY (author_id) REFERENCES user (id) ON DELETE SET NULL,
-    FOREIGN KEY (category_id) REFERENCES category (id) ON DELETE SET NULL
+    FOREIGN KEY (category_id) REFERENCES category (id) ON DELETE SET NULL,
+    FOREIGN KEY (accepted_answer_id) REFERENCES comment (id) ON DELETE SET NULL
 );
 
 -- 댓글 테이블
@@ -156,6 +158,8 @@ CREATE TABLE notification_setting (
     mention_enabled TINYINT(1) NOT NULL DEFAULT 1,
     follow_enabled TINYINT(1) NOT NULL DEFAULT 1,
     bookmark_enabled TINYINT(1) NOT NULL DEFAULT 1,
+    reply_enabled TINYINT(1) NOT NULL DEFAULT 1,
+    digest_frequency ENUM('daily', 'weekly', 'off') NOT NULL DEFAULT 'weekly',
     PRIMARY KEY (user_id),
     FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE CASCADE
 );
@@ -164,7 +168,7 @@ CREATE TABLE notification_setting (
 CREATE TABLE notification (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id INT UNSIGNED NOT NULL,
-    type ENUM('comment', 'like', 'mention', 'follow', 'bookmark') NOT NULL,
+    type ENUM('comment', 'like', 'mention', 'follow', 'bookmark', 'reply') NOT NULL,
     post_id INT UNSIGNED NULL,
     comment_id INT UNSIGNED NULL,
     actor_id INT UNSIGNED NOT NULL,
@@ -201,6 +205,18 @@ CREATE TABLE post_bookmark (
     UNIQUE KEY unique_bookmark (user_id, post_id),
     FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE CASCADE,
     FOREIGN KEY (post_id) REFERENCES post (id) ON DELETE CASCADE
+);
+
+-- 게시글 구독 테이블
+CREATE TABLE post_subscription (
+    user_id    INT UNSIGNED NOT NULL,
+    post_id    INT UNSIGNED NOT NULL,
+    level      ENUM('watching', 'normal', 'muted') NOT NULL DEFAULT 'watching',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, post_id),
+    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
+    FOREIGN KEY (post_id) REFERENCES post(id) ON DELETE CASCADE,
+    INDEX idx_post_sub_post (post_id, level)
 );
 
 -- 댓글 좋아요 테이블
@@ -372,6 +388,12 @@ CREATE TABLE post_tag (
     CREATE INDEX idx_poll_option_poll ON poll_option(poll_id);
     CREATE INDEX idx_poll_vote_poll ON poll_vote(poll_id);
     CREATE INDEX idx_poll_vote_user ON poll_vote(user_id);
+
+    -- 답변 채택 루트 댓글 검증용
+    CREATE INDEX idx_comment_post_parent ON comment (post_id, parent_id);
+
+    -- 이메일 다이제스트 비활성 사용자 스캔용
+    CREATE INDEX idx_pvl_user_date ON post_view_log (user_id, created_at);
 
 -- DM 대화 테이블
 CREATE TABLE dm_conversation (
