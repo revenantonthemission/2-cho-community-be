@@ -143,6 +143,7 @@ async def get_comments_with_author(
     current_user_id: int | None = None,
     blocked_user_ids: set[int] | None = None,
     comment_sort: str = "oldest",
+    accepted_answer_id: int | None = None,
 ) -> list[dict]:
     """게시글의 댓글 목록을 트리 구조로 반환합니다.
 
@@ -203,6 +204,7 @@ async def get_comments_with_author(
                 "is_deleted": is_deleted,
                 "likes_count": row["likes_count"],
                 "is_liked": comment_id in liked_comment_ids,
+                "is_accepted": comment_id == accepted_answer_id,
                 "author_id": author_id,
                 "replies": [],
             }

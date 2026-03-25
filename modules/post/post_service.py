@@ -212,6 +212,7 @@ class PostService:
             current_user_id=current_user.id if current_user else None,
             blocked_user_ids=blocked_ids,
             comment_sort=comment_sort,
+            accepted_answer_id=post_data.get("accepted_answer_id"),
         )
 
         # 6. 데이터 가공

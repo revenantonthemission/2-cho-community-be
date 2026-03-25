@@ -1,7 +1,7 @@
 from fastapi import HTTPException, Request, UploadFile, status
 
 from core.dependencies.request_context import get_request_timestamp
-from core.utils.exceptions import not_found_error
+from core.utils.exceptions import bad_request_error, forbidden_error, not_found_error
 from core.utils.pagination import validate_pagination
 from core.utils.upload import save_file
 from modules.post.post_models import ALLOWED_SORT_OPTIONS
@@ -348,3 +348,88 @@ async def unpin_post(
     await PostService.unpin_post(post_id, timestamp)
 
     return create_response("POST_UNPINNED", "게시글 고정이 해제되었습니다.", timestamp=timestamp)
+
+
+# ============ 답변 채택 관련 핸들러 ============
+
+# Q&A 카테고리 ID (category 시드 데이터 기준)
+_QA_CATEGORY_ID = 2
+
+
+async def accept_answer(
+    post_id: int,
+    comment_id: int,
+    current_user: User,
+    request: Request,
+) -> dict:
+    """답변을 채택합니다.
+
+    검증 순서: 게시글 존재 → 작성자 본인 → Q&A 카테고리 → 댓글 존재 → 루트 댓글 여부.
+    """
+    from modules.post import post_models
+
+    timestamp = get_request_timestamp(request)
+
+    # 1. 게시글 존재 + 상세 정보 조회
+    post_data = await post_models.get_post_with_details(post_id, current_user_id=current_user.id)
+    if not post_data:
+        raise not_found_error("post", timestamp)
+
+    # 2. 게시글 작성자만 채택 가능
+    author_id = post_data["author"]["user_id"]
+    if author_id != current_user.id:
+        raise forbidden_error("accept_answer", timestamp, "게시글 작성자만 답변을 채택할 수 있습니다.")
+
+    # 3. Q&A 카테고리만 채택 가능
+    if post_data.get("category_id") != _QA_CATEGORY_ID:
+        raise bad_request_error("not_qa_category", timestamp, "Q&A 카테고리 게시글만 답변을 채택할 수 있습니다.")
+
+    # 4. 댓글 존재 + 게시글 소속 검증
+    comment = await post_models.get_comment_for_accept_validation(comment_id, post_id)
+    if not comment:
+        raise not_found_error("comment", timestamp)
+
+    # 5. 루트 댓글만 채택 가능 (대댓글 불가)
+    if comment["parent_id"] is not None:
+        raise bad_request_error("only_root_comment", timestamp, "루트 댓글만 채택할 수 있습니다.")
+
+    # 6. DB 업데이트
+    await post_models.set_accepted_answer(post_id, comment_id)
+
+    return create_response(
+        "ANSWER_ACCEPTED",
+        "답변이 채택되었습니다.",
+        data={"post_id": post_id, "accepted_answer_id": comment_id},
+        timestamp=timestamp,
+    )
+
+
+async def unaccept_answer(
+    post_id: int,
+    current_user: User,
+    request: Request,
+) -> dict:
+    """답변 채택을 해제합니다."""
+    from modules.post import post_models
+
+    timestamp = get_request_timestamp(request)
+
+    # 1. 게시글 존재 확인
+    post_data = await post_models.get_post_with_details(post_id, current_user_id=current_user.id)
+    if not post_data:
+        raise not_found_error("post", timestamp)
+
+    # 2. 게시글 작성자만 해제 가능
+    author_id = post_data["author"]["user_id"]
+    if author_id != current_user.id:
+        raise forbidden_error("unaccept_answer", timestamp, "게시글 작성자만 답변 채택을 해제할 수 있습니다.")
+
+    # 3. DB 업데이트
+    await post_models.unset_accepted_answer(post_id)
+
+    return create_response(
+        "ANSWER_UNACCEPTED",
+        "답변 채택이 해제되었습니다.",
+        data={"post_id": post_id, "accepted_answer_id": None},
+        timestamp=timestamp,
+    )

@@ -101,6 +101,16 @@ class CreatePostRequest(BaseModel):
         return validate_upload_image_url_list(v)
 
 
+class AcceptAnswerRequest(BaseModel):
+    """답변 채택 요청 모델.
+
+    Attributes:
+        comment_id: 채택할 댓글 ID.
+    """
+
+    comment_id: int = Field(..., ge=1)
+
+
 class UpdatePostRequest(BaseModel):
     """게시글 수정 요청 모델.
 

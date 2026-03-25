@@ -477,6 +477,36 @@ async def get_post_with_details(post_id: int, current_user_id: int | None = None
         }
 
 
+async def set_accepted_answer(post_id: int, comment_id: int) -> bool:
+    """답변 채택 설정."""
+    async with transactional() as cur:
+        await cur.execute(
+            "UPDATE post SET accepted_answer_id = %s WHERE id = %s AND deleted_at IS NULL",
+            (comment_id, post_id),
+        )
+        return cur.rowcount > 0
+
+
+async def unset_accepted_answer(post_id: int) -> bool:
+    """답변 채택 해제."""
+    async with transactional() as cur:
+        await cur.execute(
+            "UPDATE post SET accepted_answer_id = NULL WHERE id = %s AND deleted_at IS NULL",
+            (post_id,),
+        )
+        return cur.rowcount > 0
+
+
+async def get_comment_for_accept_validation(comment_id: int, post_id: int) -> dict | None:
+    """채택 검증용 댓글 조회."""
+    async with get_cursor() as cur:
+        await cur.execute(
+            "SELECT id, post_id, parent_id FROM comment WHERE id = %s AND post_id = %s AND deleted_at IS NULL",
+            (comment_id, post_id),
+        )
+        return await cur.fetchone()
+
+
 async def pin_post(post_id: int) -> bool:
     """게시글을 고정합니다."""
     async with transactional() as cur:
@@ -640,6 +670,7 @@ __all__ = [
     "Post",
     "create_post",
     "delete_post",
+    "get_comment_for_accept_validation",
     "get_comments_with_author",
     "get_post_by_id",
     "get_post_images",
@@ -651,6 +682,8 @@ __all__ = [
     "increment_view_count",
     "pin_post",
     "save_post_images",
+    "set_accepted_answer",
     "unpin_post",
+    "unset_accepted_answer",
     "update_post",
 ]
