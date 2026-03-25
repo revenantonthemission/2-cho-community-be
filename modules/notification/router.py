@@ -1,5 +1,7 @@
 """notification_router: 알림 API 라우터."""
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 
@@ -25,6 +27,7 @@ class NotificationSettingsRequest(BaseModel):
     follow: bool | None = None
     bookmark: bool | None = None
     reply: bool | None = None
+    digest_frequency: Literal["daily", "weekly", "off"] | None = None
 
 
 @router.get("/")
@@ -67,8 +70,11 @@ async def update_settings(
     current_user: User = Depends(get_current_user),
 ):
     """알림 유형별 설정 변경."""
-    changes = {k: v for k, v in body.model_dump().items() if v is not None}
-    updated = await update_notification_settings(current_user.id, changes)
+    body_data = body.model_dump()
+    # digest_frequency는 str ENUM이므로 bool 설정과 분리하여 처리
+    digest_frequency = body_data.pop("digest_frequency", None)
+    changes = {k: v for k, v in body_data.items() if v is not None}
+    updated = await update_notification_settings(current_user.id, changes, digest_frequency=digest_frequency)
     return create_response(
         "SETTINGS_UPDATED",
         "알림 설정이 변경되었습니다.",
