@@ -69,6 +69,7 @@ flowchart TD
 | **`core/`** | 공유 인프라 — DB 연결, 미들웨어, 인증 가드, 유틸리티 |
 | **`schemas/`** | 공유 스키마 — `create_response()`, 이미지 검증 |
 | **`routers/`** | 조건부 라우터 — WebSocket(DEBUG), 테스트(TESTING) |
+| **`migrations/`** | Alembic 마이그레이션 — `env.py`, `script.py.mako`, `versions/` |
 
 ---
 
@@ -891,6 +892,18 @@ mypy .
 ```
 
 **테스트 현황**: 242개 테스트, 82% 커버리지 (bcrypt rounds 최적화로 ~30초 실행)
+
+### Alembic 마이그레이션
+
+```bash
+uv run alembic revision -m "설명"     # 마이그레이션 파일 생성
+uv run alembic upgrade head           # 최신 적용
+uv run alembic downgrade -1           # 1단계 롤백
+uv run alembic current                # 현재 버전 확인
+uv run alembic history                # 전체 이력
+```
+
+> **스키마 변경 시 두 곳 동시 업데이트 필수**: `migrations/versions/` (운영 환경) + `core/database/schema.sql` (Docker init)
 
 ### 대규모 시드 데이터 (`seed_data_large.py`)
 

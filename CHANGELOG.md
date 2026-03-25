@@ -2,6 +2,9 @@
 
 ## 2026-03 (Mar)
 
+- feat: Alembic 마이그레이션 관리 도입 — 버전 관리 + 롤백, K8s PreSync Job 자동 실행
+- chore: 레거시 migration_*.sql 10개 파일 삭제 (Alembic으로 대체)
+
 - feat: 게시글 구독 (Topic Tracking) — watching/normal/muted 3단계, 댓글 시 자동 구독, reply 알림
 - feat: Q&A 답변 채택 (Solved Answer) — 게시글 작성자가 루트 댓글 채택, 해결됨 배지
 - feat: 이메일 다이제스트 — 비활성 사용자 대상 daily/weekly 요약 발송, HTML 이메일
