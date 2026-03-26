@@ -223,6 +223,9 @@ def downgrade() -> None:
     conn.execute(text("ALTER TABLE notification_setting DROP COLUMN IF EXISTS level_up_enabled"))
     conn.execute(text("ALTER TABLE notification_setting DROP COLUMN IF EXISTS badge_earned_enabled"))
 
+    # notification type ENUM 축소 전, 새 타입 행 삭제 (데이터 절단 방지)
+    conn.execute(text("DELETE FROM notification WHERE type IN ('badge_earned', 'level_up')"))
+
     # notification type ENUM 원복
     conn.execute(
         text("""
