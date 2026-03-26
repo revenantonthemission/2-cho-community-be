@@ -559,9 +559,9 @@ CREATE TABLE IF NOT EXISTS user_daily_visit (
     FOREIGN KEY (user_id) REFERENCES user(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- user 테이블 평판 컬럼
-ALTER TABLE user ADD COLUMN IF NOT EXISTS reputation_score INT NOT NULL DEFAULT 0;
-ALTER TABLE user ADD COLUMN IF NOT EXISTS trust_level TINYINT NOT NULL DEFAULT 0;
+-- user 테이블 평판 컬럼 (신규 환경에서만 실행 — 기존 환경은 Alembic 마이그레이션 사용)
+ALTER TABLE user ADD COLUMN reputation_score INT NOT NULL DEFAULT 0;
+ALTER TABLE user ADD COLUMN trust_level TINYINT NOT NULL DEFAULT 0;
 
 -- notification ENUM 확장
 ALTER TABLE notification MODIFY COLUMN type
@@ -569,8 +569,8 @@ ALTER TABLE notification MODIFY COLUMN type
     NOT NULL;
 
 -- notification_setting 새 컬럼
-ALTER TABLE notification_setting ADD COLUMN IF NOT EXISTS badge_earned_enabled BOOLEAN NOT NULL DEFAULT TRUE;
-ALTER TABLE notification_setting ADD COLUMN IF NOT EXISTS level_up_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE notification_setting ADD COLUMN badge_earned_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE notification_setting ADD COLUMN level_up_enabled BOOLEAN NOT NULL DEFAULT TRUE;
 
 -- 신뢰 등급 시드
 INSERT IGNORE INTO trust_level_definition (level, name, min_reputation, description) VALUES
