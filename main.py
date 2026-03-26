@@ -31,6 +31,7 @@ from modules.dm.router import router as dm_router
 from modules.notification.router import router as notification_router
 from modules.package.router import package_router
 from modules.post.router import post_router
+from modules.reputation.router import reputation_router
 from modules.user.router import user_router
 from modules.wiki.router import wiki_router
 
@@ -95,6 +96,7 @@ app.include_router(social_auth_router)
 app.include_router(draft_router)
 app.include_router(package_router)
 app.include_router(wiki_router)
+app.include_router(reputation_router)
 
 # 로컬 개발 전용 WebSocket 엔드포인트 (K8s WS Pod이 담당)
 if settings.DEBUG:

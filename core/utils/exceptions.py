@@ -100,7 +100,7 @@ def conflict_error(error_code: ErrorCode | str, timestamp: str, message: str) ->
 async def safe_notify(
     *,
     user_id: int,
-    notification_type: Literal["comment", "like", "mention", "follow", "bookmark"],
+    notification_type: Literal["comment", "like", "mention", "follow", "bookmark", "reply", "badge_earned", "level_up"],
     actor_id: int,
     actor_nickname: str,
     post_id: int | None = None,

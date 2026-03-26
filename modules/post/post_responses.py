@@ -38,6 +38,7 @@ class PostSummary(BaseModel):
     category_id: int | None = None
     category_name: str | None = None
     bookmarks_count: int = 0
+    is_solved: bool = False
     tags: list[TagSummary] = []
     is_read: bool = False
     is_watching: bool = False

@@ -277,6 +277,20 @@ class PostService:
                 expires_at=post_data.poll.expires_at,
             )
 
+        # 평판 포인트 부여 (best-effort)
+        try:
+            from modules.reputation.service import ReputationService
+
+            await ReputationService.award_points(
+                user_id=user_id,
+                event_type="post_created",
+                points=5,
+                source_type="post",
+                source_id=post.id,
+            )
+        except Exception:
+            logger.warning("평판 포인트 부여 실패 (create_post)", exc_info=True)
+
         # 팔로워에게 새 게시글 알림 — 벌크 INSERT로 N+1 방지 (실패해도 게시글 생성은 유지)
         try:
             follower_ids = await follow_models.get_follower_ids(user_id)

@@ -1,10 +1,14 @@
 """like_service: 좋아요 관련 비즈니스 로직을 처리하는 서비스."""
 
+import logging
+
 from pymysql.err import IntegrityError
 
 from core.utils.error_codes import ErrorCode
 from core.utils.exceptions import conflict_error, not_found_error, safe_notify
 from modules.post import like_models, post_models
+
+logger = logging.getLogger(__name__)
 
 
 class LikeService:
@@ -53,6 +57,28 @@ class LikeService:
                 post_id=post_id,
             )
 
+        # 평판 포인트 부여 (best-effort)
+        try:
+            from modules.reputation.service import ReputationService
+
+            await ReputationService.award_points(
+                user_id=post.author_id,
+                event_type="post_liked",
+                points=10,
+                source_user_id=user_id,
+                source_type="post",
+                source_id=post_id,
+            )
+            await ReputationService.award_points(
+                user_id=user_id,
+                event_type="post_like_given",
+                points=1,
+                source_type="post",
+                source_id=post_id,
+            )
+        except Exception:
+            logger.warning("평판 포인트 부여 실패 (like_post)", exc_info=True)
+
         return {"likes_count": likes_count}
 
     @staticmethod
@@ -83,5 +109,24 @@ class LikeService:
             raise not_found_error("like", timestamp)
 
         likes_count = await like_models.get_post_likes_count(post_id)
+
+        # 평판 포인트 회수 (best-effort)
+        try:
+            from modules.reputation.service import ReputationService
+
+            await ReputationService.revoke_points(
+                user_id=post.author_id,
+                event_type="post_liked",
+                source_type="post",
+                source_id=post_id,
+            )
+            await ReputationService.revoke_points(
+                user_id=user_id,
+                event_type="post_like_given",
+                source_type="post",
+                source_id=post_id,
+            )
+        except Exception:
+            logger.warning("평판 포인트 회수 실패 (unlike_post)", exc_info=True)
 
         return {"likes_count": likes_count}

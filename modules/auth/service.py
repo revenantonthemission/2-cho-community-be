@@ -108,6 +108,14 @@ class AuthService:
         expires_at = datetime.now(UTC) + timedelta(days=settings.JWT_REFRESH_EXPIRE_DAYS)
         await token_models.create_refresh_token(user.id, raw_refresh, expires_at)
 
+        # 일일 방문 기록 (best-effort)
+        try:
+            from modules.reputation.service import ReputationService
+
+            await ReputationService.record_daily_visit(user.id)
+        except Exception:
+            logger.warning("일일 방문 기록 실패", exc_info=True)
+
         return AuthResult(
             access_token=access_token,
             raw_refresh_token=raw_refresh,
@@ -182,6 +190,14 @@ class AuthService:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail={"error": "refresh_token_invalid", "timestamp": timestamp},
             )
+
+        # 일일 방문 기록 (best-effort)
+        try:
+            from modules.reputation.service import ReputationService
+
+            await ReputationService.record_daily_visit(user.id)
+        except Exception:
+            logger.warning("일일 방문 기록 실패", exc_info=True)
 
         return AuthResult(
             access_token=new_access_token,

@@ -351,6 +351,7 @@ async def get_posts_with_details(
                     COALESCE(comments.cnt, 0) AS comments_count,
                     p.is_pinned, p.category_id, cat.name AS category_name,
                     COALESCE(bk.cnt, 0) AS bookmarks_count,
+                    (p.accepted_answer_id IS NOT NULL) AS is_solved,
                     (COALESCE(likes.cnt, 0) * 3
                      + COALESCE(comments.cnt, 0) * 2
                      + p.views * 0.5)
@@ -408,6 +409,7 @@ async def get_posts_with_details(
                 "category_id": row["category_id"],
                 "category_name": row["category_name"],
                 "bookmarks_count": row["bookmarks_count"],
+                "is_solved": bool(row.get("is_solved", False)),
                 "is_watching": bool(row.get("is_watching", 0)),
             }
             for row in rows
@@ -501,7 +503,8 @@ async def get_comment_for_accept_validation(comment_id: int, post_id: int) -> di
     """채택 검증용 댓글 조회."""
     async with get_cursor() as cur:
         await cur.execute(
-            "SELECT id, post_id, parent_id FROM comment WHERE id = %s AND post_id = %s AND deleted_at IS NULL",
+            "SELECT id, post_id, parent_id, author_id FROM comment"
+            " WHERE id = %s AND post_id = %s AND deleted_at IS NULL",
             (comment_id, post_id),
         )
         return await cur.fetchone()

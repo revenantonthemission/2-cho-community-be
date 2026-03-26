@@ -4,6 +4,7 @@ import sys
 # Rate Limiter 우회를 위한 테스트 환경 변수 설정
 os.environ["TESTING"] = "true"
 
+import aiomysql
 import pytest
 import pytest_asyncio
 from faker import Faker
@@ -18,9 +19,14 @@ from main import app
 
 
 async def clear_all_data() -> None:
-    """테스트용 헬퍼: 32개 테이블 전체 TRUNCATE + 카테고리 시드 재삽입."""
-    async with get_connection() as conn, conn.cursor() as cur:
+    """테스트용 헬퍼: 35개 테이블 전체 TRUNCATE + 시드 데이터 재삽입."""
+    async with get_connection() as conn, conn.cursor(aiomysql.DictCursor) as cur:
         await cur.execute("SET FOREIGN_KEY_CHECKS = 0")
+        # 평판 시스템 테이블 (자식 우선)
+        await cur.execute("TRUNCATE TABLE user_badge")
+        await cur.execute("TRUNCATE TABLE reputation_event")
+        await cur.execute("TRUNCATE TABLE user_daily_visit")
+        # 기존 테이블
         await cur.execute("TRUNCATE TABLE wiki_page_tag")
         await cur.execute("TRUNCATE TABLE wiki_page")
         await cur.execute("TRUNCATE TABLE package_review")
@@ -63,6 +69,54 @@ async def clear_all_data() -> None:
                     ('프로젝트/쇼케이스', 'showcase', 'dotfiles, 스크립트, 오픈소스 기여를 공유합니다.', 4),
                     ('팁/가이드', 'guide', '리눅스 튜토리얼과 How-to 가이드입니다.', 5),
                     ('공지사항', 'notice', '관리자 공지사항입니다.', 6)
+            """)
+        # 배지/신뢰등급 시드 데이터 확인 및 재삽입
+        await cur.execute("SELECT COUNT(*) AS cnt FROM badge_definition")
+        row = await cur.fetchone()
+        if row["cnt"] == 0:
+            # fmt: off
+            await cur.execute(
+                "INSERT INTO badge_definition"
+                " (name,description,icon,category,trigger_type,trigger_threshold,points_awarded) VALUES"
+                " ('First Post','첫 번째 게시글을 작성했습니다','edit','bronze','post_count',1,5),"
+                " ('First Comment','첫 번째 댓글을 작성했습니다','comment','bronze','comment_count',1,5),"
+                " ('First Like','첫 번째 좋아요를 눌렀습니다','heart','bronze','like_given_count',1,2),"
+                " ('Welcome','프로필을 완성했습니다 (아바타 + 배포판)','user-check','bronze','profile_completed',1,5),"
+                " ('Bookworm','첫 번째 북마크를 추가했습니다','bookmark','bronze','bookmark_count',1,2),"
+                " ('Curious','10개의 게시글을 조회했습니다','eye','bronze','post_view_count',10,2),"
+                " ('Supporter','10개의 좋아요를 눌렀습니다','thumbs-up','bronze','like_given_count',10,5),"
+                " ('Editor','첫 번째 위키 페이지를 편집했습니다','file-text','bronze','wiki_edit_count',1,5),"
+                " ('Reviewer','첫 번째 패키지 리뷰를 작성했습니다','star','bronze','package_review_count',1,5),"
+                " ('Messenger','첫 번째 DM을 보냈습니다','message-circle','bronze','dm_sent_count',1,2),"
+                " ('Prolific','50개의 게시글을 작성했습니다','edit-3','silver','post_count',50,20),"
+                " ('Commenter','100개의 댓글을 작성했습니다','message-square','silver','comment_count',100,20),"
+                " ('Helpful Answer','10개의 답변이 채택되었습니다','check-circle','silver','accepted_answer_count',10,30),"
+                " ('Nice Question','하나의 게시글이 10개의 좋아요를 받았습니다','award','silver','single_post_likes',10,20),"
+                " ('Popular Question','하나의 게시글이 100회 조회되었습니다','trending-up','silver','single_post_views',100,20),"
+                " ('Wiki Contributor','20개의 위키 페이지를 편집했습니다','book-open','silver','wiki_edit_count',20,20),"
+                " ('Socializer','25명의 팔로워를 모았습니다','users','silver','follower_count',25,15),"
+                " ('Devoted','14일 연속 방문했습니다','calendar','silver','consecutive_visit_days',14,20),"
+                " ('Package Critic','10개의 패키지 리뷰를 작성했습니다','package','silver','package_review_count',10,15),"
+                " ('Legendary','평판 점수 5000을 달성했습니다','zap','gold','reputation_score',5000,100),"
+                " ('Great Answer','하나의 답변이 50개의 좋아요를 받았습니다','shield','gold','single_comment_likes',50,50),"
+                " ('Famous Question','하나의 게시글이 1000회 조회되었습니다','globe','gold','single_post_views',1000,50),"
+                " ('Mentor','100개의 답변이 채택되었습니다','award','gold','accepted_answer_count',100,100),"
+                " ('Wiki Master','100개의 위키 페이지를 편집했습니다','book','gold','wiki_edit_count',100,50),"
+                " ('Dedicated','60일 연속 방문했습니다','sunrise','gold','consecutive_visit_days',60,50),"
+                " ('Community Pillar','100명의 팔로워를 모았습니다','flag','gold','follower_count',100,50),"
+                " ('Completionist','모든 Bronze + Silver 배지를 획득했습니다','crown','gold','badge_count',19,100)"
+            )
+            # fmt: on
+        await cur.execute("SELECT COUNT(*) AS cnt FROM trust_level_definition")
+        row = await cur.fetchone()
+        if row["cnt"] == 0:
+            await cur.execute("""
+                INSERT INTO trust_level_definition (level, name, min_reputation, description) VALUES
+                (0, 'New User', 0, '기본 읽기/쓰기'),
+                (1, 'Member', 50, '위키 편집, 댓글 좋아요'),
+                (2, 'Regular', 200, '태그 생성, 패키지 등록'),
+                (3, 'Trusted', 1000, '게시글 신고 우선처리'),
+                (4, 'Leader', 5000, '커뮤니티 모더레이션 보조')
             """)
 
 

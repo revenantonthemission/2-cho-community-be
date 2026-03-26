@@ -9,7 +9,7 @@ from schemas.common import build_author_dict
 
 logger = logging.getLogger(__name__)
 
-NotificationType = Literal["comment", "like", "mention", "follow", "bookmark", "reply"]
+NotificationType = Literal["comment", "like", "mention", "follow", "bookmark", "reply", "badge_earned", "level_up"]
 
 
 async def create_notification(

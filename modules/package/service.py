@@ -1,5 +1,7 @@
 """package_service: 패키지 관련 비즈니스 로직."""
 
+import logging
+
 from core.utils.exceptions import bad_request_error, forbidden_error, not_found_error
 from core.utils.formatters import format_datetime
 from modules.package import models as package_models
@@ -10,6 +12,8 @@ from modules.package.schemas import (
     UpdatePackageRequest,
     UpdateReviewRequest,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class PackageService:
@@ -207,13 +211,29 @@ class PackageService:
         if not package:
             raise not_found_error("package", timestamp)
 
-        return await package_review_models.create_review(
+        review_id = await package_review_models.create_review(
             package_id=package_id,
             user_id=user_id,
             rating=data.rating,
             title=data.title,
             content=data.content,
         )
+
+        # 평판 포인트 부여 (best-effort)
+        try:
+            from modules.reputation.service import ReputationService
+
+            await ReputationService.award_points(
+                user_id=user_id,
+                event_type="package_review_created",
+                points=15,
+                source_type="package_review",
+                source_id=review_id,
+            )
+        except Exception:
+            logger.warning("평판 포인트 부여 실패 (create_review)", exc_info=True)
+
+        return review_id
 
     @staticmethod
     async def get_reviews(

@@ -396,6 +396,23 @@ async def accept_answer(
     # 6. DB 업데이트
     await post_models.set_accepted_answer(post_id, comment_id)
 
+    # 평판 포인트 부여 (best-effort)
+    try:
+        from modules.reputation.service import ReputationService
+
+        await ReputationService.award_points(
+            user_id=comment["author_id"],
+            event_type="answer_accepted",
+            points=50,
+            source_user_id=current_user.id,
+            source_type="comment",
+            source_id=comment_id,
+        )
+    except Exception:
+        import logging
+
+        logging.getLogger(__name__).warning("평판 포인트 부여 실패 (accept_answer)", exc_info=True)
+
     return create_response(
         "ANSWER_ACCEPTED",
         "답변이 채택되었습니다.",
@@ -424,8 +441,44 @@ async def unaccept_answer(
     if author_id != current_user.id:
         raise forbidden_error("unaccept_answer", timestamp, "게시글 작성자만 답변 채택을 해제할 수 있습니다.")
 
-    # 3. DB 업데이트
+    # 3. 기존 채택 답변 작성자 ID 확보 (unset 전에 반드시 조회)
+    old_answer_id = post_data.get("accepted_answer_id")
+    old_answer_author_id = None
+
+    if not old_answer_id:
+        from core.database.connection import get_cursor
+
+        async with get_cursor() as cur:
+            await cur.execute(
+                "SELECT accepted_answer_id FROM post WHERE id = %s AND deleted_at IS NULL",
+                (post_id,),
+            )
+            row = await cur.fetchone()
+            old_answer_id = row["accepted_answer_id"] if row else None
+
+    if old_answer_id:
+        old_comment = await post_models.get_comment_for_accept_validation(old_answer_id, post_id)
+        if old_comment:
+            old_answer_author_id = old_comment.get("author_id")
+
+    # 4. DB 업데이트
     await post_models.unset_accepted_answer(post_id)
+
+    # 평판 회수 (best-effort)
+    if old_answer_author_id and old_answer_id:
+        try:
+            from modules.reputation.service import ReputationService
+
+            await ReputationService.revoke_points(
+                user_id=old_answer_author_id,
+                event_type="answer_accepted",
+                source_type="comment",
+                source_id=int(old_answer_id),
+            )
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).warning("평판 포인트 회수 실패 (unaccept_answer)", exc_info=True)
 
     return create_response(
         "ANSWER_UNACCEPTED",

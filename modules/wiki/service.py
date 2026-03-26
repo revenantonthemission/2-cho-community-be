@@ -1,9 +1,13 @@
 """wiki_service: 위키 페이지 관련 비즈니스 로직."""
 
+import logging
+
 from core.utils.exceptions import bad_request_error, forbidden_error, not_found_error
 from modules.content import tag_models
 from modules.wiki import models as wiki_models
 from modules.wiki.schemas import CreateWikiPageRequest, UpdateWikiPageRequest
+
+logger = logging.getLogger(__name__)
 
 
 class WikiService:
@@ -121,6 +125,20 @@ class WikiService:
                 tag_ids = await tag_models.get_or_create_tags(normalized)
                 await wiki_models.save_wiki_page_tags(wiki_page_id, tag_ids)
 
+        # 평판 포인트 부여 (best-effort)
+        try:
+            from modules.reputation.service import ReputationService
+
+            await ReputationService.award_points(
+                user_id=user_id,
+                event_type="wiki_created",
+                points=20,
+                source_type="wiki",
+                source_id=wiki_page_id,
+            )
+        except Exception:
+            logger.warning("평판 포인트 부여 실패 (create_wiki_page)", exc_info=True)
+
         return wiki_page_id
 
     @staticmethod
@@ -171,6 +189,21 @@ class WikiService:
         updated = await wiki_models.get_wiki_page_by_slug(slug)
         assert updated is not None  # 위에서 존재 확인 완료
         updated["tags"] = await wiki_models.get_wiki_page_tags(wiki_page_id)
+
+        # 평판 포인트 부여: 원저자가 아닌 편집자만 (best-effort)
+        if user_id != page["author_id"]:
+            try:
+                from modules.reputation.service import ReputationService
+
+                await ReputationService.award_points(
+                    user_id=user_id,
+                    event_type="wiki_edited",
+                    points=10,
+                    source_type="wiki",
+                    source_id=wiki_page_id,
+                )
+            except Exception:
+                logger.warning("평판 포인트 부여 실패 (update_wiki_page)", exc_info=True)
 
         return updated
 

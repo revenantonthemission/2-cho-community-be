@@ -504,3 +504,109 @@ CREATE TABLE IF NOT EXISTS user_post_score (
     FOREIGN KEY (post_id) REFERENCES post(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- ===== Reputation System =====
+
+CREATE TABLE IF NOT EXISTS reputation_event (
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id         INT UNSIGNED NOT NULL,
+    event_type      VARCHAR(30) NOT NULL,
+    points          INT NOT NULL,
+    source_user_id  INT UNSIGNED NULL,
+    source_type     VARCHAR(20) NULL,
+    source_id       INT UNSIGNED NULL,
+    is_backfill     BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at      DATETIME NOT NULL DEFAULT NOW(),
+    FOREIGN KEY (user_id) REFERENCES user(id),
+    FOREIGN KEY (source_user_id) REFERENCES user(id),
+    INDEX idx_user_created (user_id, created_at),
+    INDEX idx_source (source_type, source_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS badge_definition (
+    id                INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name              VARCHAR(50) NOT NULL UNIQUE,
+    description       VARCHAR(200) NOT NULL,
+    icon              VARCHAR(50) NOT NULL,
+    category          ENUM('bronze','silver','gold') NOT NULL,
+    trigger_type      VARCHAR(30) NOT NULL,
+    trigger_threshold INT NOT NULL,
+    points_awarded    INT NOT NULL DEFAULT 0,
+    created_at        DATETIME NOT NULL DEFAULT NOW()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS user_badge (
+    id        BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id   INT UNSIGNED NOT NULL,
+    badge_id  INT UNSIGNED NOT NULL,
+    earned_at DATETIME NOT NULL DEFAULT NOW(),
+    FOREIGN KEY (user_id) REFERENCES user(id),
+    FOREIGN KEY (badge_id) REFERENCES badge_definition(id),
+    UNIQUE KEY uk_user_badge (user_id, badge_id),
+    INDEX idx_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS trust_level_definition (
+    level           TINYINT PRIMARY KEY,
+    name            VARCHAR(30) NOT NULL,
+    min_reputation  INT NOT NULL,
+    description     VARCHAR(200) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS user_daily_visit (
+    user_id    INT UNSIGNED NOT NULL,
+    visit_date DATE NOT NULL,
+    PRIMARY KEY (user_id, visit_date),
+    FOREIGN KEY (user_id) REFERENCES user(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- user 테이블 평판 컬럼 (신규 환경에서만 실행 — 기존 환경은 Alembic 마이그레이션 사용)
+ALTER TABLE user ADD COLUMN reputation_score INT NOT NULL DEFAULT 0;
+ALTER TABLE user ADD COLUMN trust_level TINYINT NOT NULL DEFAULT 0;
+
+-- notification ENUM 확장
+ALTER TABLE notification MODIFY COLUMN type
+    ENUM('comment', 'like', 'mention', 'follow', 'bookmark', 'reply', 'badge_earned', 'level_up')
+    NOT NULL;
+
+-- notification_setting 새 컬럼
+ALTER TABLE notification_setting ADD COLUMN badge_earned_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE notification_setting ADD COLUMN level_up_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+
+-- 신뢰 등급 시드
+INSERT IGNORE INTO trust_level_definition (level, name, min_reputation, description) VALUES
+(0, 'New User', 0, '기본 읽기/쓰기'),
+(1, 'Member', 50, '위키 편집, 댓글 좋아요'),
+(2, 'Regular', 200, '태그 생성, 패키지 등록'),
+(3, 'Trusted', 1000, '게시글 신고 우선처리'),
+(4, 'Leader', 5000, '커뮤니티 모더레이션 보조');
+
+-- 배지 시드 (27개)
+INSERT IGNORE INTO badge_definition (name, description, icon, category, trigger_type, trigger_threshold, points_awarded) VALUES
+('First Post', '첫 번째 게시글을 작성했습니다', 'edit', 'bronze', 'post_count', 1, 5),
+('First Comment', '첫 번째 댓글을 작성했습니다', 'comment', 'bronze', 'comment_count', 1, 5),
+('First Like', '첫 번째 좋아요를 눌렀습니다', 'heart', 'bronze', 'like_given_count', 1, 2),
+('Welcome', '프로필을 완성했습니다 (아바타 + 배포판)', 'user-check', 'bronze', 'profile_completed', 1, 5),
+('Bookworm', '첫 번째 북마크를 추가했습니다', 'bookmark', 'bronze', 'bookmark_count', 1, 2),
+('Curious', '10개의 게시글을 조회했습니다', 'eye', 'bronze', 'post_view_count', 10, 2),
+('Supporter', '10개의 좋아요를 눌렀습니다', 'thumbs-up', 'bronze', 'like_given_count', 10, 5),
+('Editor', '첫 번째 위키 페이지를 편집했습니다', 'file-text', 'bronze', 'wiki_edit_count', 1, 5),
+('Reviewer', '첫 번째 패키지 리뷰를 작성했습니다', 'star', 'bronze', 'package_review_count', 1, 5),
+('Messenger', '첫 번째 DM을 보냈습니다', 'message-circle', 'bronze', 'dm_sent_count', 1, 2),
+('Prolific', '50개의 게시글을 작성했습니다', 'edit-3', 'silver', 'post_count', 50, 20),
+('Commenter', '100개의 댓글을 작성했습니다', 'message-square', 'silver', 'comment_count', 100, 20),
+('Helpful Answer', '10개의 답변이 채택되었습니다', 'check-circle', 'silver', 'accepted_answer_count', 10, 30),
+('Nice Question', '하나의 게시글이 10개의 좋아요를 받았습니다', 'award', 'silver', 'single_post_likes', 10, 20),
+('Popular Question', '하나의 게시글이 100회 조회되었습니다', 'trending-up', 'silver', 'single_post_views', 100, 20),
+('Wiki Contributor', '20개의 위키 페이지를 편집했습니다', 'book-open', 'silver', 'wiki_edit_count', 20, 20),
+('Socializer', '25명의 팔로워를 모았습니다', 'users', 'silver', 'follower_count', 25, 15),
+('Devoted', '14일 연속 방문했습니다', 'calendar', 'silver', 'consecutive_visit_days', 14, 20),
+('Package Critic', '10개의 패키지 리뷰를 작성했습니다', 'package', 'silver', 'package_review_count', 10, 15),
+('Legendary', '평판 점수 5000을 달성했습니다', 'zap', 'gold', 'reputation_score', 5000, 100),
+('Great Answer', '하나의 답변이 50개의 좋아요를 받았습니다', 'shield', 'gold', 'single_comment_likes', 50, 50),
+('Famous Question', '하나의 게시글이 1000회 조회되었습니다', 'globe', 'gold', 'single_post_views', 1000, 50),
+('Mentor', '100개의 답변이 채택되었습니다', 'award', 'gold', 'accepted_answer_count', 100, 100),
+('Wiki Master', '100개의 위키 페이지를 편집했습니다', 'book', 'gold', 'wiki_edit_count', 100, 50),
+('Dedicated', '60일 연속 방문했습니다', 'sunrise', 'gold', 'consecutive_visit_days', 60, 50),
+('Community Pillar', '100명의 팔로워를 모았습니다', 'flag', 'gold', 'follower_count', 100, 50),
+('Completionist', '모든 Bronze + Silver 배지를 획득했습니다', 'crown', 'gold', 'badge_count', 19, 100);
+

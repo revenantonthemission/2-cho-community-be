@@ -1,11 +1,15 @@
 """comment_like_service: 댓글 좋아요 관련 비즈니스 로직을 처리하는 서비스."""
 
+import logging
+
 from pymysql.err import IntegrityError
 
 from core.utils.error_codes import ErrorCode
 from core.utils.exceptions import conflict_error, not_found_error, safe_notify
 from modules.post import comment_like_models, post_models
 from modules.post.comment_models import get_comment_by_id
+
+logger = logging.getLogger(__name__)
 
 
 class CommentLikeService:
@@ -62,6 +66,28 @@ class CommentLikeService:
                 comment_id=comment_id,
             )
 
+        # 평판 포인트 부여 (best-effort)
+        try:
+            from modules.reputation.service import ReputationService
+
+            await ReputationService.award_points(
+                user_id=comment.author_id,
+                event_type="comment_liked",
+                points=5,
+                source_user_id=user_id,
+                source_type="comment",
+                source_id=comment_id,
+            )
+            await ReputationService.award_points(
+                user_id=user_id,
+                event_type="comment_like_given",
+                points=1,
+                source_type="comment",
+                source_id=comment_id,
+            )
+        except Exception:
+            logger.warning("평판 포인트 부여 실패 (like_comment)", exc_info=True)
+
         return {"likes_count": likes_count}
 
     @staticmethod
@@ -98,5 +124,24 @@ class CommentLikeService:
             raise not_found_error("comment_like", timestamp)
 
         likes_count = await comment_like_models.get_comment_likes_count(comment_id)
+
+        # 평판 포인트 회수 (best-effort)
+        try:
+            from modules.reputation.service import ReputationService
+
+            await ReputationService.revoke_points(
+                user_id=comment.author_id,
+                event_type="comment_liked",
+                source_type="comment",
+                source_id=comment_id,
+            )
+            await ReputationService.revoke_points(
+                user_id=user_id,
+                event_type="comment_like_given",
+                source_type="comment",
+                source_id=comment_id,
+            )
+        except Exception:
+            logger.warning("평판 포인트 회수 실패 (unlike_comment)", exc_info=True)
 
         return {"likes_count": likes_count}

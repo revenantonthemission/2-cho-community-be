@@ -124,6 +124,20 @@ class UserService:
         if not updated_user:
             return await UserService.get_user_by_id(user_id, timestamp)
 
+        # 평판 이벤트 기록 — 배지 트리거 전용, 포인트 0 (best-effort)
+        try:
+            from modules.reputation.service import ReputationService
+
+            await ReputationService.award_points(
+                user_id=user_id,
+                event_type="profile_updated",
+                points=0,
+                source_type="user",
+                source_id=user_id,
+            )
+        except Exception:
+            logger.warning("평판 이벤트 기록 실패 (update_user)", exc_info=True)
+
         return updated_user
 
     @staticmethod

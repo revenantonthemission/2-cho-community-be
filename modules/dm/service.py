@@ -229,6 +229,20 @@ async def send_message_and_push(conversation: Conversation, sender: User, conten
     """
     message = await dm_models.send_message(conversation.id, sender.id, content)
 
+    # 평판 이벤트 기록 — 배지 트리거 전용, 포인트 0 (best-effort)
+    try:
+        from modules.reputation.service import ReputationService
+
+        await ReputationService.award_points(
+            user_id=sender.id,
+            event_type="dm_sent",
+            points=0,
+            source_type="dm",
+            source_id=conversation.id,
+        )
+    except Exception:
+        logger.warning("평판 이벤트 기록 실패 (send_message_and_push)", exc_info=True)
+
     # 상대방에게 WebSocket 푸시 (best-effort)
     recipient_id = get_other_user_id(conversation, sender.id)
     try:

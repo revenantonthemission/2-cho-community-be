@@ -14,6 +14,7 @@
 - **임시저장** — 서버 측 게시글 임시저장 (사용자당 1개, UPSERT), 기기 간 동기화
 - **관리자** — 신고 관리, 계정 정지, 게시글 고정, 대시보드 통계
 - **패키지 리뷰** — 패키지 등록/조회, 1유저 1패키지 1리뷰, 평점(1~5), 평균 평점 집계
+- **Reputation & Engagement** — 평판 이벤트 적립(게시글/댓글/좋아요 등), 뱃지 자동 수여, 신뢰 레벨 자동 승급, 일일 방문 보너스
 - **인프라** — EKS (K8s) 컨테이너 배포, HPA 자동 스케일링, Locust 부하 테스트
 
 ---
@@ -32,14 +33,14 @@ flowchart TD
         direction TB
         Core["core/<br/>Middleware · Auth Guards · Utils"]
         Core --> Modules
-        Modules["modules/<br/>auth · user · post · dm · notification<br/>admin · content · wiki · package"]
+        Modules["modules/<br/>auth · user · post · dm · notification<br/>admin · content · wiki · package · reputation"]
         Modules --> Pool["aiomysql Pool<br/>(5-50 connections)"]
     end
 
     Backend -->|"Async Connection"| DB
 
     subgraph DB["MySQL"]
-        Tables["31개 테이블<br/>user, post, comment, notification,<br/>tag, poll, dm_conversation, social_account,<br/>wiki_page, wiki_page_tag ..."]
+        Tables["37개 테이블<br/>user, post, comment, notification,<br/>tag, poll, dm_conversation, social_account,<br/>wiki_page, wiki_page_tag, reputation_event ..."]
     end
 
     Backend -->|"WebSocket Push"| WS
@@ -66,6 +67,7 @@ flowchart TD
 | **`modules/content/`** | 콘텐츠 — 카테고리, 태그, 이용약관, 임시저장 |
 | **`modules/wiki/`** | 위키 — 위키 페이지 CRUD, 태그 연동 |
 | **`modules/package/`** | 패키지 — 패키지 등록, 리뷰 |
+| **`modules/reputation/`** | 평판 — 평판 이벤트, 뱃지, 신뢰 레벨, 일일 방문 |
 | **`core/`** | 공유 인프라 — DB 연결, 미들웨어, 인증 가드, 유틸리티 |
 | **`schemas/`** | 공유 스키마 — `create_response()`, 이미지 검증 |
 | **`routers/`** | 조건부 라우터 — WebSocket(DEBUG), 테스트(TESTING) |
@@ -99,6 +101,11 @@ erDiagram
     user ||--o{ social_account : "linked"
     user ||--o{ notification_setting : "configures"
     user ||--o{ post_draft : "saves draft"
+    user ||--o{ reputation_event : "earns"
+    user ||--o{ user_badge : "awarded"
+    user ||--o{ user_daily_visit : "visits"
+    badge_definition ||--o{ user_badge : "defines"
+    trust_level_definition ||--o{ user : "assigned to"
     post ||--o{ comment : "has"
     comment ||--o{ comment : "replies (1-level)"
     post ||--o{ post_like : "receives"
@@ -402,6 +409,47 @@ erDiagram
     wiki_page_tag {
         int wiki_page_id PK
         bigint tag_id PK
+    }
+
+    reputation_event {
+        bigint id PK
+        int user_id FK
+        varchar event_type "post_created, comment_created, received_like 등"
+        int delta "적립/차감 포인트"
+        int ref_id "참조 대상 ID (nullable)"
+        varchar ref_type "post, comment 등 (nullable)"
+        timestamp created_at
+    }
+
+    badge_definition {
+        int id PK
+        varchar code UK "뱃지 고유 코드"
+        varchar name
+        varchar description
+        varchar icon_url
+        timestamp created_at
+    }
+
+    user_badge {
+        int id PK
+        int user_id FK
+        int badge_id FK
+        timestamp awarded_at
+    }
+
+    trust_level_definition {
+        int id PK
+        int level UK "레벨 번호"
+        varchar name
+        int min_points "승급 최소 포인트"
+        timestamp created_at
+    }
+
+    user_daily_visit {
+        int id PK
+        int user_id FK
+        date visit_date
+        timestamp created_at
     }
 ```
 

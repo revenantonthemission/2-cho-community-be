@@ -114,6 +114,20 @@ class CommentService:
             parent_id=parent_id,
         )
 
+        # 평판 포인트 부여 (best-effort)
+        try:
+            from modules.reputation.service import ReputationService
+
+            await ReputationService.award_points(
+                user_id=user_id,
+                event_type="comment_created",
+                points=2,
+                source_type="comment",
+                source_id=comment.id,
+            )
+        except Exception:
+            logger.warning("평판 포인트 부여 실패 (create_comment)", exc_info=True)
+
         # 알림 생성 (실패해도 댓글 생성에 영향 없음)
         if comment.parent_id and parent_id is not None:
             # 대댓글 → 부모 댓글 작성자에게 알림

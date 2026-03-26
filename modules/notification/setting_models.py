@@ -26,6 +26,8 @@ _TYPE_TO_COLUMN = {
     "follow": "follow_enabled",
     "bookmark": "bookmark_enabled",
     "reply": "reply_enabled",
+    "badge_earned": "badge_earned_enabled",
+    "level_up": "level_up_enabled",
 }
 
 
