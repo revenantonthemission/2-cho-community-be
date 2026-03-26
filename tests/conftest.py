@@ -1,8 +1,9 @@
 import os
 import sys
 
-# Rate Limiter 우회를 위한 테스트 환경 변수 설정
+# 테스트 환경 변수 설정 — 이중 게이트: TESTING + DEBUG 모두 필요
 os.environ["TESTING"] = "true"
+os.environ["DEBUG"] = "true"
 
 import aiomysql
 import pytest
