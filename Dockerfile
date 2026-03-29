@@ -18,12 +18,13 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends gcc default-libmysqlclient-dev pkg-config libmagic1 && \
     rm -rf /var/lib/apt/lists/*
 
-# Python 의존성 설치
+# Python 의존성 설치 (소스 코드 없이 의존성만 먼저 캐싱)
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev --extra k8s
+RUN uv sync --frozen --no-dev --extra k8s --no-install-project
 
 # 애플리케이션 코드
 COPY . .
+RUN uv sync --frozen --no-dev --extra k8s
 RUN mkdir -p assets/posts assets/profiles
 
 EXPOSE 8000
