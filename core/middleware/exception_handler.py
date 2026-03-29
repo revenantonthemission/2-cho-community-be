@@ -4,8 +4,6 @@
 """
 
 import logging
-import traceback
-import uuid
 
 from fastapi import Request, status
 from fastapi.encoders import jsonable_encoder
@@ -13,8 +11,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from core.dependencies.request_context import get_request_timestamp
+from core.logging_config import request_id_var
 
-logger = logging.getLogger("api")
+logger = logging.getLogger(__name__)
 
 
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
@@ -32,10 +31,11 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     """
     from core.config import settings
 
-    tracking_id = str(uuid.uuid4())
+    # RequestIdMiddleware가 설정한 상관 ID를 사용 (미들웨어 미경유 시 새 UUID)
+    tracking_id = request_id_var.get()
     timestamp = get_request_timestamp(request)
 
-    logger.error(f"[{tracking_id}] Unhandled exception: {exc}\n{traceback.format_exc()}")
+    logger.error("Unhandled exception: %s", exc, exc_info=True)
 
     # 프로덕션 환경에서는 상세 에러 숨김
     content: dict[str, str] = {

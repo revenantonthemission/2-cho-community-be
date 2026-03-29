@@ -133,15 +133,27 @@ jobs:
   smoke-test:
     name: "Smoke Test"
     needs: update-image-tag
-    if: inputs.environment == 'prod'
     runs-on: ubuntu-latest
     steps:
+      - name: Set URLs by environment
+        id: urls
+        env:
+          DEPLOY_ENV: ${{ inputs.environment }}
+        run: |
+          if [ "${DEPLOY_ENV}" = "prod" ]; then
+            echo "api_url=https://api.my-community.shop" >> "${GITHUB_OUTPUT}"
+            echo "fe_url=https://my-community.shop" >> "${GITHUB_OUTPUT}"
+          else
+            echo "api_url=https://api-staging.my-community.shop" >> "${GITHUB_OUTPUT}"
+            echo "fe_url=https://staging.my-community.shop" >> "${GITHUB_OUTPUT}"
+          fi
+
       - name: Wait for ArgoCD sync
         run: sleep 90
 
       - name: Verify health endpoint
         env:
-          API_URL: "https://api.my-community.shop"
+          API_URL: ${{ steps.urls.outputs.api_url }}
         run: |
           STATUS=$(curl -sk -o /dev/null -w "%{http_code}" "${API_URL}/health")
           if [ "$STATUS" != "200" ]; then
@@ -153,7 +165,7 @@ jobs:
 
       - name: Verify API endpoints
         env:
-          API_URL: "https://api.my-community.shop"
+          API_URL: ${{ steps.urls.outputs.api_url }}
         run: |
           for path in "/v1/posts/" "/v1/categories/"; do
             STATUS=$(curl -sk -o /dev/null -w "%{http_code}" "${API_URL}${path}")
@@ -165,8 +177,10 @@ jobs:
           done
 
       - name: Verify frontend
+        env:
+          FE_URL: ${{ steps.urls.outputs.fe_url }}
         run: |
-          STATUS=$(curl -sk -o /dev/null -w "%{http_code}" "https://my-community.shop")
+          STATUS=$(curl -sk -o /dev/null -w "%{http_code}" "${FE_URL}")
           if [ "$STATUS" != "200" ]; then
             echo "::error::Frontend returned HTTP ${STATUS}"
             exit 1

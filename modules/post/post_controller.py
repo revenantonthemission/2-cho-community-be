@@ -24,6 +24,7 @@ async def get_posts(
     current_user: User | None = None,
     tag: str | None = None,
     following: bool = False,
+    solved: bool | None = None,
 ) -> dict:
     """
     게시글 목록을 조회합니다.
@@ -67,6 +68,7 @@ async def get_posts(
         current_user=current_user,
         tag=tag,
         following=following,
+        solved=solved,
     )
 
     response_data = {

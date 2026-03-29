@@ -6,7 +6,9 @@ LABEL maintainer="my-community"
 LABEL version="${APP_VERSION}"
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    UV_CACHE_DIR=/app/.cache/uv \
+    PATH="/app/.venv/bin:$PATH"
 
 WORKDIR /app
 
@@ -18,14 +20,19 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends gcc default-libmysqlclient-dev pkg-config libmagic1 && \
     rm -rf /var/lib/apt/lists/*
 
-# Python 의존성 설치
+# Python 의존성 설치 (소스 코드 없이 의존성만 먼저 캐싱)
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev --extra k8s
+RUN uv sync --frozen --no-dev --extra k8s --no-install-project
+
+# 비특권 사용자 (컨테이너 보안)
+RUN groupadd -r appuser && useradd -r -g appuser -s /sbin/nologin appuser
 
 # 애플리케이션 코드
 COPY . .
-RUN mkdir -p assets/posts assets/profiles
+RUN uv sync --frozen --no-dev --extra k8s
+RUN mkdir -p assets/posts assets/profiles && chown -R appuser:appuser assets/
 
+USER appuser
 EXPOSE 8000
 
-CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

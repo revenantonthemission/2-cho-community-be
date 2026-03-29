@@ -127,3 +127,23 @@ async def is_notification_muted(user_id: int, notification_type: str) -> bool:
         return False
 
     return not bool(row[column])
+
+
+async def get_muted_user_ids(user_ids: list[int], notification_type: str) -> set[int]:
+    """여러 사용자 중 특정 알림 유형을 비활성화한 사용자 ID 집합을 반환합니다.
+
+    N+1 방지를 위한 벌크 버전. 설정 행이 없는 사용자는 활성화(기본값)로 처리합니다.
+    """
+    column = _TYPE_TO_COLUMN.get(notification_type)
+    if not column or not user_ids:
+        return set()
+
+    placeholders = ", ".join(["%s"] * len(user_ids))
+    async with get_cursor() as cur:
+        await cur.execute(
+            f"SELECT user_id FROM notification_setting WHERE user_id IN ({placeholders}) AND {column} = 0",
+            tuple(user_ids),
+        )
+        rows = await cur.fetchall()
+
+    return {row["user_id"] for row in rows}

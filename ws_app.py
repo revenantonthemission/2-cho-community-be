@@ -1,6 +1,7 @@
 """K8s WebSocket 서버 — Redis pub/sub 기반 실시간 알림"""
 
 import asyncio
+import contextlib
 import json
 import logging
 import os
@@ -166,4 +167,6 @@ async def websocket_endpoint(ws: WebSocket):
     finally:
         if listener_task:
             listener_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await listener_task
         await _unregister_connection(conn_id, user_id)

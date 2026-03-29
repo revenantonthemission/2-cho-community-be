@@ -14,6 +14,7 @@ class CreateWikiPageRequest(BaseModel):
     slug: str = Field(..., min_length=2, max_length=200)
     content: str = Field(..., min_length=10, max_length=50000)
     tags: list[str] = Field(default_factory=list, max_length=10)
+    edit_summary: str = Field(default="초기 작성", max_length=500)
 
     @field_validator("slug")
     @classmethod
@@ -36,6 +37,7 @@ class UpdateWikiPageRequest(BaseModel):
     title: str | None = Field(None, min_length=2, max_length=200)
     content: str | None = Field(None, min_length=10, max_length=50000)
     tags: list[str] | None = Field(None, max_length=10)
+    edit_summary: str = Field(..., min_length=2, max_length=500)
 
     @field_validator("tags")
     @classmethod

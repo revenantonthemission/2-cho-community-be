@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 
 from core.database.connection import get_cursor, transactional
+from modules.post.post_models import hot_score_sql
 
 
 @dataclass
@@ -149,16 +150,12 @@ async def get_candidate_posts_meta(max_age_days: int = 7) -> list[dict]:
     """추천 후보 게시글의 메타데이터를 벌크 조회합니다."""
     async with get_cursor() as cur:
         await cur.execute(
-            """
+            f"""
                 SELECT
                     p.id AS post_id,
                     p.category_id,
                     p.author_id,
-                    (COALESCE(lk.cnt, 0) * 3
-                     + COALESCE(cm.cnt, 0) * 2
-                     + p.views * 0.5)
-                    / POW(TIMESTAMPDIFF(HOUR, p.created_at, NOW()) + 2, 1.5)
-                    AS hot_score
+                    {hot_score_sql("lk", "cm")} AS hot_score
                 FROM post p
                 LEFT JOIN (
                     SELECT post_id, COUNT(*) AS cnt

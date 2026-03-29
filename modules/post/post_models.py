@@ -14,6 +14,21 @@ from schemas.common import build_author_dict
 # 게시글당 허용되는 최대 이미지 수
 MAX_POST_IMAGES = 5
 
+
+def hot_score_sql(likes_alias: str = "likes", comments_alias: str = "comments") -> str:
+    """Hot Score SQL 수식을 반환합니다.
+
+    가중치: 좋아요 x3, 댓글 x2, 조회 x0.5 / 시간 감쇠(1.5제곱)
+    수식 변경 시 이 함수만 수정하면 모든 쿼리에 반영됩니다.
+    """
+    return (
+        f"(COALESCE({likes_alias}.cnt, 0) * 3"
+        f" + COALESCE({comments_alias}.cnt, 0) * 2"
+        f" + p.views * 0.5)"
+        f" / POW(TIMESTAMPDIFF(HOUR, p.created_at, NOW()) + 2, 1.5)"
+    )
+
+
 # SQL Injection 방지: 허용된 컬럼명 whitelist
 ALLOWED_POST_COLUMNS = {"title", "content", "image_url", "category_id", "updated_at"}
 
@@ -91,11 +106,17 @@ async def get_total_posts_count(
     blocked_user_ids: set[int] | None = None,
     tag: str | None = None,
     author_ids: set[int] | None = None,
+    solved: bool | None = None,
 ) -> int:
     """삭제되지 않은 게시글의 총 개수를 반환합니다."""
     async with get_cursor() as cur:
         where = "deleted_at IS NULL"
         params: list = []
+
+        if solved is True:
+            where += " AND accepted_answer_id IS NOT NULL"
+        elif solved is False:
+            where += " AND accepted_answer_id IS NULL"
 
         if search:
             escaped = _escape_fulltext_query(search)
@@ -276,6 +297,7 @@ async def get_posts_with_details(
     tag: str | None = None,
     author_ids: set[int] | None = None,
     current_user_id: int | None = None,
+    solved: bool | None = None,
 ) -> list[dict]:
     """게시글 목록을 작성자 정보, 좋아요 수, 댓글 수, 북마크 수와 함께 조회합니다."""
     # SQL Injection 방지: whitelist 검증 후 fallback
@@ -283,6 +305,11 @@ async def get_posts_with_details(
 
     where = "p.deleted_at IS NULL"
     params: list = []
+
+    if solved is True:
+        where += " AND p.accepted_answer_id IS NOT NULL"
+    elif solved is False:
+        where += " AND p.accepted_answer_id IS NULL"
 
     if search:
         escaped = _escape_fulltext_query(search)
@@ -352,11 +379,7 @@ async def get_posts_with_details(
                     p.is_pinned, p.category_id, cat.name AS category_name,
                     COALESCE(bk.cnt, 0) AS bookmarks_count,
                     (p.accepted_answer_id IS NOT NULL) AS is_solved,
-                    (COALESCE(likes.cnt, 0) * 3
-                     + COALESCE(comments.cnt, 0) * 2
-                     + p.views * 0.5)
-                    / POW(TIMESTAMPDIFF(HOUR, p.created_at, NOW()) + 2, 1.5)
-                    AS hot_score
+                    {hot_score_sql()} AS hot_score
                     {watch_select}
                     {upc_select}
                 FROM post p
@@ -604,11 +627,7 @@ async def get_related_posts(
                     COALESCE(bk.cnt, 0) AS bookmarks_count,
                     {tag_select},
                     {same_category},
-                    (COALESCE(likes.cnt, 0) * 3
-                     + COALESCE(comments.cnt, 0) * 2
-                     + p.views * 0.5)
-                    / POW(TIMESTAMPDIFF(HOUR, p.created_at, NOW()) + 2, 1.5)
-                    AS hot_score
+                    {hot_score_sql()} AS hot_score
                 FROM post p
                 LEFT JOIN user u ON p.author_id = u.id
                 LEFT JOIN category cat ON p.category_id = cat.id

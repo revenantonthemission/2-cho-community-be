@@ -8,7 +8,7 @@ from core.utils.formatters import format_datetime
 from core.utils.mention import extract_mentions
 from modules.content import category_models, tag_models
 from modules.notification import models as notification_models
-from modules.notification.setting_models import get_notification_settings
+from modules.notification.setting_models import get_muted_user_ids
 from modules.post import poll_models, post_models, subscription_models
 from modules.post.bookmark_models import get_bookmark
 from modules.post.like_models import get_like
@@ -38,6 +38,7 @@ class PostService:
         current_user: User | None = None,
         tag: str | None = None,
         following: bool = False,
+        solved: bool | None = None,
     ) -> PostListResult:
         """게시글 목록 조회 및 가공."""
         # 차단된 사용자 목록 조회
@@ -80,6 +81,7 @@ class PostService:
             tag=tag,
             author_ids=author_ids,
             current_user_id=current_user.id if current_user else None,
+            solved=solved,
         )
         total_count = await post_models.get_total_posts_count(
             search=search,
@@ -88,6 +90,7 @@ class PostService:
             blocked_user_ids=blocked_ids,
             tag=tag,
             author_ids=author_ids,
+            solved=solved,
         )
 
         # 추천 피드 다양성 필터: 작성자당 최대 3개
@@ -291,19 +294,17 @@ class PostService:
         except Exception:
             logger.warning("평판 포인트 부여 실패 (create_post)", exc_info=True)
 
-        # 팔로워에게 새 게시글 알림 — 벌크 INSERT로 N+1 방지 (실패해도 게시글 생성은 유지)
+        # 팔로워에게 새 게시글 알림 — 벌크 조회 + 벌크 INSERT로 N+1 방지
         try:
             follower_ids = await follow_models.get_follower_ids(user_id)
             if follower_ids:
-                # 자기 자신 제외 + 음소거 설정 일괄 조회 후 필터링
-                bulk_rows: list[tuple] = []
-                for follower_id in follower_ids:
-                    if follower_id == user_id:
-                        continue
-                    settings = await get_notification_settings(follower_id)
-                    if settings.get("follow", True):
-                        bulk_rows.append((follower_id, "follow", post.id, None, user_id))
-                await notification_models.create_notifications_bulk(bulk_rows)
+                candidates = [fid for fid in follower_ids if fid != user_id]
+                if candidates:
+                    muted = await get_muted_user_ids(candidates, "follow")
+                    bulk_rows: list[tuple] = [
+                        (fid, "follow", post.id, None, user_id) for fid in candidates if fid not in muted
+                    ]
+                    await notification_models.create_notifications_bulk(bulk_rows)
         except Exception:
             logger.warning("팔로우 알림 생성 실패", exc_info=True)
 

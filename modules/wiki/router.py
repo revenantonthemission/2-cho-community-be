@@ -73,6 +73,55 @@ async def get_wiki_popular_tags(
     return await wiki_controller.get_wiki_popular_tags(request, limit=limit)
 
 
+# === 리비전 라우트 (/{slug} catch-all보다 먼저 등록) ===
+
+
+@wiki_router.get("/{slug}/history", status_code=status.HTTP_200_OK)
+async def get_wiki_history(
+    request: Request,
+    slug: str = Path(description="위키 페이지 슬러그"),
+    offset: int = Query(0, ge=0, description="시작 위치"),
+    limit: int = Query(20, ge=1, le=100, description="조회할 리비전 수"),
+    _current_user: User | None = Depends(get_optional_user),
+) -> dict:
+    """위키 페이지의 리비전 히스토리를 조회합니다."""
+    return await wiki_controller.get_revision_history(request, slug, offset, limit)
+
+
+@wiki_router.get("/{slug}/revisions/{revision_number}", status_code=status.HTTP_200_OK)
+async def get_wiki_revision(
+    request: Request,
+    slug: str = Path(description="위키 페이지 슬러그"),
+    revision_number: int = Path(ge=1, description="리비전 번호"),
+    _current_user: User | None = Depends(get_optional_user),
+) -> dict:
+    """위키 페이지의 특정 리비전을 조회합니다."""
+    return await wiki_controller.get_revision_detail(request, slug, revision_number)
+
+
+@wiki_router.get("/{slug}/diff", status_code=status.HTTP_200_OK)
+async def get_wiki_diff(
+    request: Request,
+    slug: str = Path(description="위키 페이지 슬러그"),
+    from_rev: int = Query(..., alias="from", ge=1, description="비교 시작 리비전"),
+    to_rev: int = Query(..., alias="to", ge=1, description="비교 대상 리비전"),
+    _current_user: User | None = Depends(get_optional_user),
+) -> dict:
+    """두 리비전 간 diff를 조회합니다."""
+    return await wiki_controller.get_revision_diff(request, slug, from_rev, to_rev)
+
+
+@wiki_router.post("/{slug}/rollback/{revision_number}", status_code=status.HTTP_200_OK)
+async def rollback_wiki(
+    request: Request,
+    slug: str = Path(description="위키 페이지 슬러그"),
+    revision_number: int = Path(ge=1, description="롤백 대상 리비전 번호"),
+    current_user: User = Depends(require_verified_email),
+) -> dict:
+    """특정 리비전으로 위키 페이지를 롤백합니다."""
+    return await wiki_controller.rollback_revision(request, slug, revision_number, current_user)
+
+
 @wiki_router.get("/{slug}", status_code=status.HTTP_200_OK)
 async def get_wiki_page(
     request: Request,

@@ -6,7 +6,7 @@ from core.utils.error_codes import ErrorCode
 from core.utils.exceptions import bad_request_error, forbidden_error, not_found_error, safe_notify
 from core.utils.mention import extract_mentions
 from modules.notification import models as notification_models
-from modules.notification.setting_models import is_notification_muted
+from modules.notification.setting_models import get_muted_user_ids
 from modules.post import comment_models, post_models, subscription_models
 from modules.user.models import get_users_by_nicknames
 
@@ -187,13 +187,11 @@ class CommentService:
             if mentioned_users:
                 already_notified.update(u.id for u in mentioned_users.values())
 
-            bulk_rows: list[tuple] = []
-            for watcher_id in watching_ids:
-                if watcher_id in already_notified:
-                    continue
-                if await is_notification_muted(watcher_id, "reply"):
-                    continue
-                bulk_rows.append((watcher_id, "reply", post_id, comment.id, user_id))
+            candidates = [wid for wid in watching_ids if wid not in already_notified]
+            muted = await get_muted_user_ids(candidates, "reply") if candidates else set()
+            bulk_rows: list[tuple] = [
+                (wid, "reply", post_id, comment.id, user_id) for wid in candidates if wid not in muted
+            ]
 
             if bulk_rows:
                 await notification_models.create_notifications_bulk(bulk_rows)

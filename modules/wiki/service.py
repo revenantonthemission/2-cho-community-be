@@ -2,9 +2,12 @@
 
 import logging
 
-from core.utils.exceptions import bad_request_error, forbidden_error, not_found_error
+from core.database.connection import transactional
+from core.utils.exceptions import bad_request_error, conflict_error, forbidden_error, not_found_error
 from modules.content import tag_models
 from modules.wiki import models as wiki_models
+from modules.wiki.revision_models import create_revision as create_rev
+from modules.wiki.revision_models import get_next_revision_number
 from modules.wiki.schemas import CreateWikiPageRequest, UpdateWikiPageRequest
 
 logger = logging.getLogger(__name__)
@@ -102,7 +105,7 @@ class WikiService:
         Returns:
             생성된 위키 페이지 ID.
         """
-        # 슬러그 중복 검사
+        # 슬러그 중복 검사 (빠른 사전 검증)
         if await wiki_models.slug_exists(data.slug):
             raise bad_request_error(
                 "SLUG_DUPLICATE",
@@ -110,12 +113,31 @@ class WikiService:
                 "이미 사용 중인 슬러그입니다.",
             )
 
-        wiki_page_id = await wiki_models.create_wiki_page(
-            title=data.title,
-            slug=data.slug,
-            content=data.content,
-            author_id=user_id,
-        )
+        # UNIQUE 제약으로 동시 생성 시에도 정합성 보장 (TOCTOU 방어)
+        try:
+            wiki_page_id = await wiki_models.create_wiki_page(
+                title=data.title,
+                slug=data.slug,
+                content=data.content,
+                author_id=user_id,
+            )
+        except Exception as e:
+            if "Duplicate entry" in str(e):
+                raise conflict_error("wiki_slug", timestamp, "이미 사용 중인 슬러그입니다.") from e
+            raise
+
+        # 초기 리비전 생성
+        async with transactional() as cursor:
+            rev_num = await get_next_revision_number(cursor, wiki_page_id)
+            await create_rev(
+                cursor,
+                wiki_page_id,
+                rev_num,
+                data.title,
+                data.content,
+                data.edit_summary,
+                user_id,
+            )
 
         # 태그 처리
         if data.tags:
@@ -150,6 +172,8 @@ class WikiService:
     ) -> dict:
         """위키 페이지를 수정합니다. 누구나 편집 가능 (위키 특성).
 
+        단일 트랜잭션 + SELECT FOR UPDATE로 동시 편집 시 lost update를 방지합니다.
+
         Args:
             slug: 수정할 페이지 슬러그.
             user_id: 편집자 ID.
@@ -165,16 +189,53 @@ class WikiService:
 
         wiki_page_id = page["wiki_page_id"]
 
-        # 내용 수정 (title, content 중 하나라도 있으면 업데이트)
-        if data.title is not None or data.content is not None:
-            await wiki_models.update_wiki_page(
-                wiki_page_id=wiki_page_id,
-                editor_id=user_id,
-                title=data.title,
-                content=data.content,
+        # 단일 트랜잭션: 페이지 잠금 → 수정 → 리비전 생성
+        async with transactional() as cursor:
+            # SELECT FOR UPDATE로 행 잠금 — 동시 편집 직렬화
+            await cursor.execute(
+                "SELECT id FROM wiki_page WHERE id = %s AND deleted_at IS NULL FOR UPDATE",
+                (wiki_page_id,),
+            )
+            locked = await cursor.fetchone()
+            if not locked:
+                raise not_found_error("wiki_page", timestamp)
+
+            # 내용 수정 (title, content 중 하나라도 있으면 업데이트)
+            if data.title is not None or data.content is not None:
+                updates = ["last_edited_by = %s"]
+                params: list = [user_id]
+                if data.title is not None:
+                    updates.append("title = %s")
+                    params.append(data.title)
+                if data.content is not None:
+                    updates.append("content = %s")
+                    params.append(data.content)
+                params.append(wiki_page_id)
+                await cursor.execute(
+                    f"UPDATE wiki_page SET {', '.join(updates)} WHERE id = %s AND deleted_at IS NULL",  # noqa: S608
+                    params,
+                )
+
+            # 수정 후 최신 상태 조회 (같은 트랜잭션 내에서)
+            await cursor.execute(
+                "SELECT title, content FROM wiki_page WHERE id = %s",
+                (wiki_page_id,),
+            )
+            current = await cursor.fetchone()
+
+            # 리비전 생성 (동일 트랜잭션)
+            rev_num = await get_next_revision_number(cursor, wiki_page_id)
+            await create_rev(
+                cursor,
+                wiki_page_id,
+                rev_num,
+                current["title"],
+                current["content"],
+                data.edit_summary,
+                user_id,
             )
 
-        # 태그 수정
+        # 태그 수정 (트랜잭션 밖 — 태그는 lost update 위험 없음)
         if data.tags is not None:
             normalized = [tag_models.normalize_tag_name(t) for t in data.tags]
             normalized = [t for t in normalized if t]
@@ -182,12 +243,11 @@ class WikiService:
                 tag_ids = await tag_models.get_or_create_tags(normalized)
                 await wiki_models.save_wiki_page_tags(wiki_page_id, tag_ids)
             else:
-                # 빈 태그 목록: 기존 태그 모두 제거
                 await wiki_models.save_wiki_page_tags(wiki_page_id, [])
 
-        # 수정된 페이지 다시 조회
+        # 수정된 페이지 최종 조회 (트랜잭션 커밋 후)
         updated = await wiki_models.get_wiki_page_by_slug(slug)
-        assert updated is not None  # 위에서 존재 확인 완료
+        assert updated is not None
         updated["tags"] = await wiki_models.get_wiki_page_tags(wiki_page_id)
 
         # 평판 포인트 부여: 원저자가 아닌 편집자만 (best-effort)

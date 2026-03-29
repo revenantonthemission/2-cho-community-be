@@ -6,6 +6,7 @@ CloudFront 도메인이 설정된 경우 CDN URL을 반환합니다.
 
 import logging
 import os
+import threading
 import uuid
 
 from fastapi import HTTPException, UploadFile, status
@@ -25,15 +26,18 @@ S3_UPLOADS_CDN_DOMAIN = os.getenv("S3_UPLOADS_CDN_DOMAIN", "")
 S3_REGION = os.getenv("S3_REGION", "ap-northeast-2")
 
 _s3_client = None
+_s3_lock = threading.Lock()
 
 
 def _get_s3_client():
-    """S3 클라이언트 지연 초기화 (콜드 스타트 최적화)."""
+    """S3 클라이언트 지연 초기화 (double-checked locking으로 경쟁 방지)."""
     global _s3_client
     if _s3_client is None:
-        import boto3
+        with _s3_lock:
+            if _s3_client is None:
+                import boto3
 
-        _s3_client = boto3.client("s3", region_name=S3_REGION)
+                _s3_client = boto3.client("s3", region_name=S3_REGION)
     return _s3_client
 
 
