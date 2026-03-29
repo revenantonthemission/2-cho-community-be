@@ -65,7 +65,7 @@ flowchart TD
 | **`modules/notification/`** | 알림 — 알림 CRUD, 유형별 설정 |
 | **`modules/admin/`** | 관리자 — 신고 처리, 사용자 정지, 대시보드 |
 | **`modules/content/`** | 콘텐츠 — 카테고리, 태그, 이용약관, 임시저장 |
-| **`modules/wiki/`** | 위키 — 위키 페이지 CRUD, 태그 연동 |
+| **`modules/wiki/`** | 위키 — 위키 페이지 CRUD, 태그 연동, 리비전 히스토리/diff/롤백 |
 | **`modules/package/`** | 패키지 — 패키지 등록, 리뷰 |
 | **`modules/reputation/`** | 평판 — 평판 이벤트, 뱃지, 신뢰 레벨, 일일 방문 |
 | **`core/`** | 공유 인프라 — DB 연결, 미들웨어, 인증 가드, 유틸리티 |
@@ -125,8 +125,12 @@ erDiagram
     user ||--o{ package : "registers"
     user ||--o{ package_review : "writes review"
     package ||--o{ package_review : "has reviews"
+    user ||--o{ post_subscription : "subscribes"
+    post ||--o{ post_subscription : "has subscribers"
     user ||--o{ wiki_page : "creates"
     wiki_page ||--o{ wiki_page_tag : "has tags"
+    wiki_page ||--o{ wiki_page_revision : "has revisions"
+    user ||--o{ wiki_page_revision : "edits"
     tag ||--o{ wiki_page_tag : "tagged"
 
     user {
@@ -177,6 +181,7 @@ erDiagram
         text content
         varchar image_url
         tinyint is_pinned "default 0"
+        int accepted_answer_id FK "채택된 답변"
         int views "default 0"
         timestamp created_at
         timestamp updated_at
@@ -280,7 +285,11 @@ erDiagram
     tag {
         bigint id PK
         varchar name UK "1~30자"
+        varchar description "200자 이내"
+        text body "상세 설명"
+        int updated_by FK
         timestamp created_at
+        timestamp updated_at
     }
 
     post_tag {
@@ -355,6 +364,8 @@ erDiagram
         tinyint mention_enabled "default 1"
         tinyint follow_enabled "default 1"
         tinyint bookmark_enabled "default 1"
+        tinyint reply_enabled "default 1"
+        enum digest_frequency "none, daily, weekly"
         timestamp created_at
         timestamp updated_at
     }
@@ -409,6 +420,24 @@ erDiagram
     wiki_page_tag {
         int wiki_page_id PK
         bigint tag_id PK
+    }
+
+    wiki_page_revision {
+        bigint id PK
+        int wiki_page_id FK
+        int revision_number "페이지 내 순번"
+        varchar title
+        text content
+        varchar edit_summary
+        int editor_id FK
+        timestamp created_at
+    }
+
+    post_subscription {
+        int user_id PK
+        int post_id PK
+        enum level "watching, normal, muted"
+        timestamp created_at
     }
 
     reputation_event {
@@ -527,13 +556,18 @@ erDiagram
 
 | Method | Endpoint | 설명 | 인증 |
 | ------ | -------- | ---- | ---- |
-| GET | `/v1/posts` | 게시글 목록 (페이지네이션, `?search=`, `?sort=latest\|likes\|views\|comments\|hot\|for_you`, `?category_id=`, `?tag=태그명`, `?following=true`) | X |
+| GET | `/v1/posts` | 게시글 목록 (페이지네이션, `?search=`, `?sort=latest\|likes\|views\|comments\|hot\|for_you`, `?category_id=`, `?tag=태그명`, `?following=true`, `?solved=true\|false`) | X |
 | POST | `/v1/posts` | 게시글 작성 (`category_id` 필수, `tags[]` 선택, 최대 5개) | O (이메일 인증) |
 | GET | `/v1/posts/{post_id}` | 게시글 상세 조회 | X |
 | PATCH | `/v1/posts/{post_id}` | 게시글 수정 | O (작성자) |
 | DELETE | `/v1/posts/{post_id}` | 게시글 삭제 | O (작성자/관리자) |
 | PATCH | `/v1/posts/{post_id}/pin` | 게시글 고정 | O (관리자) |
 | DELETE | `/v1/posts/{post_id}/pin` | 게시글 고정 해제 | O (관리자) |
+| PATCH | `/v1/posts/{post_id}/accepted-answer` | 답변 채택 (Q&A 카테고리) | O (작성자) |
+| DELETE | `/v1/posts/{post_id}/accepted-answer` | 답변 채택 취소 | O (작성자) |
+| GET | `/v1/posts/{post_id}/subscription` | 구독 상태 조회 | O |
+| PUT | `/v1/posts/{post_id}/subscription` | 구독 설정 (watching/normal/muted) | O |
+| DELETE | `/v1/posts/{post_id}/subscription` | 구독 해제 | O |
 | POST | `/v1/posts/{post_id}/likes` | 좋아요 | O |
 | DELETE | `/v1/posts/{post_id}/likes` | 좋아요 취소 | O |
 | POST | `/v1/posts/{post_id}/bookmark` | 북마크 추가 | O (이메일 인증) |
@@ -571,6 +605,8 @@ erDiagram
 | Method | Endpoint | 설명 | 인증 |
 | ------ | -------- | ---- | ---- |
 | GET | `/v1/tags` | 태그 검색 (`?search=키워드`, 상위 10개, post_count 포함) | X |
+| GET | `/v1/tags/{tag_name}` | 태그 상세 조회 (설명, 본문, 게시글 수) | X |
+| PUT | `/v1/tags/{tag_name}` | 태그 설명/본문 수정 | O (이메일 인증, 신뢰 등급 1+) |
 
 ### 카테고리 API (`/v1/categories`)
 
@@ -641,7 +677,16 @@ erDiagram
 
 | Method | Endpoint | 설명 | 인증 |
 | ------ | -------- | ---- | ---- |
+| GET | `/v1/wiki` | 위키 페이지 목록 (페이지네이션, `?search=`, `?tag=`, `?sort=latest\|views\|updated`) | X |
+| POST | `/v1/wiki` | 위키 페이지 생성 (리비전 자동 생성) | O (이메일 인증) |
 | GET | `/v1/wiki/tags/popular` | 위키 인기 태그 상위 N개 조회 | X |
+| GET | `/v1/wiki/{slug}` | 위키 페이지 상세 조회 (슬러그 기반) | X |
+| PUT | `/v1/wiki/{slug}` | 위키 페이지 수정 (리비전 자동 생성) | O (이메일 인증) |
+| DELETE | `/v1/wiki/{slug}` | 위키 페이지 삭제 | O (이메일 인증) |
+| GET | `/v1/wiki/{slug}/history` | 위키 페이지 리비전 히스토리 | X |
+| GET | `/v1/wiki/{slug}/revisions/{revision_number}` | 특정 리비전 상세 조회 | X |
+| GET | `/v1/wiki/{slug}/diff?from=N&to=M` | 두 리비전 간 diff 비교 | X |
+| POST | `/v1/wiki/{slug}/rollback/{revision_number}` | 특정 리비전으로 롤백 | O (이메일 인증) |
 
 ### 관리자 대시보드 API
 
@@ -939,7 +984,7 @@ ruff check . --fix
 mypy .
 ```
 
-**테스트 현황**: 242개 테스트, 82% 커버리지 (bcrypt rounds 최적화로 ~30초 실행)
+**테스트 현황**: 396개 테스트, 82% 커버리지 (bcrypt rounds 최적화로 ~30초 실행)
 
 ### Alembic 마이그레이션
 
