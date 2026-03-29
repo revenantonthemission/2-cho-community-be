@@ -214,7 +214,7 @@ async def test_update_wiki_page_by_author(client: AsyncClient, fake: Faker):
 
     resp = await client.put(
         "/v1/wiki/edit-page",
-        json={"title": "수정된 제목"},
+        json={"title": "수정된 제목", "edit_summary": "제목 수정"},
         headers=user["headers"],
     )
     assert resp.status_code == 200
@@ -231,7 +231,7 @@ async def test_update_wiki_page_by_another_user(client: AsyncClient, fake: Faker
     editor = await create_verified_user(client, fake)
     resp = await client.put(
         "/v1/wiki/shared-page",
-        json={"title": "다른 사용자가 수정한 제목"},
+        json={"title": "다른 사용자가 수정한 제목", "edit_summary": "다른 사용자 편집"},
         headers=editor["headers"],
     )
     assert resp.status_code == 200
@@ -248,7 +248,7 @@ async def test_update_wiki_page_last_edited_by(client: AsyncClient, fake: Faker)
     editor = await create_verified_user(client, fake)
     resp = await client.put(
         "/v1/wiki/edited-page",
-        json={"content": "편집자가 수정한 충분히 긴 내용입니다."},
+        json={"content": "편집자가 수정한 충분히 긴 내용입니다.", "edit_summary": "내용 수정"},
         headers=editor["headers"],
     )
     assert resp.status_code == 200
