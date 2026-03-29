@@ -3,6 +3,7 @@
 import re
 
 from core.database.connection import get_cursor, transactional
+from core.utils.formatters import format_datetime
 from core.utils.pagination import escape_like
 
 _TAG_NAME_RE = re.compile(r"[^a-z0-9가-힣ㄱ-ㅎㅏ-ㅣ_-]")
@@ -72,7 +73,7 @@ async def search_tags(search: str, limit: int = 10) -> list[dict]:
     async with get_cursor() as cur:
         await cur.execute(
             """
-                SELECT t.id, t.name, COUNT(pt.post_id) AS post_count
+                SELECT t.id, t.name, t.description, COUNT(pt.post_id) AS post_count
                 FROM tag t
                 LEFT JOIN post_tag pt ON t.id = pt.tag_id
                 LEFT JOIN post p ON pt.post_id = p.id AND p.deleted_at IS NULL
@@ -84,3 +85,67 @@ async def search_tags(search: str, limit: int = 10) -> list[dict]:
             (f"%{escape_like(search)}%", limit),
         )
         return [dict(row) for row in await cur.fetchall()]
+
+
+async def get_tag_by_name(tag_name: str) -> dict | None:
+    """태그 이름으로 상세 정보를 조회합니다 (게시글/위키 사용 수 포함)."""
+    async with get_cursor() as cur:
+        await cur.execute(
+            """
+                SELECT t.id, t.name, t.description, t.body,
+                       t.created_at, t.updated_at, t.updated_by,
+                       u.nickname AS updated_by_nickname,
+                       (
+                           SELECT COUNT(*) FROM post_tag pt
+                           INNER JOIN post p ON pt.post_id = p.id AND p.deleted_at IS NULL
+                           WHERE pt.tag_id = t.id
+                       ) AS post_count,
+                       (
+                           SELECT COUNT(*) FROM wiki_page_tag wpt
+                           INNER JOIN wiki_page wp ON wpt.wiki_page_id = wp.id AND wp.deleted_at IS NULL
+                           WHERE wpt.tag_id = t.id
+                       ) AS wiki_count
+                FROM tag t
+                LEFT JOIN user u ON t.updated_by = u.id
+                WHERE t.name = %s
+                """,
+            (tag_name,),
+        )
+        row = await cur.fetchone()
+        if not row:
+            return None
+        return {
+            "id": row["id"],
+            "name": row["name"],
+            "description": row["description"],
+            "body": row["body"],
+            "created_at": format_datetime(row["created_at"]),
+            "updated_at": format_datetime(row["updated_at"]),
+            "updated_by": (
+                {"user_id": row["updated_by"], "nickname": row["updated_by_nickname"]} if row["updated_by"] else None
+            ),
+            "post_count": row["post_count"],
+            "wiki_count": row["wiki_count"],
+        }
+
+
+async def update_tag_description(tag_name: str, description: str | None, body: str | None, user_id: int) -> bool:
+    """태그 설명 및 본문을 수정합니다. None이 아닌 필드만 업데이트합니다."""
+    updates = ["updated_by = %s"]
+    params: list = [user_id]
+
+    if description is not None:
+        updates.append("description = %s")
+        params.append(description)
+    if body is not None:
+        updates.append("body = %s")
+        params.append(body)
+
+    params.append(tag_name)
+
+    async with transactional() as cur:
+        await cur.execute(
+            f"UPDATE tag SET {', '.join(updates)} WHERE name = %s",
+            params,
+        )
+        return cur.rowcount > 0

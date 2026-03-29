@@ -224,7 +224,7 @@ async def get_popular_wiki_tags(limit: int = 10) -> list[dict]:
     async with get_cursor() as cur:
         await cur.execute(
             """
-                SELECT t.id, t.name, COUNT(wpt.wiki_page_id) AS page_count
+                SELECT t.id, t.name, t.description, COUNT(wpt.wiki_page_id) AS page_count
                 FROM tag t
                 INNER JOIN wiki_page_tag wpt ON t.id = wpt.tag_id
                 INNER JOIN wiki_page wp ON wpt.wiki_page_id = wp.id AND wp.deleted_at IS NULL
