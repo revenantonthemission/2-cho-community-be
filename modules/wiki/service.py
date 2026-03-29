@@ -2,9 +2,12 @@
 
 import logging
 
+from core.database.connection import transactional
 from core.utils.exceptions import bad_request_error, forbidden_error, not_found_error
 from modules.content import tag_models
 from modules.wiki import models as wiki_models
+from modules.wiki.revision_models import create_revision as create_rev
+from modules.wiki.revision_models import get_next_revision_number
 from modules.wiki.schemas import CreateWikiPageRequest, UpdateWikiPageRequest
 
 logger = logging.getLogger(__name__)
@@ -117,6 +120,19 @@ class WikiService:
             author_id=user_id,
         )
 
+        # 초기 리비전 생성
+        async with transactional() as cursor:
+            rev_num = await get_next_revision_number(cursor, wiki_page_id)
+            await create_rev(
+                cursor,
+                wiki_page_id,
+                rev_num,
+                data.title,
+                data.content,
+                data.edit_summary,
+                user_id,
+            )
+
         # 태그 처리
         if data.tags:
             normalized = [tag_models.normalize_tag_name(t) for t in data.tags]
@@ -189,6 +205,19 @@ class WikiService:
         updated = await wiki_models.get_wiki_page_by_slug(slug)
         assert updated is not None  # 위에서 존재 확인 완료
         updated["tags"] = await wiki_models.get_wiki_page_tags(wiki_page_id)
+
+        # 리비전 생성 (수정된 스냅샷 기록)
+        async with transactional() as cursor:
+            rev_num = await get_next_revision_number(cursor, wiki_page_id)
+            await create_rev(
+                cursor,
+                wiki_page_id,
+                rev_num,
+                updated["title"],
+                updated["content"],
+                data.edit_summary,
+                user_id,
+            )
 
         # 평판 포인트 부여: 원저자가 아닌 편집자만 (best-effort)
         if user_id != page["author_id"]:
