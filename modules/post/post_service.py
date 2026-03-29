@@ -38,6 +38,7 @@ class PostService:
         current_user: User | None = None,
         tag: str | None = None,
         following: bool = False,
+        solved: bool | None = None,
     ) -> PostListResult:
         """게시글 목록 조회 및 가공."""
         # 차단된 사용자 목록 조회
@@ -80,6 +81,7 @@ class PostService:
             tag=tag,
             author_ids=author_ids,
             current_user_id=current_user.id if current_user else None,
+            solved=solved,
         )
         total_count = await post_models.get_total_posts_count(
             search=search,
@@ -88,6 +90,7 @@ class PostService:
             blocked_user_ids=blocked_ids,
             tag=tag,
             author_ids=author_ids,
+            solved=solved,
         )
 
         # 추천 피드 다양성 필터: 작성자당 최대 3개
