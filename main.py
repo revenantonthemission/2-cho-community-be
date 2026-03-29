@@ -15,11 +15,13 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from core.config import settings
 from core.database.connection import close_db, init_db
+from core.logging_config import setup_logging
 from core.middleware import RateLimitMiddleware, TimingMiddleware
 from core.middleware.exception_handler import (
     global_exception_handler,
     request_validation_exception_handler,
 )
+from core.middleware.request_id import RequestIdMiddleware
 from modules.admin.router import report_router
 from modules.auth.router import auth_router
 from modules.auth.social_router import router as social_auth_router
@@ -34,6 +36,9 @@ from modules.post.router import post_router
 from modules.reputation.router import reputation_router
 from modules.user.router import user_router
 from modules.wiki.router import wiki_router
+
+# 구조화된 로깅 설정 (JSON in prod, human-readable in dev)
+setup_logging(debug=settings.DEBUG)
 
 logger = logging.getLogger("api")
 
@@ -62,6 +67,9 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# 요청 상관 ID — 모든 로그에 request_id를 주입 (가장 바깥 미들웨어)
+app.add_middleware(RequestIdMiddleware)
 
 # 각 요청에 타임스탬프를 주입하여 request.state에서 접근 가능하게 함
 app.add_middleware(TimingMiddleware)
