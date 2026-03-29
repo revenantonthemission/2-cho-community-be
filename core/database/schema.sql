@@ -301,8 +301,13 @@ CREATE TABLE IF NOT EXISTS poll_vote (
 CREATE TABLE IF NOT EXISTS tag (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(30) NOT NULL UNIQUE,
+    description VARCHAR(200) NULL,
+    body TEXT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_tag_name (name)
+    updated_at TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP,
+    updated_by INT UNSIGNED NULL,
+    INDEX idx_tag_name (name),
+    CONSTRAINT fk_tag_updated_by FOREIGN KEY (updated_by) REFERENCES user(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 게시글-태그 연결 테이블
