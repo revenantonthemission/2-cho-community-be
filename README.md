@@ -40,7 +40,7 @@ flowchart TD
     Backend -->|"Async Connection"| DB
 
     subgraph DB["MySQL"]
-        Tables["37개 테이블<br/>user, post, comment, notification,<br/>tag, poll, dm_conversation, social_account,<br/>wiki_page, wiki_page_tag, reputation_event ..."]
+        Tables["38개 테이블<br/>user, post, comment, notification,<br/>tag, poll, dm_conversation, social_account,<br/>wiki_page, wiki_page_tag, wiki_page_revision,<br/>reputation_event ..."]
     end
 
     Backend -->|"WebSocket Push"| WS
