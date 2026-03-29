@@ -20,7 +20,7 @@ from main import app
 
 
 async def clear_all_data() -> None:
-    """테스트용 헬퍼: 35개 테이블 전체 TRUNCATE + 시드 데이터 재삽입."""
+    """테스트용 헬퍼: 36개 테이블 전체 TRUNCATE + 시드 데이터 재삽입."""
     async with get_connection() as conn, conn.cursor(aiomysql.DictCursor) as cur:
         await cur.execute("SET FOREIGN_KEY_CHECKS = 0")
         # 평판 시스템 테이블 (자식 우선)
@@ -28,6 +28,7 @@ async def clear_all_data() -> None:
         await cur.execute("TRUNCATE TABLE reputation_event")
         await cur.execute("TRUNCATE TABLE user_daily_visit")
         # 기존 테이블
+        await cur.execute("TRUNCATE TABLE wiki_page_revision")
         await cur.execute("TRUNCATE TABLE wiki_page_tag")
         await cur.execute("TRUNCATE TABLE wiki_page")
         await cur.execute("TRUNCATE TABLE package_review")

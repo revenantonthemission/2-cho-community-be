@@ -40,6 +40,7 @@ async def get_posts(
     category_id: int | None = Query(None, ge=1, description="카테고리 ID로 필터링"),
     tag: str | None = Query(default=None, description="태그 이름으로 필터링"),
     following: bool = Query(False, description="팔로우한 사용자의 게시글만 조회"),
+    solved: bool | None = Query(None, description="해결 여부 필터링 (true: 해결됨, false: 미해결)"),
     current_user: User | None = Depends(get_optional_user),
 ) -> dict:
     """게시글 목록을 조회합니다.
@@ -74,6 +75,7 @@ async def get_posts(
         current_user=current_user,
         tag=tag,
         following=following,
+        solved=solved,
     )
 
 

@@ -301,8 +301,13 @@ CREATE TABLE IF NOT EXISTS poll_vote (
 CREATE TABLE IF NOT EXISTS tag (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(30) NOT NULL UNIQUE,
+    description VARCHAR(200) NULL,
+    body TEXT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_tag_name (name)
+    updated_at TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP,
+    updated_by INT UNSIGNED NULL,
+    INDEX idx_tag_name (name),
+    CONSTRAINT fk_tag_updated_by FOREIGN KEY (updated_by) REFERENCES user(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 게시글-태그 연결 테이블
@@ -489,6 +494,22 @@ CREATE TABLE IF NOT EXISTS wiki_page_tag (
 CREATE INDEX idx_wiki_page_deleted ON wiki_page (deleted_at, created_at);
 ALTER TABLE wiki_page ADD FULLTEXT INDEX ft_wiki_search (title, content) WITH PARSER ngram;
 CREATE INDEX idx_wiki_page_tag_tag ON wiki_page_tag (tag_id);
+
+-- 위키 페이지 리비전 (전체 스냅샷 방식)
+CREATE TABLE IF NOT EXISTS wiki_page_revision (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    wiki_page_id INT UNSIGNED NOT NULL,
+    revision_number INT UNSIGNED NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    content TEXT NOT NULL,
+    edit_summary VARCHAR(500) NULL,
+    editor_id INT UNSIGNED NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (wiki_page_id) REFERENCES wiki_page(id) ON DELETE CASCADE,
+    FOREIGN KEY (editor_id) REFERENCES user(id),
+    UNIQUE KEY uk_page_revision (wiki_page_id, revision_number),
+    INDEX idx_revision_page_created (wiki_page_id, created_at DESC)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 추천 피드 점수 테이블 (배치 재계산, 30분 주기)
 CREATE TABLE IF NOT EXISTS user_post_score (

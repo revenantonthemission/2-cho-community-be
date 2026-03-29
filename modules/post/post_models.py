@@ -91,11 +91,17 @@ async def get_total_posts_count(
     blocked_user_ids: set[int] | None = None,
     tag: str | None = None,
     author_ids: set[int] | None = None,
+    solved: bool | None = None,
 ) -> int:
     """삭제되지 않은 게시글의 총 개수를 반환합니다."""
     async with get_cursor() as cur:
         where = "deleted_at IS NULL"
         params: list = []
+
+        if solved is True:
+            where += " AND accepted_answer_id IS NOT NULL"
+        elif solved is False:
+            where += " AND accepted_answer_id IS NULL"
 
         if search:
             escaped = _escape_fulltext_query(search)
@@ -276,6 +282,7 @@ async def get_posts_with_details(
     tag: str | None = None,
     author_ids: set[int] | None = None,
     current_user_id: int | None = None,
+    solved: bool | None = None,
 ) -> list[dict]:
     """게시글 목록을 작성자 정보, 좋아요 수, 댓글 수, 북마크 수와 함께 조회합니다."""
     # SQL Injection 방지: whitelist 검증 후 fallback
@@ -283,6 +290,11 @@ async def get_posts_with_details(
 
     where = "p.deleted_at IS NULL"
     params: list = []
+
+    if solved is True:
+        where += " AND p.accepted_answer_id IS NOT NULL"
+    elif solved is False:
+        where += " AND p.accepted_answer_id IS NULL"
 
     if search:
         escaped = _escape_fulltext_query(search)
