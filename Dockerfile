@@ -25,7 +25,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --extra k8s --no-install-project
 
 # 비특권 사용자 (컨테이너 보안)
-RUN groupadd -r appuser && useradd -r -g appuser -s /sbin/nologin appuser
+RUN groupadd -r -g 1000 appuser && useradd -r -u 1000 -g appuser -s /sbin/nologin appuser
 
 # 애플리케이션 코드
 COPY . .
