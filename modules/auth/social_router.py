@@ -198,7 +198,7 @@ async def callback(
             response.delete_cookie(key=_STATE_COOKIE, path="/")
             return response
 
-        redirect_path = "/social-signup" if not user.nickname_set else "/main"
+        redirect_path = "/social-signup" if not user.nickname_set else "/"
         response = await _issue_tokens_and_redirect(user, redirect_path)
         response.delete_cookie(key=_STATE_COOKIE, path="/")
         return response
@@ -219,7 +219,7 @@ async def callback(
                 provider_email=user_info.email,
             )
 
-            redirect_path = "/social-signup" if not existing_user.nickname_set else "/main"
+            redirect_path = "/social-signup" if not existing_user.nickname_set else "/"
             response = await _issue_tokens_and_redirect(existing_user, redirect_path)
             response.delete_cookie(key=_STATE_COOKIE, path="/")
             return response
