@@ -1,7 +1,7 @@
 """wiki_models: 위키 페이지 관련 데이터 모델 및 함수 모듈."""
 
 from core.database.connection import get_cursor, transactional
-from core.utils.formatters import format_datetime
+from core.utils.formatters import escape_fulltext_query, format_datetime
 from schemas.common import build_author_dict
 
 ALLOWED_SORT_OPTIONS = {
@@ -99,7 +99,7 @@ async def get_wiki_pages(
 
     if search:
         where += " AND MATCH(wp.title, wp.content) AGAINST(%s IN BOOLEAN MODE)"
-        params.append(search)
+        params.append(escape_fulltext_query(search))
 
     params.extend([limit, offset])
 
@@ -151,7 +151,7 @@ async def get_wiki_pages_count(search: str | None = None, tag: str | None = None
 
     if search:
         where += " AND MATCH(wp.title, wp.content) AGAINST(%s IN BOOLEAN MODE)"
-        params.append(search)
+        params.append(escape_fulltext_query(search))
 
     async with get_cursor() as cur:
         await cur.execute(

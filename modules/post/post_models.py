@@ -3,11 +3,11 @@
 게시글, 댓글, 좋아요 데이터 클래스와 MySQL 데이터베이스를 관리하는 함수들을 제공합니다.
 """
 
-import re
 from dataclasses import dataclass
 from datetime import datetime
 
 from core.database.connection import get_cursor, transactional
+from core.utils.formatters import escape_fulltext_query
 from modules.post.comment_models import get_comments_with_author
 from schemas.common import build_author_dict
 
@@ -31,15 +31,6 @@ def hot_score_sql(likes_alias: str = "likes", comments_alias: str = "comments") 
 
 # SQL Injection 방지: 허용된 컬럼명 whitelist
 ALLOWED_POST_COLUMNS = {"title", "content", "image_url", "category_id", "updated_at"}
-
-# FULLTEXT BOOLEAN MODE 특수문자 이스케이프 패턴
-_FULLTEXT_SPECIAL_CHARS = re.compile(r'([+\-><()~*"@])')
-
-
-def _escape_fulltext_query(query: str) -> str:
-    """FULLTEXT BOOLEAN MODE 특수문자를 이스케이프합니다."""
-    return _FULLTEXT_SPECIAL_CHARS.sub(r"\\\1", query.strip())
-
 
 # SQL Injection 방지: 허용된 정렬 옵션 whitelist
 ALLOWED_SORT_OPTIONS = {
@@ -119,7 +110,7 @@ async def get_total_posts_count(
             where += " AND accepted_answer_id IS NULL"
 
         if search:
-            escaped = _escape_fulltext_query(search)
+            escaped = escape_fulltext_query(search)
             where += " AND MATCH(title, content) AGAINST(%s IN BOOLEAN MODE)"
             params.append(escaped)
 
@@ -312,7 +303,7 @@ async def get_posts_with_details(
         where += " AND p.accepted_answer_id IS NULL"
 
     if search:
-        escaped = _escape_fulltext_query(search)
+        escaped = escape_fulltext_query(search)
         where += " AND MATCH(p.title, p.content) AGAINST(%s IN BOOLEAN MODE)"
         params.append(escaped)
 

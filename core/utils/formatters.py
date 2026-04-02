@@ -1,6 +1,15 @@
 """formatters: 데이터 포맷팅을 위한 유틸리티 모듈."""
 
+import re
 from datetime import datetime
+
+# FULLTEXT BOOLEAN MODE 특수문자 이스케이프 패턴
+_FULLTEXT_SPECIAL_CHARS = re.compile(r'([+\-><()~*"@])')
+
+
+def escape_fulltext_query(query: str) -> str:
+    """FULLTEXT BOOLEAN MODE 특수문자를 이스케이프합니다."""
+    return _FULLTEXT_SPECIAL_CHARS.sub(r"\\\1", query.strip())
 
 
 def format_datetime(dt: datetime | str | None) -> str | None:
