@@ -280,7 +280,7 @@ class PostService:
                 expires_at=post_data.poll.expires_at,
             )
 
-        # 평판 포인트 부여 (best-effort)
+        # 평판 포인트 부여 (best-effort: 실패해도 게시글 생성은 성공)
         try:
             from modules.reputation.service import ReputationService
 
@@ -292,7 +292,12 @@ class PostService:
                 source_id=post.id,
             )
         except Exception:
-            logger.warning("평판 포인트 부여 실패 (create_post)", exc_info=True)
+            logger.warning(
+                "평판 포인트 부여 실패 (post_id=%d, user_id=%d)",
+                post.id,
+                user_id,
+                exc_info=True,
+            )
 
         # 팔로워에게 새 게시글 알림 — 벌크 조회 + 벌크 INSERT로 N+1 방지
         try:
@@ -306,7 +311,12 @@ class PostService:
                     ]
                     await notification_models.create_notifications_bulk(bulk_rows)
         except Exception:
-            logger.warning("팔로우 알림 생성 실패", exc_info=True)
+            logger.warning(
+                "팔로우 알림 생성 실패 (post_id=%d, user_id=%d)",
+                post.id,
+                user_id,
+                exc_info=True,
+            )
 
         # 게시글 작성자 자동 구독
         await subscription_models.auto_subscribe(user_id, post.id)
@@ -317,7 +327,12 @@ class PostService:
             try:
                 mentioned_users = await get_users_by_nicknames(list(nicknames))
             except Exception:
-                logger.warning("멘션 사용자 일괄 조회 실패", exc_info=True)
+                logger.warning(
+                    "멘션 사용자 일괄 조회 실패 (post_id=%d, nicknames=%s)",
+                    post.id,
+                    nicknames,
+                    exc_info=True,
+                )
                 mentioned_users = {}
             for mentioned_user in mentioned_users.values():
                 await safe_notify(
@@ -388,7 +403,12 @@ class PostService:
                 try:
                     mentioned_users = await get_users_by_nicknames(list(new_mentions))
                 except Exception:
-                    logger.warning("멘션 사용자 일괄 조회 실패", exc_info=True)
+                    logger.warning(
+                        "멘션 사용자 일괄 조회 실패 (post_id=%d, nicknames=%s)",
+                        post_id,
+                        new_mentions,
+                        exc_info=True,
+                    )
                     mentioned_users = {}
                 for mentioned_user in mentioned_users.values():
                     await safe_notify(

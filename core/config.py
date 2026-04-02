@@ -1,12 +1,23 @@
 import logging
 from pathlib import Path
 
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
 
 # config.py 기준으로 .env 경로를 결정 (CWD에 의존하지 않음)
 _ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
+
+# 프로덕션에서 사용 금지되는 취약한 시크릿 키 패턴
+_WEAK_SECRET_KEYS = frozenset(
+    {
+        "your-secret-key-here",
+        "dev-secret-key-change-in-production",
+        "secret",
+        "changeme",
+    }
+)
 
 
 class Settings(BaseSettings):
@@ -24,18 +35,30 @@ class Settings(BaseSettings):
         DB_NAME: MySQL 데이터베이스 이름.
     """
 
-    SECRET_KEY: str
+    SECRET_KEY: str = Field(min_length=16)
     HTTPS_ONLY: bool = False
     ALLOWED_ORIGINS: list[str] = [
         "http://127.0.0.1:3000",
         "http://127.0.0.1:8080",
     ]
 
-    DB_HOST: str
-    DB_PORT: int
-    DB_USER: str
-    DB_PASSWORD: str
-    DB_NAME: str
+    DB_HOST: str = Field(min_length=1)
+    DB_PORT: int = Field(ge=1, le=65535)
+    DB_USER: str = Field(min_length=1)
+    DB_PASSWORD: str = ""
+    DB_NAME: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _validate_production_settings(self) -> "Settings":
+        """프로덕션 환경에서 위험한 설정을 차단합니다."""
+        if not self.DEBUG:
+            if self.SECRET_KEY in _WEAK_SECRET_KEYS:
+                raise ValueError(
+                    "프로덕션 환경에서 취약한 SECRET_KEY 사용이 감지되었습니다. 최소 32자 이상의 랜덤 키를 설정하세요."
+                )
+            if not self.DB_PASSWORD:
+                raise ValueError("프로덕션 환경에서 빈 DB_PASSWORD는 허용되지 않습니다.")
+        return self
 
     JWT_ACCESS_EXPIRE_MINUTES: int = 30
     JWT_REFRESH_EXPIRE_DAYS: int = 7

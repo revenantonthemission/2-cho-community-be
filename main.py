@@ -16,7 +16,7 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from core.config import settings
 from core.database.connection import close_db, init_db
 from core.logging_config import setup_logging
-from core.middleware import RateLimitMiddleware, TimingMiddleware
+from core.middleware import BodyLimitMiddleware, RateLimitMiddleware, SecurityHeadersMiddleware, TimingMiddleware
 from core.middleware.exception_handler import (
     global_exception_handler,
     request_validation_exception_handler,
@@ -71,11 +71,17 @@ app = FastAPI(
 # 요청 상관 ID — 모든 로그에 request_id를 주입 (가장 바깥 미들웨어)
 app.add_middleware(RequestIdMiddleware)
 
+# HTTP 보안 헤더 — OWASP 권장 헤더 (nosniff, X-Frame-Options, HSTS 등)
+app.add_middleware(SecurityHeadersMiddleware, https_only=settings.HTTPS_ONLY)
+
 # 각 요청에 타임스탬프를 주입하여 request.state에서 접근 가능하게 함
 app.add_middleware(TimingMiddleware)
 
 # 브루트포스 공격 방지를 위한 IP 기반 요청 속도 제한
 app.add_middleware(RateLimitMiddleware)
+
+# 요청 본문 크기 제한 — K8s에서 nginx 없이 직접 노출 시 DoS 방지 (10MB)
+app.add_middleware(BodyLimitMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
