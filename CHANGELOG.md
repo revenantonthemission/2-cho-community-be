@@ -1,6 +1,16 @@
 # Changelog
 
+## 2026-04 (Apr)
+
+- **04-02: 버그 수정 및 코드 품질**
+  - refactor: 코드 퀄리티 향상
+  - fix: 위키 탐색 버그 해결
+  - fix: OAuth 라우팅 이슈 수정
+
 ## 2026-03 (Mar)
+
+- **03-31: 컨테이너 보안**
+  - fix: appuser UID/GID를 1000으로 고정 (non-root 컨테이너 보안)
 
 - **03-29: 코드베이스 품질 개선**
   - fix: Docker 헬스체크 — curl 설치 + HEALTHCHECK 추가
