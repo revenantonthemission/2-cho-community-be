@@ -135,9 +135,6 @@ scripts/
 .gemini/
 .claude/
 .serena/
-CLAUDE.md
-GEMINI.md
-docs/*
 
 # ===========================
 # Secrets / Certificates

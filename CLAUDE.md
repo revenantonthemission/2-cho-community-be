@@ -80,3 +80,16 @@ MySQL (38 tables, soft delete)
 - **스키마 변경**: `migrations/versions/` (Alembic) + `core/database/schema.sql` (Docker init) 동시 업데이트
 - **`REQUIRE_EMAIL_VERIFICATION=false`**: 로컬에서 이메일 인증 없이 글 작성 가능
 - **Pre-commit**: `pre-commit` (ruff + format + mypy)
+- **`uv.lock` 동기화**: `pyproject.toml` 변경 후 반드시 `uv lock`
+- **uv Python 3.13 hang**: `uv run --python 3.14`로 재생성
+- **mypy 설정**: 모든 패키지 디렉토리에 `__init__.py` 필수
+- **CI Python 버전 Prod 매칭**: CI와 Prod의 Python 버전이 다르면 "CI 통과, Prod 실패". `python-app.yml`의 `python-version`을 Prod 이미지와 동일하게 유지 (현재 3.13)
+- **BE CI는 테스트 전용**: 정적 분석(ruff, mypy)은 pre-commit hook에서만. CI(`python-app.yml`)는 pytest만 실행
+- **이메일 발송 로컬 테스트**: MailHog(`localhost:1025`) 또는 Gmail SMTP
+- **테스트 라우터 이중 게이트**: `TESTING=true` + `DEBUG=true` 둘 다 필요. 하나만으로는 테스트 엔드포인트 활성화 안 됨
+- **`get_users_by_nicknames()`**: `modules/user/models.py` — 멘션 닉네임 배치 조회 (N+1 방지)
+- **Secret scanner 오탐**: `core/utils/error_codes.py`의 `INVALID_PASSWORD`/`SAME_PASSWORD` StrEnum 상수가 비밀번호로 감지. `git add`/`git commit` 차단 시 수동 실행
+- **ruff per-file-ignores 경로 동기화**: 파일 이동 시 `pyproject.toml` `[tool.ruff.lint.per-file-ignores]`의 glob 패턴도 갱신 필수
+- **K8s 프로브 분리**: `/livez` (liveness, DB 무관) + `/readyz` (readiness, DB 503) + `/health` (하위 호환). liveness에 DB 체크 포함하면 Pod 재시작 루프
+- **OAuth 토큰 쿠키 전달**: 소셜 로그인 access token은 60초 non-HttpOnly 쿠키(`access_token_temp`)로 전달. FE에서 읽고 삭제
+- **부하 테스트 사전 준비**: 계정 시딩 시 `email_verified = 1` 필수 (미설정 시 POST 403). `locustfile.py`의 게시글 작성에 `category_id` 필드 포함
